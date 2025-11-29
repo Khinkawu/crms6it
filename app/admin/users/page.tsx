@@ -94,14 +94,14 @@ export default function UsersPage() {
     if (loading || !user || role !== 'admin') return null;
 
     return (
-        <div className="min-h-screen p-8 animate-fade-in md:ml-64">
+        <div className="animate-fade-in">
             <div className="max-w-6xl mx-auto space-y-8">
 
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-white mb-2">User Management</h1>
-                        <p className="text-white/60">Manage user roles and access permissions.</p>
+                        <h1 className="text-3xl font-bold text-text mb-2">User Management</h1>
+                        <p className="text-text-secondary">Manage user roles and access permissions.</p>
                     </div>
 
                     {/* Search Bar */}
@@ -111,64 +111,63 @@ export default function UsersPage() {
                             placeholder="Search users..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
+                            className="w-full px-6 py-3 rounded-xl bg-card border border-border text-text placeholder:text-text-secondary/50 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
                         />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30">
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary">
                             🔍
                         </div>
                     </div>
                 </div>
 
                 {/* Users Table */}
-                <div className="glass-panel overflow-hidden">
+                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="border-b border-white/10 bg-white/5">
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-white/70">User</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-white/70">Email</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-white/70">Role</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-white/70">Actions</th>
+                                <tr className="border-b border-border bg-background/50">
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">User</th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Email</th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Role</th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5">
+                            <tbody className="divide-y divide-border">
                                 {isLoadingUsers ? (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-8 text-center text-white/50">
+                                        <td colSpan={4} className="px-6 py-8 text-center text-text-secondary">
                                             Loading users...
                                         </td>
                                     </tr>
                                 ) : filteredUsers.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-8 text-center text-white/50">
+                                        <td colSpan={4} className="px-6 py-8 text-center text-text-secondary">
                                             No users found.
                                         </td>
                                     </tr>
                                 ) : (
                                     filteredUsers.map((u) => (
-                                        <tr key={u.uid} className="hover:bg-white/5 transition-colors">
+                                        <tr key={u.uid} className="hover:bg-border/30 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold overflow-hidden">
                                                         {u.photoURL ? (
                                                             <img src={u.photoURL} alt={u.displayName || "User"} className="w-full h-full object-cover" />
                                                         ) : (
-                                                            // ใช้ displayName ที่เราแก้ Logic แล้ว (จะไม่มีทางเป็น Null จน Error)
                                                             (u.displayName || "U").charAt(0).toUpperCase()
                                                         )}
                                                     </div>
-                                                    <span className="text-white font-medium">{u.displayName}</span>
+                                                    <span className="text-text font-medium">{u.displayName}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-white/70">
+                                            <td className="px-6 py-4 text-text-secondary">
                                                 {u.email || "No Email"}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${u.role === 'admin'
-                                                    ? 'bg-purple-500/10 text-purple-200 border-purple-500/20'
+                                                    ? 'bg-purple-500/10 text-purple-600 dark:text-purple-200 border-purple-500/20'
                                                     : u.role === 'technician'
-                                                        ? 'bg-cyan-500/10 text-cyan-200 border-cyan-500/20'
-                                                        : 'bg-slate-500/10 text-slate-200 border-slate-500/20'
+                                                        ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-200 border-cyan-500/20'
+                                                        : 'bg-slate-500/10 text-slate-600 dark:text-slate-200 border-slate-500/20'
                                                     }`}>
                                                     {(u.role || "USER").toUpperCase()}
                                                 </span>
@@ -179,13 +178,13 @@ export default function UsersPage() {
                                                         value={u.role || "user"}
                                                         onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
                                                         disabled={u.uid === user.uid || updatingUserId === u.uid}
-                                                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+                                                        className="w-full px-3 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
                                                     >
-                                                        <option value="user" className="bg-slate-900">User</option>
-                                                        <option value="technician" className="bg-slate-900">Technician</option>
-                                                        <option value="admin" className="bg-slate-900">Admin</option>
+                                                        <option value="user" className="bg-card text-text">User</option>
+                                                        <option value="technician" className="bg-card text-text">Technician</option>
+                                                        <option value="admin" className="bg-card text-text">Admin</option>
                                                     </select>
-                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40 text-xs">
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary text-xs">
                                                         ▼
                                                     </div>
                                                 </div>

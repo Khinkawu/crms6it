@@ -1,20 +1,24 @@
 import { db } from "../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
+export type LogAction = 'borrow' | 'return' | 'requisition' | 'add' | 'update';
+
 interface LogActivityParams {
-    action: 'borrow' | 'return' | 'requisition';
+    action: LogAction;
     productName: string;
     userName: string;
     imageUrl?: string;
+    details?: string;
 }
 
-export const logActivity = async ({ action, productName, userName, imageUrl }: LogActivityParams) => {
+export const logActivity = async ({ action, productName, userName, imageUrl, details }: LogActivityParams) => {
     try {
         await addDoc(collection(db, "activities"), {
             action,
             productName,
             userName,
             imageUrl: imageUrl || "",
+            details: details || null,
             timestamp: serverTimestamp()
         });
     } catch (error) {

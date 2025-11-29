@@ -7,6 +7,7 @@ import { db } from "../../../lib/firebase";
 import { Product } from "../../../types";
 import { useAuth } from "../../../context/AuthContext";
 import BorrowModal from "../../components/BorrowModal";
+import RequisitionModal from "../../components/RequisitionModal";
 
 import QRCode from "react-qr-code";
 
@@ -19,6 +20,7 @@ const ProductDetailPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isBorrowModalOpen, setIsBorrowModalOpen] = useState(false);
+    const [isRequisitionModalOpen, setIsRequisitionModalOpen] = useState(false);
 
     const fetchProduct = async () => {
         if (!id) return;
@@ -56,7 +58,11 @@ const ProductDetailPage = () => {
     };
 
     const handleRequisition = () => {
-        alert("Open Requisition Modal");
+        setIsRequisitionModalOpen(true);
+    };
+
+    const handleRequisitionSuccess = () => {
+        fetchProduct();
     };
 
     if (loading) {
@@ -84,7 +90,17 @@ const ProductDetailPage = () => {
         );
     }
 
-    const isAvailable = product.status === "available";
+    // Hybrid Logic
+    const isBulk = product.type === 'bulk';
+    const totalQuantity = product.quantity || 0;
+    const borrowedCount = product.borrowedCount || 0;
+    const availableQuantity = isBulk ? totalQuantity - borrowedCount : (product.status === 'available' ? 1 : 0);
+    const isAvailable = availableQuantity > 0;
+
+    // Progress Bar Calculation for Bulk
+    const stockPercentage = isBulk && totalQuantity > 0
+        ? (availableQuantity / totalQuantity) * 100
+        : 0;
 
     return (
         <div className="min-h-screen p-4 md:p-8 pb-24">
@@ -95,11 +111,18 @@ const ProductDetailPage = () => {
                 onSuccess={handleBorrowSuccess}
             />
 
+            <RequisitionModal
+                isOpen={isRequisitionModalOpen}
+                onClose={() => setIsRequisitionModalOpen(false)}
+                product={product}
+                onSuccess={handleRequisitionSuccess}
+            />
+
             <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
 
                 {/* Header / Image Section */}
-                <div className="glass-panel p-2 relative overflow-hidden group">
-                    <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black/20 relative">
+                <div className="bg-card border border-border rounded-2xl p-2 relative overflow-hidden group shadow-sm">
+                    <div className="aspect-video w-full rounded-2xl overflow-hidden bg-background relative">
                         {product.imageUrl ? (
                             <img
                                 src={product.imageUrl}
@@ -107,51 +130,79 @@ const ProductDetailPage = () => {
                                 className="w-full h-full object-contain hover:scale-105 transition-transform duration-500"
                             />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white/20">
+                            <div className="w-full h-full flex items-center justify-center text-text-secondary">
                                 No Image Available
                             </div>
                         )}
 
-                        {/* Status Badge Overlay */}
-                        <div className="absolute top-4 right-4">
-                            <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg backdrop-blur-md border border-white/10
-                ${isAvailable
-                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-500/10"
-                                    : "bg-red-500/20 text-red-400 border-red-500/30 shadow-red-500/10"
-                                }`}
-                            >
-                                {product.status.toUpperCase()}
-                            </span>
-                        </div>
+                        {/* Status Badge Overlay (Unique Items Only) */}
+                        {!isBulk && (
+                            <div className="absolute top-4 right-4">
+                                <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg backdrop-blur-md border border-white/10
+                    ${isAvailable
+                                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-500/10"
+                                        : "bg-red-500/20 text-red-400 border-red-500/30 shadow-red-500/10"
+                                    }`}
+                                >
+                                    {product.status.toUpperCase()}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Details Section */}
-                <div className="glass-panel p-6 md:p-8">
+                <div className="bg-card border border-border rounded-2xl p-6 md:p-8 shadow-sm">
                     <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
-                        <div>
-                            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{product.name}</h1>
-                            <p className="text-xl text-white/60">{product.brand}</p>
+                        <div className="flex-1">
+                            <h1 className="text-3xl md:text-4xl font-bold text-text mb-2">{product.name}</h1>
+                            <p className="text-xl text-text-secondary">{product.brand}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-sm text-white/40 mb-1">Stock ID</p>
-                            <p className="font-mono text-white/80 bg-white/5 px-3 py-1 rounded-lg inline-block">
+                            <p className="text-sm text-text-secondary mb-1">Stock ID</p>
+                            <p className="font-mono text-text bg-background px-3 py-1 rounded-lg inline-block border border-border">
                                 {product.stockId || product.id}
                             </p>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-white/80">
+                    {/* Bulk Item Stock Indicator */}
+                    {isBulk && (
+                        <div className="mb-8 bg-background rounded-xl p-4 border border-border">
+                            <div className="flex justify-between items-end mb-2">
+                                <div>
+                                    <p className="text-sm text-text-secondary mb-1">Stock Level</p>
+                                    <p className="text-2xl font-bold text-text">
+                                        {availableQuantity} <span className="text-sm text-text-secondary font-normal">/ {totalQuantity} units</span>
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm text-text-secondary">Borrowed: {borrowedCount}</p>
+                                </div>
+                            </div>
+                            {/* Progress Bar */}
+                            <div className="w-full h-3 bg-card border border-border rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-500 ${stockPercentage > 50 ? 'bg-emerald-500' :
+                                        stockPercentage > 20 ? 'bg-yellow-500' : 'bg-red-500'
+                                        }`}
+                                    style={{ width: `${stockPercentage}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-text">
                         <div className="space-y-1">
-                            <p className="text-sm text-white/40">Location</p>
+                            <p className="text-sm text-text-secondary">Location</p>
                             <p className="font-medium">{product.location}</p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-sm text-white/40">Price</p>
+                            <p className="text-sm text-text-secondary">Price</p>
                             <p className="font-medium">฿{product.price.toLocaleString()}</p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-sm text-white/40">Purchase Date</p>
+                            <p className="text-sm text-text-secondary">Purchase Date</p>
                             <p className="font-medium">
                                 {product.purchaseDate?.toDate().toLocaleDateString("th-TH", {
                                     year: 'numeric',
@@ -161,18 +212,55 @@ const ProductDetailPage = () => {
                             </p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-sm text-white/40">Warranty</p>
+                            <p className="text-sm text-text-secondary">Warranty</p>
                             <p className="font-medium">{product.warrantyInfo}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* QR Code Asset Tag */}
-                <div className="mt-8 border-t border-white/10 pt-8">
-                    <h3 className="text-white font-bold mb-4">Asset Tag</h3>
+                <div className="mt-8 border-t border-border pt-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-text font-bold">Asset Tag</h3>
+                        <button
+                            onClick={() => {
+                                const printWindow = window.open('', '', 'width=600,height=600');
+                                if (printWindow) {
+                                    printWindow.document.write(`
+                                        <html>
+                                            <head>
+                                                <title>Print QR - ${product.name}</title>
+                                                <style>
+                                                    body { font-family: sans-serif; display: flex; flex-col; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                                                    .tag { border: 2px solid #000; padding: 20px; border-radius: 10px; text-align: center; width: 300px; display: flex; flex-direction: column; align-items: center; }
+                                                    .name { font-weight: bold; font-size: 18px; margin-top: 10px; margin-bottom: 5px; }
+                                                    .id { font-family: monospace; color: #555; }
+                                                </style>
+                                            </head>
+                                            <body>
+                                                <div class="tag">
+                                                    ${document.getElementById('qr-code-svg')?.outerHTML || ''}
+                                                    <div class="name">${product.name}</div>
+                                                    <div class="id">${product.stockId || product.id}</div>
+                                                </div>
+                                                <script>
+                                                    window.onload = () => { window.print(); window.close(); }
+                                                </script>
+                                            </body>
+                                        </html>
+                                    `);
+                                    printWindow.document.close();
+                                }
+                            }}
+                            className="px-4 py-2 rounded-lg bg-card border border-border text-text hover:bg-border/50 transition-colors text-sm font-medium flex items-center gap-2"
+                        >
+                            🖨️ Print QR
+                        </button>
+                    </div>
                     <div className="bg-white p-4 rounded-xl inline-block shadow-xl">
-                        <div className="flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center gap-2" id="qr-code-container">
                             <QRCode
+                                id="qr-code-svg"
                                 value={`${window.location.origin}/product/${product.id}`}
                                 size={128}
                                 style={{ height: "auto", maxWidth: "100%", width: "100%" }}
@@ -188,13 +276,13 @@ const ProductDetailPage = () => {
             </div>
 
             {/* Action Area */}
-            <div className="fixed bottom-0 left-0 w-full p-4 bg-gradient-to-t from-[#020617] via-[#020617]/90 to-transparent z-40">
+            <div className="fixed bottom-0 left-0 w-full p-4 bg-gradient-to-t from-background via-background/90 to-transparent z-40">
                 <div className="max-w-4xl mx-auto">
                     {!user ? (
                         // Scenario A: Not Logged In
                         <button
                             onClick={handleLogin}
-                            className="w-full py-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 backdrop-blur-md text-white font-bold text-lg shadow-lg transition-all active:scale-[0.98]"
+                            className="w-full py-4 rounded-2xl bg-card hover:bg-border/50 border border-border backdrop-blur-md text-text font-bold text-lg shadow-lg transition-all active:scale-[0.98]"
                         >
                             Login to Action
                         </button>
@@ -224,9 +312,9 @@ const ProductDetailPage = () => {
                         // Scenario C: Logged In & Unavailable
                         <button
                             disabled
-                            className="w-full py-4 rounded-2xl bg-white/5 border border-white/5 text-white/40 font-bold text-lg cursor-not-allowed"
+                            className="w-full py-4 rounded-2xl bg-background border border-border text-text-secondary font-bold text-lg cursor-not-allowed"
                         >
-                            Unavailable
+                            {isBulk ? "Out of Stock" : "Unavailable"}
                         </button>
                     )}
                 </div>

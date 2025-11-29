@@ -1,29 +1,35 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, query, where, orderBy, doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc, serverTimestamp, where } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { Product } from "../../../types";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
+import BorrowModal from "../../components/BorrowModal";
+import RequisitionModal from "../../components/RequisitionModal";
+import EditProductModal from "../../components/EditProductModal";
 
 export default function InventoryPage() {
-    const { user, loading: authLoading } = useAuth();
+    const { user, role, loading: authLoading } = useAuth();
     const router = useRouter();
 
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
 
-    // Selection & Print State
-    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-    const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
-
-    // Return Modal State
-    const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+    // Modal State
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [processingReturn, setProcessingReturn] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isBorrowModalOpen, setIsBorrowModalOpen] = useState(false);
+    const [isRequisitionModalOpen, setIsRequisitionModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [processingAction, setProcessingAction] = useState(false);
+
+    // Bulk Selection State
+    const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -54,59 +60,81 @@ export default function InventoryPage() {
         }
     };
 
-    const handleReturnClick = (product: Product) => {
+    const handleCardClick = (product: Product) => {
         setSelectedProduct(product);
-        setIsReturnModalOpen(true);
+        setIsDetailModalOpen(true);
     };
 
-    const confirmReturn = async () => {
-        if (!selectedProduct || !selectedProduct.id) return;
+    const handleCloseDetailModal = () => {
+        setIsDetailModalOpen(false);
+        setSelectedProduct(null);
+    };
 
-        setProcessingReturn(true);
+    const handleBorrowClick = (e: React.MouseEvent, product: Product) => {
+        e.stopPropagation();
+        setSelectedProduct(product);
+        setIsBorrowModalOpen(true);
+    };
+
+    const handleRequisitionClick = (e: React.MouseEvent, product: Product) => {
+        e.stopPropagation();
+        setSelectedProduct(product);
+        setIsRequisitionModalOpen(true);
+    };
+
+    const handleEditClick = (e: React.MouseEvent, product: Product) => {
+        e.stopPropagation();
+        setSelectedProduct(product);
+        setIsEditModalOpen(true);
+    };
+
+    const handleReturnClick = async (e: React.MouseEvent, product: Product) => {
+        e.stopPropagation();
+        if (!product.id) return;
+
+        if (!confirm("Are you sure you want to return this item?")) return;
+
+        setProcessingAction(true);
         try {
+            // Find active transaction
             const transactionsRef = collection(db, "transactions");
             const q = query(
                 transactionsRef,
-                where("productId", "==", selectedProduct.id),
+                where("productId", "==", product.id),
                 where("status", "==", "active")
             );
             const querySnapshot = await getDocs(q);
 
-            if (querySnapshot.empty) {
-                alert("No active borrow transaction found for this item.");
-                setIsReturnModalOpen(false);
-                return;
+            if (!querySnapshot.empty) {
+                const transactionDoc = querySnapshot.docs[0];
+                await updateDoc(doc(db, "transactions", transactionDoc.id), {
+                    status: "completed",
+                    actualReturnDate: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                });
             }
 
-            const transactionDoc = querySnapshot.docs[0];
-
-            await updateDoc(doc(db, "transactions", transactionDoc.id), {
-                status: "completed",
-                actualReturnDate: serverTimestamp(),
-                updatedAt: serverTimestamp()
-            });
-
-            await updateDoc(doc(db, "products", selectedProduct.id), {
+            await updateDoc(doc(db, "products", product.id), {
                 status: "available"
             });
 
+            // Log activity
             const { logActivity } = await import("../../../utils/logger");
             await logActivity({
                 action: 'return',
-                productName: selectedProduct.name,
+                productName: product.name,
                 userName: user?.displayName || user?.email || "Admin",
-                imageUrl: selectedProduct.imageUrl
+                imageUrl: product.imageUrl
             });
 
             alert("Item returned successfully!");
-            setIsReturnModalOpen(false);
             fetchProducts();
 
         } catch (error) {
             console.error("Error processing return:", error);
-            alert("Failed to return item. Please try again.");
+            alert("Failed to return item.");
         } finally {
-            setProcessingReturn(false);
+            setProcessingAction(false);
         }
     };
 
@@ -116,227 +144,366 @@ export default function InventoryPage() {
         product.location.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Selection Logic
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            const allIds = new Set(filteredProducts.map(p => p.id!));
-            setSelectedItems(allIds);
-        } else {
-            setSelectedItems(new Set());
-        }
-    };
-
-    const handleSelectItem = (id: string) => {
-        const newSelected = new Set(selectedItems);
-        if (newSelected.has(id)) {
-            newSelected.delete(id);
-        } else {
-            newSelected.add(id);
-        }
-        setSelectedItems(newSelected);
-    };
-
-    const handlePrint = () => {
-        setIsPrintModalOpen(true);
-        // Optional: Automatically trigger print dialog after a short delay
-        // setTimeout(() => window.print(), 500);
-    };
-
     if (authLoading || loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-start"></div>
             </div>
         );
     }
 
+    const isAdmin = role === 'admin';
+
+    const toggleSelectionMode = () => {
+        setIsSelectionMode(!isSelectionMode);
+        setSelectedItems(new Set());
+    };
+
+    const toggleItemSelection = (e: React.MouseEvent, productId: string) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedItems);
+        if (newSelected.has(productId)) {
+            newSelected.delete(productId);
+        } else {
+            newSelected.add(productId);
+        }
+        setSelectedItems(newSelected);
+    };
+
+    const handleBulkPrint = () => {
+        const selectedProducts = products.filter(p => selectedItems.has(p.id!));
+        const printWindow = window.open('', '', 'width=800,height=600');
+        if (printWindow) {
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Bulk Print QR Codes</title>
+                        <style>
+                            body { font-family: sans-serif; padding: 20px; }
+                            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; }
+                            .tag { border: 1px solid #000; padding: 10px; border-radius: 8px; text-align: center; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; }
+                            .qr-container { display: flex; justify-content: center; margin-bottom: 5px; }
+                            .name { font-weight: bold; font-size: 12px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+                            .id { font-family: monospace; font-size: 10px; color: #555; }
+                            @media print {
+                                .no-print { display: none; }
+                            }
+                        </style>
+                        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+                    </head>
+                    <body>
+                        <div class="no-print" style="margin-bottom: 20px;">
+                            <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px;">🖨️ Print Now</button>
+                        </div>
+                        <div class="grid">
+                            ${selectedProducts.map(p => `
+                                <div class="tag">
+                                    <div id="qr-${p.id}" class="qr-container"></div>
+                                    <div class="name">${p.name}</div>
+                                    <div class="id">${p.stockId || p.id}</div>
+                                    <script>
+                                        new QRCode(document.getElementById("qr-${p.id}"), {
+                                            text: "${window.location.origin}/product/${p.id}",
+                                            width: 100,
+                                            height: 100
+                                        });
+                                    </script>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+    };
+
     return (
-        <div className="space-y-8 animate-fade-in pb-20 md:ml-64 p-8">
+        <div className="space-y-8 animate-fade-in pb-20">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-bold text-white">Inventory</h1>
-                    <p className="text-white/60">Manage your assets and track status.</p>
+                    <h1 className="text-3xl font-bold text-text">Inventory</h1>
+                    <p className="text-text-secondary">Manage your assets and track status.</p>
                 </div>
-                <div className="w-full md:w-auto flex gap-4">
+                <div className="flex gap-3 w-full md:w-auto">
+                    {isAdmin && (
+                        <>
+                            {isSelectionMode ? (
+                                <div className="flex gap-2 animate-fade-in">
+                                    <button
+                                        onClick={handleBulkPrint}
+                                        disabled={selectedItems.size === 0}
+                                        className="px-4 py-2 rounded-xl bg-primary-start text-white font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Print ({selectedItems.size})
+                                    </button>
+                                    <button
+                                        onClick={toggleSelectionMode}
+                                        className="px-4 py-2 rounded-xl bg-card border border-border text-text hover:bg-border/50"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={toggleSelectionMode}
+                                    className="px-4 py-2 rounded-xl bg-card border border-border text-text hover:bg-border/50 flex items-center gap-2"
+                                >
+                                    <span>🖨️</span> Bulk Print
+                                </button>
+                            )}
+                        </>
+                    )}
                     <input
                         type="text"
                         placeholder="Search items..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full md:w-64 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                        className="input-field md:w-64"
                     />
                 </div>
             </div>
 
-            {/* Bulk Actions Bar */}
-            {selectedItems.size > 0 && (
-                <div className="sticky top-4 z-30 bg-cyan-500/20 backdrop-blur-md border border-cyan-500/30 p-4 rounded-xl flex items-center justify-between animate-fade-in-up">
-                    <div className="text-cyan-200 font-medium">
-                        {selectedItems.size} items selected
-                    </div>
-                    <button
-                        onClick={handlePrint}
-                        className="px-6 py-2 rounded-lg bg-cyan-500 text-white font-bold shadow-lg hover:bg-cyan-400 transition-all flex items-center gap-2"
-                    >
-                        <span>🖨️</span> Print QR Codes
-                    </button>
-                </div>
-            )}
+            {/* Card Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProducts.map((product) => {
+                    const isBulk = product.type === 'bulk';
+                    const available = isBulk ? (product.quantity || 0) - (product.borrowedCount || 0) : (product.status === 'available' ? 1 : 0);
+                    const total = isBulk ? product.quantity || 0 : 1;
+                    const percentage = isBulk ? (available / total) * 100 : (available > 0 ? 100 : 0);
+                    const isAvailable = available > 0;
 
-            <div className="glass-panel overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="border-b border-white/10 bg-white/5">
-                                <th className="p-4 w-12">
-                                    <input
-                                        type="checkbox"
-                                        onChange={handleSelectAll}
-                                        checked={filteredProducts.length > 0 && selectedItems.size === filteredProducts.length}
-                                        className="rounded border-white/30 bg-white/10 text-cyan-500 focus:ring-cyan-500"
+                    return (
+                        <div
+                            key={product.id}
+                            onClick={() => handleCardClick(product)}
+                            className="card overflow-hidden cursor-pointer group relative hover:ring-2 hover:ring-primary-start/50 transition-all flex flex-col h-full"
+                        >
+                            {/* Image Aspect Video */}
+                            <div className="aspect-video w-full bg-input-bg relative overflow-hidden">
+                                {isSelectionMode && (
+                                    <div className="absolute inset-0 z-20 bg-black/10 backdrop-blur-[1px] flex items-start justify-start p-3" onClick={(e) => toggleItemSelection(e, product.id!)}>
+                                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${selectedItems.has(product.id!) ? 'bg-primary-start border-primary-start' : 'bg-white border-gray-300'}`}>
+                                            {selectedItems.has(product.id!) && <span className="text-white text-sm">✓</span>}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {product.imageUrl ? (
+                                    <img
+                                        src={product.imageUrl}
+                                        alt={product.name}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                     />
-                                </th>
-                                <th className="p-4 text-white/40 font-medium text-sm uppercase tracking-wider">Item</th>
-                                <th className="p-4 text-white/40 font-medium text-sm uppercase tracking-wider">Location</th>
-                                <th className="p-4 text-white/40 font-medium text-sm uppercase tracking-wider">Status</th>
-                                <th className="p-4 text-white/40 font-medium text-sm uppercase tracking-wider text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {filteredProducts.map((product) => (
-                                <tr key={product.id} className={`hover:bg-white/5 transition-colors group ${selectedItems.has(product.id!) ? 'bg-white/5' : ''}`}>
-                                    <td className="p-4">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedItems.has(product.id!)}
-                                            onChange={() => handleSelectItem(product.id!)}
-                                            className="rounded border-white/30 bg-white/10 text-cyan-500 focus:ring-cyan-500"
-                                        />
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-lg bg-white/5 overflow-hidden flex-shrink-0 border border-white/10">
-                                                {product.imageUrl ? (
-                                                    <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-xs text-white/20">No Img</div>
-                                                )}
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-text-secondary/30">
+                                        <span className="text-4xl">📦</span>
+                                    </div>
+                                )}
+
+                                {/* Edit Button (Admin Only) */}
+                                {isAdmin && !isSelectionMode && (
+                                    <div className="absolute top-2 right-2 z-10">
+                                        <button
+                                            onClick={(e) => handleEditClick(e, product)}
+                                            className="bg-white/90 hover:bg-white text-text p-2 rounded-lg shadow-sm backdrop-blur-sm transition-all hover:scale-110"
+                                            title="Edit Product"
+                                        >
+                                            ✏️
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button className="bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-4 flex-1 flex flex-col">
+                                <div className="mb-3">
+                                    <h3 className="font-bold text-text truncate">{product.name}</h3>
+                                    <p className="text-sm text-text-secondary truncate">{product.brand} • {product.location}</p>
+                                </div>
+
+                                {/* Stock / Status Section */}
+                                <div className="mt-auto mb-4">
+                                    {isBulk ? (
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between text-xs font-medium">
+                                                <span className="text-text-secondary">Available</span>
+                                                <span className={`${available > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                    {available} / {total}
+                                                </span>
                                             </div>
-                                            <div>
-                                                <p className="text-white font-medium">{product.name}</p>
-                                                <p className="text-white/40 text-sm">{product.brand}</p>
+                                            <div className="w-full h-1.5 bg-input-bg rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all duration-500 ${percentage > 50 ? 'bg-emerald-500' : percentage > 20 ? 'bg-orange-500' : 'bg-red-500'
+                                                        }`}
+                                                    style={{ width: `${percentage}%` }}
+                                                ></div>
                                             </div>
                                         </div>
-                                    </td>
-                                    <td className="p-4 text-white/60">{product.location}</td>
-                                    <td className="p-4">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${product.status === 'available'
-                                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                    ) : (
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block ${product.status === 'available'
+                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
                                             : product.status === 'borrowed'
-                                                ? 'bg-accent/20 text-accent border-accent/30'
-                                                : 'bg-red-500/20 text-red-400 border-red-500/30'
+                                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300'
+                                                : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
                                             }`}>
                                             {product.status.toUpperCase()}
                                         </span>
-                                    </td>
-                                    <td className="p-4 text-right">
-                                        {product.status === 'borrowed' ? (
+                                    )}
+                                </div>
+
+                                {/* Action Buttons Footer */}
+                                <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border">
+                                    {isAvailable ? (
+                                        <>
                                             <button
-                                                onClick={() => handleReturnClick(product)}
-                                                className="px-4 py-2 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 transition-all text-sm font-medium"
+                                                onClick={(e) => handleBorrowClick(e, product)}
+                                                className="px-3 py-2 rounded-lg border border-cyan-500 text-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 text-xs font-bold transition-colors"
                                             >
-                                                Return Item
+                                                Borrow
                                             </button>
-                                        ) : (
                                             <button
-                                                onClick={() => router.push(`/product/${product.id}`)}
-                                                className="px-4 py-2 rounded-lg bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 transition-all text-sm"
+                                                onClick={(e) => handleRequisitionClick(e, product)}
+                                                className="px-3 py-2 rounded-lg bg-purple-100 text-purple-600 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:hover:bg-purple-900/50 text-xs font-bold transition-colors"
                                             >
-                                                View
+                                                Withdraw
                                             </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-                {filteredProducts.length === 0 && (
-                    <div className="p-8 text-center text-white/40">
-                        No items found.
-                    </div>
-                )}
+                                        </>
+                                    ) : product.status === 'borrowed' && !isBulk ? (
+                                        <button
+                                            onClick={(e) => handleReturnClick(e, product)}
+                                            disabled={processingAction}
+                                            className="col-span-2 px-3 py-2 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50 text-xs font-bold transition-colors"
+                                        >
+                                            {processingAction ? "Processing..." : "Return Item"}
+                                        </button>
+                                    ) : (
+                                        <button disabled className="col-span-2 px-3 py-2 rounded-lg bg-input-bg text-text-secondary text-xs font-bold cursor-not-allowed">
+                                            Unavailable
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
-            {/* Return Confirmation Modal */}
-            {isReturnModalOpen && selectedProduct && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {filteredProducts.length === 0 && (
+                <div className="p-12 text-center text-text-secondary">
+                    No items found matching your search.
+                </div>
+            )}
+
+            {/* Product Detail Modal */}
+            {isDetailModalOpen && selectedProduct && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
                     <div
                         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                        onClick={() => setIsReturnModalOpen(false)}
+                        onClick={handleCloseDetailModal}
                     ></div>
-                    <div className="relative bg-[#0f172a] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-fade-in-up">
-                        <h3 className="text-xl font-bold text-white mb-2">Confirm Return</h3>
-                        <p className="text-white/60 mb-6">
-                            Are you sure you want to mark <strong>{selectedProduct.name}</strong> as returned?
-                        </p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setIsReturnModalOpen(false)}
-                                className="flex-1 py-2 rounded-xl bg-white/5 text-white hover:bg-white/10 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmReturn}
-                                disabled={processingReturn}
-                                className="flex-1 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 transition-all disabled:opacity-50"
-                            >
-                                {processingReturn ? 'Processing...' : 'Confirm Return'}
-                            </button>
+                    <div className="relative bg-card rounded-2xl max-w-2xl w-full shadow-soft-lg overflow-hidden flex flex-col md:flex-row animate-fade-in-up">
+
+                        {/* Left: Image & QR */}
+                        <div className="w-full md:w-1/2 bg-input-bg p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-border">
+                            <div className="aspect-square w-full max-w-[200px] rounded-xl overflow-hidden bg-white shadow-sm mb-6">
+                                {selectedProduct.imageUrl ? (
+                                    <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-4xl">📦</div>
+                                )}
+                            </div>
+                            <div className="bg-white p-3 rounded-xl shadow-sm">
+                                <QRCode
+                                    value={`${window.location.origin}/product/${selectedProduct.id}`}
+                                    size={100}
+                                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                    viewBox={`0 0 256 256`}
+                                />
+                            </div>
+                            <p className="text-xs text-text-secondary mt-2 font-mono">{selectedProduct.stockId || selectedProduct.id}</p>
+                        </div>
+
+                        {/* Right: Details */}
+                        <div className="w-full md:w-1/2 p-6 flex flex-col">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-text">{selectedProduct.name}</h2>
+                                    <p className="text-text-secondary">{selectedProduct.brand}</p>
+                                </div>
+                                <button onClick={handleCloseDetailModal} className="text-text-secondary hover:text-text">✕</button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">Location</p>
+                                        <p className="font-medium text-text">{selectedProduct.location}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">Category</p>
+                                        <p className="font-medium text-text">{selectedProduct.category || "-"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">Serial No.</p>
+                                        <p className="font-medium text-text">{selectedProduct.serialNumber || "-"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">Purchase Date</p>
+                                        <p className="font-medium text-text">
+                                            {selectedProduct.purchaseDate ? selectedProduct.purchaseDate.toDate().toLocaleDateString() : "-"}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {selectedProduct.description && (
+                                    <div>
+                                        <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">Description</p>
+                                        <p className="text-sm text-text bg-input-bg p-3 rounded-lg border border-border">
+                                            {selectedProduct.description}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Print QR Modal */}
-            {isPrintModalOpen && (
-                <div className="fixed inset-0 z-[100] bg-white text-black overflow-auto print-area">
-                    <div className="p-8 no-print flex justify-between items-center bg-gray-100 border-b">
-                        <h2 className="text-2xl font-bold">Print Preview ({selectedItems.size} items)</h2>
-                        <div className="flex gap-4">
-                            <button
-                                onClick={() => window.print()}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700"
-                            >
-                                Print Now
-                            </button>
-                            <button
-                                onClick={() => setIsPrintModalOpen(false)}
-                                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-400"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="p-8 grid grid-cols-3 md:grid-cols-4 gap-8">
-                        {products.filter(p => selectedItems.has(p.id!)).map(product => (
-                            <div key={product.id} className="border-2 border-black p-4 rounded-lg flex flex-col items-center text-center page-break-inside-avoid">
-                                <QRCode
-                                    value={`${window.location.origin}/product/${product.id}`}
-                                    size={128}
-                                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                                    viewBox={`0 0 256 256`}
-                                />
-                                <div className="mt-2">
-                                    <p className="font-bold text-sm leading-tight">{product.name}</p>
-                                    <p className="font-mono text-xs text-gray-600 mt-1">{product.stockId || product.id}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+            {/* Action Modals */}
+            {selectedProduct && (
+                <>
+                    <BorrowModal
+                        isOpen={isBorrowModalOpen}
+                        onClose={() => setIsBorrowModalOpen(false)}
+                        product={selectedProduct}
+                        onSuccess={() => {
+                            fetchProducts();
+                        }}
+                    />
+                    <RequisitionModal
+                        isOpen={isRequisitionModalOpen}
+                        onClose={() => setIsRequisitionModalOpen(false)}
+                        product={selectedProduct}
+                        onSuccess={() => {
+                            fetchProducts();
+                        }}
+                    />
+                    <EditProductModal
+                        isOpen={isEditModalOpen}
+                        onClose={() => setIsEditModalOpen(false)}
+                        product={selectedProduct}
+                        onSuccess={() => {
+                            fetchProducts();
+                        }}
+                    />
+                </>
             )}
         </div>
     );

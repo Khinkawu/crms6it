@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Prompt } from "next/font/google";
 import "./globals.css";
-import Sidebar from "./components/Sidebar";
+import ClientLayout from "./components/ClientLayout";
 import { AuthProvider } from "../context/AuthContext";
+import { ThemeProvider } from "../context/ThemeContext";
 
-const inter = Inter({ subsets: ["latin"] });
+const prompt = Prompt({
+    subsets: ["latin", "thai"],
+    weight: ["300", "400", "500", "600", "700"],
+    variable: "--font-prompt",
+});
 
 export const metadata: Metadata = {
-    title: "Stock Management System",
-    description: "Modern inventory management with Liquid Glass aesthetic",
+    title: {
+        template: "CRMS6 IT - %s",
+        default: "CRMS6 IT",
+    },
+    description: "Audio Visual Department Management System",
 };
 
 export default function RootLayout({
@@ -18,16 +26,14 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={`${inter.className} antialiased selection:bg-primary/30 selection:text-white`}>
-                <AuthProvider>
-                    <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#020617] to-[#020617]"></div>
-                    <Sidebar />
-                    <main className="relative min-h-screen md:ml-64 p-4 md:p-8 transition-all duration-300">
-                        <div className="max-w-7xl mx-auto pt-16 md:pt-0">
+            <body className={`${prompt.variable} font-sans antialiased`}>
+                <ThemeProvider>
+                    <AuthProvider>
+                        <ClientLayout>
                             {children}
-                        </div>
-                    </main>
-                </AuthProvider>
+                        </ClientLayout>
+                    </AuthProvider>
+                </ThemeProvider>
             </body>
         </html>
     );

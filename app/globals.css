@@ -3,36 +3,103 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
+  /* Light Mode (Default) */
+  --background: #F3F4F6;
+  /* Gray-100 */
+  --card: #FFFFFF;
+  /* White */
+  --text: #111827;
+  /* Gray-900 */
+  --text-secondary: #6B7280;
+  /* Gray-500 */
+  --border: #E5E7EB;
+  /* Gray-200 */
+  --input-bg: #F9FAFB;
+  /* Gray-50 */
+
+  --primary-start: #FF4B2B;
+  --primary-end: #FF416C;
+}
+
+.dark {
+  /* Dark Mode */
+  --background: #0F172A;
+  /* Slate-900 */
+  --card: #1E293B;
+  /* Slate-800 */
+  --text: #F9FAFB;
+  /* Gray-50 */
+  --text-secondary: #94A3B8;
+  /* Slate-400 */
+  --border: #334155;
+  /* Slate-700 */
+  --input-bg: #020617;
+  /* Slate-950 */
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background-color: #020617;
-  background-image:
-    radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(34, 211, 238, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(34, 211, 238, 0.15) 0px, transparent 50%);
-  background-attachment: fixed;
-  min-height: 100vh;
+  color: var(--text);
+  background-color: var(--background);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Custom Glass Utilities */
-.glass-panel {
-  @apply bg-glass-surface/30 backdrop-blur-xl border border-white/10 shadow-glass-lg rounded-3xl;
+/* Custom Utilities */
+.card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  transition: all 0.3s ease;
 }
 
-.glass-card {
-  @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-glass rounded-2xl transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:shadow-neon;
+.card-hover {
+  @apply hover:shadow-lg hover:-translate-y-1;
 }
 
-.glass-input {
-  @apply bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all backdrop-blur-sm;
+.input-field {
+  width: 100%;
+  background-color: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--text);
+  outline: none;
+  transition: all 0.2s;
 }
 
-.glass-button {
-  @apply px-6 py-3 rounded-xl bg-gradient-to-r from-primary/80 to-accent/80 hover:from-primary hover:to-accent text-white font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0;
+.input-field:focus {
+  border-color: var(--primary-end);
+  box-shadow: 0 0 0 2px rgba(255, 65, 108, 0.1);
+}
+
+.btn-primary {
+  background: linear-gradient(to right, var(--primary-start), var(--primary-end));
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(255, 65, 108, 0.2);
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 15px -3px rgba(255, 65, 108, 0.3);
+}
+
+.btn-secondary {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: var(--input-bg);
 }
 
 /* Scrollbar */
@@ -45,34 +112,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background-color: var(--border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-@media print {
-  body * {
-    visibility: hidden;
-  }
-
-  .print-area,
-  .print-area * {
-    visibility: visible;
-  }
-
-  .print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    background: white;
-    color: black;
-  }
-
-  .no-print {
-    display: none !important;
-  }
+  background-color: var(--text-secondary);
 }

@@ -53,11 +53,11 @@ export default function ScanPage() {
         <div className="min-h-screen flex flex-col items-center justify-center p-4 animate-fade-in">
             <div className="w-full max-w-md space-y-6">
                 <div className="text-center space-y-2">
-                    <h1 className="text-3xl font-bold text-white">Scan QR Code</h1>
-                    <p className="text-white/60">Point your camera at a product QR code.</p>
+                    <h1 className="text-3xl font-bold text-text">Scan QR Code</h1>
+                    <p className="text-text-secondary">Point your camera at a product QR code.</p>
                 </div>
 
-                <div className="glass-panel p-4 overflow-hidden relative rounded-2xl border-2 border-white/10 shadow-2xl">
+                <div className="bg-card p-4 overflow-hidden relative rounded-2xl border-2 border-border shadow-2xl">
                     <div className="aspect-square bg-black/50 rounded-xl overflow-hidden relative">
                         {/* Scanner Overlay */}
                         <div className="absolute inset-0 z-10 border-[30px] border-black/40 pointer-events-none">
@@ -82,7 +82,7 @@ export default function ScanPage() {
                 <div className="flex justify-center">
                     <button
                         onClick={() => router.back()}
-                        className="px-8 py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-colors border border-white/10"
+                        className="px-8 py-3 rounded-xl bg-card text-text font-medium hover:bg-border/50 transition-colors border border-border"
                     >
                         Cancel
                     </button>

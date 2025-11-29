@@ -11,7 +11,14 @@ export interface Product {
     imageUrl: string;
     stockId: string; // Unique Asset ID for QR
     status: 'available' | 'borrowed' | 'requisitioned';
+    type?: 'unique' | 'bulk'; // Default 'unique'
+    quantity?: number; // Total stock for bulk
+    borrowedCount?: number; // Currently borrowed count for bulk
     createdAt: Timestamp;
+    // Optional details
+    category?: string;
+    serialNumber?: string;
+    description?: string;
 }
 
 export interface Transaction {
@@ -56,6 +63,11 @@ export interface RepairTicket {
     status: RepairStatus;
     technicianNote?: string;
     completionImage?: string;
+    partsUsed?: {
+        name: string;
+        quantity: number;
+        date: Timestamp;
+    }[];
     createdAt: Timestamp;
     updatedAt: Timestamp;
 }

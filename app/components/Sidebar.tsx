@@ -3,28 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import { useState } from "react";
 
 export default function Sidebar() {
     const { user, role, signOut } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const pathname = usePathname();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
 
     if (!user) return null;
 
     const allMenuItems = [
-        { name: "Dashboard", icon: "🏠", path: "/", roles: ['user', 'technician', 'admin'] },
-        { name: "Inventory", icon: "📦", path: "/admin/inventory", roles: ['technician', 'admin'] },
-        { name: "Repair Dashboard", icon: "🛠️", path: "/admin/repairs", roles: ['technician', 'admin'] },
-        { name: "Users", icon: "👥", path: "/admin/users", roles: ['admin'] },
-        { name: "Scan QR", icon: "📷", path: "/scan", roles: ['user', 'technician', 'admin'] },
+        { name: "Dashboard", icon: "grid_view", path: "/", roles: ['user', 'technician', 'admin'] },
+        { name: "Inventory", icon: "inventory_2", path: "/admin/inventory", roles: ['technician', 'admin'] },
+        { name: "Repair System", icon: "build", path: "/admin/repairs", roles: ['technician', 'admin'] },
+        { name: "Users", icon: "group", path: "/admin/users", roles: ['admin'] },
     ];
 
     const menuItems = allMenuItems.filter(item => role && item.roles.includes(role));
 
     const upcomingItems = [
-        { name: "Repair System", icon: "🔧", path: "/repair" },
-        { name: "Meeting Room", icon: "📅", path: "/booking" },
+        { name: "My Repairs", icon: "history", path: "/repair" },
+        { name: "Bookings", icon: "event", path: "/booking" },
     ];
 
     const isActive = (path: string) => pathname === path;
@@ -34,7 +35,7 @@ export default function Sidebar() {
             {/* Mobile Hamburger */}
             <button
                 onClick={() => setIsMobileOpen(!isMobileOpen)}
-                className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white/10 border border-white/10 text-white backdrop-blur-md"
+                className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-border text-text shadow-sm"
             >
                 {isMobileOpen ? "✕" : "☰"}
             </button>
@@ -42,43 +43,56 @@ export default function Sidebar() {
             {/* Sidebar Container */}
             <aside className={`
                 fixed top-0 left-0 h-full w-64 z-40
-                bg-[#0f172a]/80 backdrop-blur-xl border-r border-white/10
+                bg-card border-r border-border shadow-soft
                 transition-transform duration-300 ease-in-out
                 ${isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
             `}>
-                <div className="flex flex-col h-full p-6">
+                <div className="flex flex-col h-full">
                     {/* Logo Area */}
-                    <div className="mb-8 px-2">
-                        <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                            Super App
-                        </h1>
-                        <p className="text-xs text-white/40 mt-1">Stock & Services</p>
+                    <div className="p-8">
+                        <div className="flex items-center gap-3">
+                            <img src="/logo_2.png" alt="Logo" className="w-20 h-auto object-contain" />
+                            <div>
+                                <h1 className="text-xl font-bold text-text tracking-tight">CRMS6 IT</h1>
+                                <p className="text-[10px] font-medium text-text-secondary uppercase tracking-wider">งานโสต</p>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Main Menu */}
-                    <nav className="space-y-2 flex-1">
+                    <nav className="flex-1 px-4 space-y-1">
+                        <p className="px-4 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4 mt-2">Menu</p>
+
                         {menuItems.map((item) => (
                             <Link
                                 key={item.path}
                                 href={item.path}
                                 onClick={() => setIsMobileOpen(false)}
                                 className={`
-                                    flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
+                                    flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden
                                     ${isActive(item.path)
-                                        ? "bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-white shadow-[0_0_15px_rgba(6,182,212,0.15)]"
-                                        : "text-white/60 hover:bg-white/5 hover:text-white hover:pl-5"
+                                        ? "bg-primary-start/10 text-primary-start font-semibold"
+                                        : "text-text-secondary hover:bg-background hover:text-text"
                                     }
                                 `}
                             >
-                                <span className="text-xl">{item.icon}</span>
-                                <span className="font-medium">{item.name}</span>
+                                {isActive(item.path) && (
+                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-brand-gradient rounded-r-full"></div>
+                                )}
+                                <span className={`text-lg ${isActive(item.path) ? "opacity-100" : "opacity-70 group-hover:opacity-100"}`}>
+                                    {/* Icons mapped to emojis for now, can be replaced with SVGs */}
+                                    {item.icon === "grid_view" && "📊"}
+                                    {item.icon === "inventory_2" && "📦"}
+                                    {item.icon === "build" && "🔧"}
+                                    {item.icon === "group" && "👥"}
+                                    {item.icon === "qr_code_scanner" && "📷"}
+                                </span>
+                                <span>{item.name}</span>
                             </Link>
                         ))}
 
-                        <div className="my-4 border-t border-white/10 mx-2"></div>
-                        <p className="px-4 text-xs font-semibold text-white/30 uppercase tracking-wider mb-2">
-                            Coming Soon
-                        </p>
+                        <div className="my-6 border-t border-border mx-4"></div>
+                        <p className="px-4 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4">General</p>
 
                         {upcomingItems.map((item) => (
                             <Link
@@ -86,48 +100,62 @@ export default function Sidebar() {
                                 href={item.path}
                                 onClick={() => setIsMobileOpen(false)}
                                 className={`
-                                    flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 opacity-60
+                                    flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
                                     ${isActive(item.path)
-                                        ? "bg-white/10 text-white"
-                                        : "text-white/40 hover:bg-white/5 hover:text-white/80"
+                                        ? "bg-primary-start/10 text-primary-start font-semibold"
+                                        : "text-text-secondary hover:bg-background hover:text-text"
                                     }
                                 `}
                             >
-                                <span className="text-xl grayscale">{item.icon}</span>
-                                <span className="font-medium">{item.name}</span>
+                                <span className="text-lg opacity-70 group-hover:opacity-100">
+                                    {item.icon === "history" && "📝"}
+                                    {item.icon === "event" && "📅"}
+                                </span>
+                                <span>{item.name}</span>
                             </Link>
                         ))}
                     </nav>
 
-                    {/* User Profile */}
-                    <div className="mt-auto pt-6 border-t border-white/10">
-                        <Link href="/profile" className="flex items-center gap-3 mb-4 px-2 hover:bg-white/5 rounded-xl transition-colors p-2 group">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 p-[1px]">
-                                <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
-                                    {user.photoURL ? (
-                                        <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <span className="text-lg font-bold text-white">
-                                            {user.displayName?.charAt(0) || user.email?.charAt(0)}
-                                        </span>
-                                    )}
-                                </div>
+                    {/* Footer: Theme Toggle & Profile */}
+                    <div className="p-4 border-t border-border space-y-2">
+                        {/* Theme Toggle */}
+                        <button
+                            onClick={toggleTheme}
+                            className="w-full flex items-center justify-between px-4 py-2 rounded-xl text-text-secondary hover:bg-background hover:text-text transition-colors"
+                        >
+                            <span className="text-sm font-medium">Theme</span>
+                            <span className="text-lg">{theme === 'light' ? '☀️' : '🌙'}</span>
+                        </button>
+
+                        {/* User Profile */}
+                        <div className="bg-background rounded-2xl p-3 flex items-center gap-3 hover:bg-border/50 transition-colors cursor-pointer group">
+                            <div className="w-10 h-10 rounded-full bg-card border border-border overflow-hidden">
+                                {user.photoURL ? (
+                                    <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-brand-gradient text-white font-bold">
+                                        {user.displayName?.charAt(0) || user.email?.charAt(0)}
+                                    </div>
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-white truncate group-hover:text-cyan-400 transition-colors">
+                                <p className="text-sm font-bold text-text truncate">
                                     {user.displayName || "User"}
                                 </p>
-                                <p className="text-xs text-white/40 truncate">
-                                    {user.email}
+                                <p className="text-xs text-text-secondary truncate">
+                                    {role || "Member"}
                                 </p>
                             </div>
-                        </Link>
-                        <button
-                            onClick={signOut}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors text-sm font-medium"
-                        >
-                            <span>🚪</span> Log Out
-                        </button>
+                            <button
+                                onClick={signOut}
+                                className="p-2 rounded-lg text-text-secondary hover:text-red-500 hover:bg-card transition-all"
+                                title="Log Out"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -135,7 +163,7 @@ export default function Sidebar() {
             {/* Overlay for mobile */}
             {isMobileOpen && (
                 <div
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden animate-fade-in"
+                    className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 md:hidden animate-fade-in"
                     onClick={() => setIsMobileOpen(false)}
                 />
             )}

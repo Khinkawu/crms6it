@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -144,22 +145,20 @@ export default function RepairPage() {
     return (
         <div className="min-h-screen flex items-center justify-center p-4 animate-fade-in">
             <div className="w-full max-w-2xl">
-                <div className="glass-panel p-8 relative overflow-hidden">
-                    {/* Decorative Background */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-bl-full pointer-events-none"></div>
+                <div className="bg-card border border-border rounded-2xl p-8 relative overflow-hidden shadow-xl">
 
                     <div className="relative z-10">
-                        <h1 className="text-3xl font-bold text-white mb-2">Repair Request</h1>
-                        <p className="text-white/60 mb-8">Report an issue with equipment or facilities.</p>
+                        <h1 className="text-3xl font-bold text-text mb-2">Repair Request</h1>
+                        <p className="text-text-secondary mb-8">Report an issue with equipment or facilities.</p>
 
                         {error && (
-                            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-sm flex items-center gap-2">
+                            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm flex items-center gap-2">
                                 <span>⚠️</span> {error}
                             </div>
                         )}
 
                         {success && (
-                            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 text-sm flex items-center gap-2">
+                            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm flex items-center gap-2">
                                 <span>✅</span> Ticket submitted successfully! We will review it shortly.
                             </div>
                         )}
@@ -168,29 +167,29 @@ export default function RepairPage() {
                             {/* Reporter Info (Read-only) */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-white/80">Reporter Name</label>
+                                    <label className="text-sm font-medium text-text-secondary">Reporter Name</label>
                                     <input
                                         type="text"
                                         value={user.displayName || user.email || ""}
                                         disabled
-                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white/50 cursor-not-allowed"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text-secondary cursor-not-allowed"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-white/80">Position</label>
+                                    <label className="text-sm font-medium text-text-secondary">Position</label>
                                     <div className="relative">
                                         <select
                                             name="position"
                                             value={formData.position}
                                             onChange={handleInputChange}
-                                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 appearance-none"
+                                            className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text appearance-none focus:outline-none focus:border-cyan-500/50"
                                         >
-                                            <option value="ผู้บริหาร" className="bg-slate-900 text-white">ผู้บริหาร</option>
-                                            <option value="ครู" className="bg-slate-900 text-white">ครู</option>
-                                            <option value="ครู LS" className="bg-slate-900 text-white">ครู LS</option>
-                                            <option value="บุคลากร" className="bg-slate-900 text-white">บุคลากร</option>
+                                            <option value="ผู้บริหาร">ผู้บริหาร</option>
+                                            <option value="ครู">ครู</option>
+                                            <option value="ครู LS">ครู LS</option>
+                                            <option value="บุคลากร">บุคลากร</option>
                                         </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">
                                             ▼
                                         </div>
                                     </div>
@@ -199,53 +198,53 @@ export default function RepairPage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-white/80">Phone Number <span className="text-red-400">*</span></label>
+                                    <label className="text-sm font-medium text-text-secondary">Phone Number <span className="text-red-500">*</span></label>
                                     <input
                                         type="tel"
                                         name="phone"
                                         value={formData.phone}
                                         onChange={handleInputChange}
                                         placeholder="08x-xxx-xxxx"
-                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text placeholder:text-text-secondary/50 focus:outline-none focus:border-cyan-500/50"
                                         required
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-white/80">Room / Location <span className="text-red-400">*</span></label>
+                                    <label className="text-sm font-medium text-text-secondary">Room / Location <span className="text-red-500">*</span></label>
                                     <input
                                         type="text"
                                         name="room"
                                         value={formData.room}
                                         onChange={handleInputChange}
                                         placeholder="e.g. Room 304, Library"
-                                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
+                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text placeholder:text-text-secondary/50 focus:outline-none focus:border-cyan-500/50"
                                         required
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-white/80">Problem Description <span className="text-red-400">*</span></label>
+                                <label className="text-sm font-medium text-text-secondary">Problem Description <span className="text-red-500">*</span></label>
                                 <textarea
                                     name="description"
                                     value={formData.description}
                                     onChange={handleInputChange}
                                     rows={4}
                                     placeholder="Describe the issue in detail..."
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all resize-none"
+                                    className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text placeholder:text-text-secondary/50 focus:outline-none focus:border-cyan-500/50 resize-none"
                                     required
                                 />
                             </div>
 
                             {/* Image Upload */}
                             <div className="space-y-4">
-                                <label className="text-sm font-medium text-white/80">
-                                    Upload Images (1-5) <span className="text-red-400">*</span>
+                                <label className="text-sm font-medium text-text-secondary">
+                                    Upload Images (1-5) <span className="text-red-500">*</span>
                                 </label>
 
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                     {previews.map((src, index) => (
-                                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-white/10 group">
+                                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
                                             <img src={src} alt="Preview" className="w-full h-full object-cover" />
                                             <button
                                                 type="button"
@@ -261,7 +260,7 @@ export default function RepairPage() {
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="aspect-square rounded-lg bg-white/5 border border-white/10 border-dashed flex flex-col items-center justify-center text-white/40 hover:bg-white/10 hover:text-white transition-all"
+                                            className="aspect-square rounded-lg bg-background border-2 border-dashed border-border flex flex-col items-center justify-center text-text-secondary hover:bg-border/50 hover:border-text-secondary transition-all"
                                         >
                                             <span className="text-2xl mb-1">+</span>
                                             <span className="text-xs">Add Photo</span>
@@ -276,7 +275,7 @@ export default function RepairPage() {
                                     multiple
                                     className="hidden"
                                 />
-                                <p className="text-xs text-white/40">
+                                <p className="text-xs text-text-secondary">
                                     Supported: JPG, PNG. Max 5 images.
                                 </p>
                             </div>
@@ -285,7 +284,7 @@ export default function RepairPage() {
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50"
                                 >
                                     {isSubmitting ? (
                                         <span className="flex items-center justify-center gap-2">

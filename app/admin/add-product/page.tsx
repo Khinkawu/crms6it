@@ -21,7 +21,9 @@ const AddProductPage = () => {
         purchaseDate: "",
         warrantyInfo: "",
         location: "",
+        quantity: "1",
     });
+    const [isBulk, setIsBulk] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -38,6 +40,11 @@ const AddProductPage = () => {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleBulkToggle = () => {
+        setIsBulk(!isBulk);
+        setFormData(prev => ({ ...prev, quantity: !isBulk ? "10" : "1" }));
     };
 
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,6 +132,9 @@ const AddProductPage = () => {
                 stockId: "", // Will update after getting doc ID
                 status: "available",
                 createdAt: Timestamp.now(),
+                type: isBulk ? 'bulk' : 'unique',
+                quantity: isBulk ? parseInt(formData.quantity) : 1,
+                borrowedCount: 0,
             };
 
             const docRef = await addDoc(collection(db, "products"), productData);
@@ -140,7 +150,9 @@ const AddProductPage = () => {
                 purchaseDate: "",
                 warrantyInfo: "",
                 location: "",
+                quantity: "1",
             });
+            setIsBulk(false);
             setImageFile(null);
             setImagePreview(null);
 
@@ -241,6 +253,34 @@ const AddProductPage = () => {
                                     className="hidden"
                                 />
                             </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+                                    <span className="text-sm font-medium text-white/70">Bulk Item?</span>
+                                    <button
+                                        type="button"
+                                        onClick={handleBulkToggle}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isBulk ? 'bg-emerald-500' : 'bg-white/20'}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isBulk ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {isBulk && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-white/70">Quantity</label>
+                                    <input
+                                        type="number"
+                                        name="quantity"
+                                        value={formData.quantity}
+                                        onChange={handleInputChange}
+                                        min="1"
+                                        required
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-all"
+                                    />
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
