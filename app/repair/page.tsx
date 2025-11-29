@@ -243,7 +243,7 @@ export default function RepairPage() {
                                     Upload Images (1-5) <span className="text-red-400">*</span>
                                 </label>
 
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                     {previews.map((src, index) => (
                                         <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-white/10 group">
                                             <img src={src} alt="Preview" className="w-full h-full object-cover" />

@@ -6,17 +6,21 @@ import { useAuth } from "../../context/AuthContext";
 import { useState } from "react";
 
 export default function Sidebar() {
-    const { user, signOut } = useAuth();
+    const { user, role, signOut } = useAuth();
     const pathname = usePathname();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
 
     if (!user) return null;
 
-    const menuItems = [
-        { name: "Dashboard", icon: "🏠", path: "/" },
-        { name: "Inventory", icon: "📦", path: "/admin/inventory" },
-        { name: "Scan QR", icon: "📷", path: "/scan" },
+    const allMenuItems = [
+        { name: "Dashboard", icon: "🏠", path: "/", roles: ['user', 'technician', 'admin'] },
+        { name: "Inventory", icon: "📦", path: "/admin/inventory", roles: ['technician', 'admin'] },
+        { name: "Repair Dashboard", icon: "🛠️", path: "/admin/repairs", roles: ['technician', 'admin'] },
+        { name: "Users", icon: "👥", path: "/admin/users", roles: ['admin'] },
+        { name: "Scan QR", icon: "📷", path: "/scan", roles: ['user', 'technician', 'admin'] },
     ];
+
+    const menuItems = allMenuItems.filter(item => role && item.roles.includes(role));
 
     const upcomingItems = [
         { name: "Repair System", icon: "🔧", path: "/repair" },
@@ -95,9 +99,9 @@ export default function Sidebar() {
                         ))}
                     </nav>
 
-                    {/* User Profile & Logout */}
+                    {/* User Profile */}
                     <div className="mt-auto pt-6 border-t border-white/10">
-                        <div className="flex items-center gap-3 mb-4 px-2">
+                        <Link href="/profile" className="flex items-center gap-3 mb-4 px-2 hover:bg-white/5 rounded-xl transition-colors p-2 group">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 p-[1px]">
                                 <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
                                     {user.photoURL ? (
@@ -110,14 +114,14 @@ export default function Sidebar() {
                                 </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-white truncate">
+                                <p className="text-sm font-medium text-white truncate group-hover:text-cyan-400 transition-colors">
                                     {user.displayName || "User"}
                                 </p>
                                 <p className="text-xs text-white/40 truncate">
                                     {user.email}
                                 </p>
                             </div>
-                        </div>
+                        </Link>
                         <button
                             onClick={signOut}
                             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors text-sm font-medium"

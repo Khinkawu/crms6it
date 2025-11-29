@@ -9,7 +9,7 @@
 body {
   color: rgb(var(--foreground-rgb));
   background-color: #020617;
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 0%, rgba(34, 211, 238, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
@@ -39,13 +39,40 @@ body {
 ::-webkit-scrollbar {
   width: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white;
+    color: black;
+  }
+
+  .no-print {
+    display: none !important;
+  }
 }

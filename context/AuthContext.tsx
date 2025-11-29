@@ -2,55 +2,93 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
-    User,
-    GoogleAuthProvider,
-    signInWithPopup,
-    signOut as firebaseSignOut,
     onAuthStateChanged,
+    signInWithPopup,
+    GoogleAuthProvider,
+    signOut as firebaseSignOut,
+    User
 } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { UserRole } from "../types";
 
 interface AuthContextType {
     user: User | null;
+    role: UserRole | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
     signOut: () => Promise<void>;
-    error: string | null;
-    clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
     user: null,
+    role: null,
     loading: true,
     signInWithGoogle: async () => { },
     signOut: async () => { },
-    error: null,
-    clearError: () => { },
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [role, setRole] = useState<UserRole | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setLoading(true);
             if (currentUser) {
-                // Domain Restriction Check
-                if (currentUser.email?.endsWith("@tesaban6.ac.th")) {
-                    setUser(currentUser);
-                    setError(null);
-                } else {
-                    // Unauthorized domain
+                // 1. Check Domain
+                if (!currentUser.email?.endsWith("@tesaban6.ac.th")) {
                     await firebaseSignOut(auth);
                     setUser(null);
-                    setError("Access Restricted: Only @tesaban6.ac.th emails are allowed.");
+                    setRole(null);
+                    alert("Access Restricted: Only @tesaban6.ac.th emails are allowed.");
+                    setLoading(false);
+                    return;
                 }
+
+                // 2. Fetch User Role from Firestore
+                try {
+                    const userRef = doc(db, "users", currentUser.uid);
+                    const userSnap = await getDoc(userRef);
+
+                    if (userSnap.exists()) {
+                        // User exists, get role
+                        const userData = userSnap.data();
+                        setRole(userData.role as UserRole);
+
+                        // Sync latest Google Profile data (Name & Photo)
+                        if (currentUser.displayName !== userData.displayName || currentUser.photoURL !== userData.photoURL) {
+                            await updateDoc(userRef, {
+                                displayName: currentUser.displayName,
+                                photoURL: currentUser.photoURL,
+                                updatedAt: serverTimestamp()
+                            });
+                        }
+                    } else {
+                        // New user, create doc with default role 'user'
+                        const defaultRole: UserRole = 'user';
+                        await setDoc(userRef, {
+                            uid: currentUser.uid,
+                            email: currentUser.email,
+                            displayName: currentUser.displayName,
+                            photoURL: currentUser.photoURL,
+                            role: defaultRole,
+                            createdAt: serverTimestamp()
+                        });
+                        setRole(defaultRole);
+                    }
+                } catch (error) {
+                    console.error("Error fetching user role:", error);
+                    setRole('user'); // Fallback
+                }
+
+                setUser(currentUser);
             } else {
                 setUser(null);
+                setRole(null);
             }
             setLoading(false);
         });
@@ -59,14 +97,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const signInWithGoogle = async () => {
-        setError(null);
-        const provider = new GoogleAuthProvider();
         try {
+            const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
-            // The onAuthStateChanged listener will handle the domain check
-        } catch (err: any) {
-            console.error("Login failed", err);
-            setError(err.message || "Failed to sign in with Google.");
+            // The onAuthStateChanged listener will handle the domain check and role fetching
+        } catch (error) {
+            console.error("Error signing in with Google", error);
         }
     };
 
@@ -74,17 +110,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await firebaseSignOut(auth);
             setUser(null);
-        } catch (err: any) {
-            console.error("Logout failed", err);
+            setRole(null);
+        } catch (error) {
+            console.error("Error signing out", error);
         }
     };
 
-    const clearError = () => setError(null);
-
     return (
-        <AuthContext.Provider
-            value={{ user, loading, signInWithGoogle, signOut, error, clearError }}
-        >
+        <AuthContext.Provider value={{ user, role, loading, signInWithGoogle, signOut }}>
             {children}
         </AuthContext.Provider>
     );

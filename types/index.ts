@@ -30,3 +30,32 @@ export interface Transaction {
     userPhone?: string; // for borrow
     userPosition?: string; // for requisition
 }
+
+export type UserRole = 'user' | 'technician' | 'admin';
+
+export interface UserProfile {
+    uid: string;
+    email: string;
+    displayName: string;
+    photoURL?: string;
+    role: UserRole;
+    createdAt?: Timestamp;
+}
+
+export type RepairStatus = 'pending' | 'in_progress' | 'waiting_parts' | 'completed' | 'cancelled';
+
+export interface RepairTicket {
+    id?: string;
+    requesterName: string;
+    requesterEmail: string;
+    position: string;
+    phone: string;
+    room: string;
+    description: string;
+    images: string[];
+    status: RepairStatus;
+    technicianNote?: string;
+    completionImage?: string;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}

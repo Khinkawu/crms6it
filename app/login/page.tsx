@@ -5,14 +5,25 @@ import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 
 const LoginPage = () => {
-    const { user, signInWithGoogle, error, clearError } = useAuth();
+    const { user, signInWithGoogle } = useAuth();
     const router = useRouter();
+    const [error, setError] = React.useState<string | null>(null);
 
     useEffect(() => {
         if (user) {
             router.push("/");
         }
     }, [user, router]);
+
+    const handleLogin = async () => {
+        setError(null);
+        try {
+            await signInWithGoogle();
+        } catch (err: any) {
+            console.error("Login failed", err);
+            setError("Failed to sign in. Please try again.");
+        }
+    };
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-700 to-blue-500 p-4">
@@ -36,7 +47,7 @@ const LoginPage = () => {
                                 </svg>
                                 <span>{error}</span>
                             </div>
-                            <button onClick={clearError} className="absolute top-2 right-2 text-white/50 hover:text-white">
+                            <button onClick={() => setError(null)} className="absolute top-2 right-2 text-white/50 hover:text-white">
                                 ✕
                             </button>
                         </div>
@@ -44,7 +55,7 @@ const LoginPage = () => {
 
                     {/* Google Sign In Button */}
                     <button
-                        onClick={signInWithGoogle}
+                        onClick={handleLogin}
                         className="group relative w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 transition-all duration-300 shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98]"
                     >
                         <div className="p-1 bg-white rounded-full">

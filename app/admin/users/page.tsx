@@ -1,0 +1,203 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useAuth } from "../../../context/AuthContext";
+import { useRouter } from "next/navigation";
+import { collection, getDocs, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../../../lib/firebase";
+import { UserProfile, UserRole } from "../../../types";
+
+export default function UsersPage() {
+    const { user, role, loading } = useAuth();
+    const router = useRouter();
+    const [users, setUsers] = useState<UserProfile[]>([]);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!loading) {
+            if (!user || role !== 'admin') {
+                router.push("/");
+            } else {
+                fetchUsers();
+            }
+        }
+    }, [user, role, loading, router]);
+
+    const fetchUsers = async () => {
+        setIsLoadingUsers(true);
+        try {
+            const querySnapshot = await getDocs(collection(db, "users"));
+            const usersList: UserProfile[] = [];
+            querySnapshot.forEach((doc) => {
+                const userData = doc.data();
+
+                // --- Logic: ดึงชื่อจาก Email ถ้าไม่มี DisplayName ---
+                // เช่น kawin@tesaban6.ac.th -> จะได้ชื่อ "kawin"
+                let finalDisplayName = userData.displayName;
+                if (!finalDisplayName && userData.email) {
+                    finalDisplayName = userData.email.split('@')[0];
+                }
+
+                usersList.push({
+                    uid: doc.id,
+                    email: userData.email || "",
+                    displayName: finalDisplayName || "Unknown User", // ถ้าไม่มีอีเมลด้วยก็ยอมแพ้ ให้ขึ้น Unknown
+                    photoURL: userData.photoURL || null,
+                    role: userData.role || "user",
+                    ...userData
+                } as UserProfile);
+            });
+            setUsers(usersList);
+        } catch (error) {
+            console.error("Error fetching users:", error);
+        } finally {
+            setIsLoadingUsers(false);
+        }
+    };
+
+    const handleRoleChange = async (targetUserId: string, newRole: UserRole) => {
+        if (targetUserId === user?.uid) {
+            alert("You cannot change your own role to prevent lockout.");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) return;
+
+        setUpdatingUserId(targetUserId);
+        try {
+            const userRef = doc(db, "users", targetUserId);
+            await updateDoc(userRef, {
+                role: newRole,
+                updatedAt: serverTimestamp()
+            });
+
+            setUsers(prev => prev.map(u =>
+                u.uid === targetUserId ? { ...u, role: newRole } : u
+            ));
+
+        } catch (error) {
+            console.error("Error updating role:", error);
+            alert("Failed to update role.");
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
+    // Safe filtering logic
+    const filteredUsers = users.filter(u =>
+        (u.displayName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (loading || !user || role !== 'admin') return null;
+
+    return (
+        <div className="min-h-screen p-8 animate-fade-in md:ml-64">
+            <div className="max-w-6xl mx-auto space-y-8">
+
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-white mb-2">User Management</h1>
+                        <p className="text-white/60">Manage user roles and access permissions.</p>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="relative w-full md:w-96">
+                        <input
+                            type="text"
+                            placeholder="Search users..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
+                        />
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30">
+                            🔍
+                        </div>
+                    </div>
+                </div>
+
+                {/* Users Table */}
+                <div className="glass-panel overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-white/10 bg-white/5">
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-white/70">User</th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-white/70">Email</th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-white/70">Role</th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-white/70">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {isLoadingUsers ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-8 text-center text-white/50">
+                                            Loading users...
+                                        </td>
+                                    </tr>
+                                ) : filteredUsers.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-8 text-center text-white/50">
+                                            No users found.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredUsers.map((u) => (
+                                        <tr key={u.uid} className="hover:bg-white/5 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold overflow-hidden">
+                                                        {u.photoURL ? (
+                                                            <img src={u.photoURL} alt={u.displayName || "User"} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            // ใช้ displayName ที่เราแก้ Logic แล้ว (จะไม่มีทางเป็น Null จน Error)
+                                                            (u.displayName || "U").charAt(0).toUpperCase()
+                                                        )}
+                                                    </div>
+                                                    <span className="text-white font-medium">{u.displayName}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-white/70">
+                                                {u.email || "No Email"}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${u.role === 'admin'
+                                                    ? 'bg-purple-500/10 text-purple-200 border-purple-500/20'
+                                                    : u.role === 'technician'
+                                                        ? 'bg-cyan-500/10 text-cyan-200 border-cyan-500/20'
+                                                        : 'bg-slate-500/10 text-slate-200 border-slate-500/20'
+                                                    }`}>
+                                                    {(u.role || "USER").toUpperCase()}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="relative inline-block w-40">
+                                                    <select
+                                                        value={u.role || "user"}
+                                                        onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
+                                                        disabled={u.uid === user.uid || updatingUserId === u.uid}
+                                                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+                                                    >
+                                                        <option value="user" className="bg-slate-900">User</option>
+                                                        <option value="technician" className="bg-slate-900">Technician</option>
+                                                        <option value="admin" className="bg-slate-900">Admin</option>
+                                                    </select>
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40 text-xs">
+                                                        ▼
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
