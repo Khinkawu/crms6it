@@ -39,8 +39,8 @@ export default function LoginPage() {
                     {/* Login Form */}
                     <div className="space-y-6">
                         <div className="text-left">
-                            <h2 className="text-xl font-semibold text-text mb-2">Welcome Back</h2>
-                            <p className="text-text-secondary text-sm">Sign in to manage inventory and repairs.</p>
+                            <h2 className="text-xl font-semibold text-text mb-2">Welcome</h2>
+                            <p className="text-text-secondary text-sm">กรุณาใช้ E-mail @tesaban6.ac.th เพื่อเข้าสู่ระบบเท่านั้น</p>
                         </div>
 
                         <button

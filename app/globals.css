@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'THSarabunIT';
+  src: url('/font/THSarabunIT9.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'THSarabunIT';
+  src: url('/font/THSarabunIT%E0%B9%99%20Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
 :root {
   /* Light Mode (Default) */
   --background: #F3F4F6;

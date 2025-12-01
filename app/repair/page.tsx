@@ -238,9 +238,9 @@ export default function RepairPage() {
                                 <label className="text-xs font-medium text-gray-500 mb-1 block">โซน <span className="text-red-500">*</span></label>
                                 <div className="flex gap-2">
                                     {[
-                                        { value: 'junior_high', label: 'ม.ต้น', icon: '🏫' },
-                                        { value: 'senior_high', label: 'ม.ปลาย', icon: '🏢' },
-                                        { value: 'common', label: 'ส่วนกลาง', icon: '🌳' }
+                                        { value: 'junior_high', label: 'ม.ต้น', icon: '' },
+                                        { value: 'senior_high', label: 'ม.ปลาย', icon: '' },
+                                        { value: 'common', label: 'ส่วนกลาง', icon: '' }
                                     ].map((option) => (
                                         <label
                                             key={option.value}

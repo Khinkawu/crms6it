@@ -135,7 +135,7 @@ export default function Dashboard() {
     return (
         <div className="space-y-8 animate-fade-in pb-20">
             {/* Hero Section */}
-            <div className="relative overflow-hidden rounded-3xl bg-brand-gradient shadow-lg shadow-primary-start/20 text-white p-8 md:p-10">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 to-cyan-500 shadow-lg shadow-blue-500/20 text-white p-8 md:p-10">
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                     <div>
                         <h1 className="text-3xl md:text-4xl font-bold mb-2">
@@ -203,9 +203,9 @@ export default function Dashboard() {
                     {/* Tips or Announcement could go here */}
                     <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
                         <div className="relative z-10">
-                            <h3 className="font-bold text-lg mb-2">💡 ทริปการใช้งาน</h3>
+                            <h3 className="font-bold text-lg mb-2">💡 ทริกการใช้งาน</h3>
                             <p className="text-white/90 text-sm leading-relaxed">
-                                คุณสามารถสแกน QR Code ที่ติดอยู่บนอุปกรณ์เพื่อดูรายละเอียด แจ้งซ่อม หรือทำรายการยืม-คืน ได้ทันที
+                                คุณสามารถเชื่อมต่อ Line ได้ที่หน้า Profile เพื่อให้ได้รับข้อมูลแจ้งเตือนอัตโนมัติ
                             </p>
                         </div>
                         <div className="absolute -bottom-4 -right-4 text-9xl opacity-10">📱</div>

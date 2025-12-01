@@ -10,6 +10,7 @@ const config: Config = {
         extend: {
             fontFamily: {
                 sans: ["var(--font-prompt)", "sans-serif"],
+                sarabun: ["THSarabunIT", "sans-serif"],
             },
             colors: {
                 background: "var(--background)",

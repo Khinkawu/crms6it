@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useState } from "react";
+import { toast } from "react-hot-toast";
 
 export default function Sidebar() {
     const { user, role, signOut } = useAuth();
@@ -54,7 +55,7 @@ export default function Sidebar() {
                             <img src="/logo_2.png" alt="Logo" className="w-20 h-auto object-contain" />
                             <div>
                                 <h1 className="text-xl font-bold text-text tracking-tight">CRMS6 IT</h1>
-                                <p className="text-[10px] font-medium text-text-secondary uppercase tracking-wider">งานโสต</p>
+                                <p className="text-[18px] font-medium text-text-secondary uppercase tracking-wider">งานโสต</p>
                             </div>
                         </div>
                     </div>
@@ -97,8 +98,22 @@ export default function Sidebar() {
                         {upcomingItems.map((item) => (
                             <Link
                                 key={item.path}
-                                href={item.path}
-                                onClick={() => setIsMobileOpen(false)}
+                                href={item.path === "/booking" ? "#" : item.path}
+                                onClick={(e) => {
+                                    if (item.path === "/booking") {
+                                        e.preventDefault();
+                                        toast("กำลังพัฒนา", {
+                                            icon: "🚧",
+                                            style: {
+                                                borderRadius: '10px',
+                                                background: '#333',
+                                                color: '#fff',
+                                            },
+                                        });
+                                    } else {
+                                        setIsMobileOpen(false);
+                                    }
+                                }}
                                 className={`
                                     flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
                                     ${isActive(item.path)

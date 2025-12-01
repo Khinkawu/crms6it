@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     }
 
     const channelId = process.env.LINE_LOGIN_CHANNEL_ID;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://crms6it.vercel.app';
     const redirectUri = `${appUrl}/api/line/callback`;
     const state = userId; // Pass userId as state to identify user on callback
     const scope = 'profile openid';

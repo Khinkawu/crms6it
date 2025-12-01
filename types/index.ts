@@ -1,16 +1,19 @@
 import { Timestamp } from 'firebase/firestore';
 
+export type ProductStatus = 'available' | 'borrowed' | 'requisitioned' | 'unavailable' | 'ไม่ว่าง' | 'maintenance';
+
 export interface Product {
     id?: string; // Document ID
     name: string;
     brand: string;
+    model?: string; // Added model
     price: number;
     purchaseDate: Timestamp;
     warrantyInfo: string;
     location: string;
     imageUrl: string;
     stockId: string; // Unique Asset ID for QR
-    status: 'available' | 'borrowed' | 'requisitioned' | 'unavailable' | 'ไม่ว่าง';
+    status: ProductStatus;
     type?: 'unique' | 'bulk'; // Default 'unique'
     quantity?: number; // Total stock for bulk
     borrowedCount?: number; // Currently borrowed count for bulk
@@ -63,6 +66,7 @@ export interface RepairTicket {
     description: string;
     images: string[];
     status: RepairStatus;
+    technicianName?: string; // Added for report
     technicianNote?: string;
     completionImage?: string;
     partsUsed?: {

@@ -1,9 +1,10 @@
 "use client";
+// Force HMR Update
 
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, arrayUnion } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, arrayUnion, Timestamp, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../../lib/firebase";
 import { RepairTicket, RepairStatus, Product } from "../../../types";
@@ -162,6 +163,7 @@ export default function RepairDashboard() {
             await updateDoc(ticketRef, {
                 status,
                 technicianNote,
+                technicianName: user?.displayName || 'Technician',
                 completionImage: completionImageUrl || null,
                 updatedAt: serverTimestamp()
             });
@@ -250,104 +252,106 @@ export default function RepairDashboard() {
                             <p className="text-text-secondary">จัดการและติดตามรายการแจ้งซ่อม</p>
                         </div>
                     </div>
+                </div>
 
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
-                            <div className="w-14 h-14 rounded-2xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center text-2xl shadow-sm text-gray-500">
-                                📋
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-text-secondary">ทั้งหมด</p>
-                                <p className="text-3xl font-bold text-text">{stats.total}</p>
-                            </div>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
+                        <div className="w-14 h-14 rounded-2xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center text-2xl shadow-sm text-gray-500">
+                            📋
                         </div>
-                        <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
-                            <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-2xl shadow-sm text-amber-500">
-                                ⏳
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-text-secondary">รอดำเนินการ</p>
-                                <p className="text-3xl font-bold text-text">{stats.pending}</p>
-                            </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">ทั้งหมด</p>
+                            <p className="text-3xl font-bold text-text">{stats.total}</p>
                         </div>
-                        <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
-                            <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-2xl shadow-sm text-blue-500">
-                                ⚙️
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-text-secondary">กำลังดำเนินการ</p>
-                                <p className="text-3xl font-bold text-text">{stats.inProgress}</p>
-                            </div>
+                    </div>
+                    <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-2xl shadow-sm text-amber-500">
+                            ⏳
                         </div>
-                        <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
-                            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-2xl shadow-sm text-emerald-500">
-                                ✅
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-text-secondary">เสร็จสิ้น</p>
-                                <p className="text-3xl font-bold text-text">{stats.completed}</p>
-                            </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">รอดำเนินการ</p>
+                            <p className="text-3xl font-bold text-text">{stats.pending}</p>
+                        </div>
+                    </div>
+                    <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
+                        <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-2xl shadow-sm text-blue-500">
+                            ⚙️
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">กำลังดำเนินการ</p>
+                            <p className="text-3xl font-bold text-text">{stats.inProgress}</p>
+                        </div>
+                    </div>
+                    <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
+                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-2xl shadow-sm text-emerald-500">
+                            ✅
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">เสร็จสิ้น</p>
+                            <p className="text-3xl font-bold text-text">{stats.completed}</p>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Control Bar */}
-                <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-card border border-border p-4 rounded-2xl shadow-sm">
-                    {/* Search */}
-                    <div className="relative w-full lg:w-96">
-                        <input
-                            type="text"
-                            placeholder="ค้นหา (ห้อง, ผู้แจ้ง, อาการ)..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50 transition-all"
-                        />
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">🔍</div>
-                    </div>
-
-                    {/* Filters & Toggle */}
-                    <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-center">
-                        <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto no-scrollbar">
-                            {[
-                                { id: 'all', label: 'ทั้งหมด' },
-                                { id: 'pending', label: 'รอดำเนินการ' },
-                                { id: 'in_progress', label: 'กำลังดำเนินการ' },
-                                { id: 'waiting_parts', label: 'รออะไหล่' },
-                                { id: 'completed', label: 'เสร็จสิ้น' },
-                                { id: 'cancelled', label: 'ยกเลิก' }
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setFilter(tab.id as any)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${filter === tab.id
-                                        ? 'bg-cyan-500 text-white shadow-md'
-                                        : 'bg-background border border-border text-text-secondary hover:bg-border/50'
-                                        }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="flex bg-background border border-border rounded-lg p-1">
-                            <button
-                                onClick={() => setViewMode('grid')}
-                                className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-cyan-600' : 'text-text-secondary hover:text-text'}`}
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-                            </button>
-                            <button
-                                onClick={() => setViewMode('list')}
-                                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-cyan-600' : 'text-text-secondary hover:text-text'}`}
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-                            </button>
-                        </div>
-                    </div>
+            {/* Control Bar */}
+            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-card border border-border p-4 rounded-2xl shadow-sm max-w-7xl mx-auto mt-8">
+                {/* Search */}
+                <div className="relative w-full lg:w-96">
+                    <input
+                        type="text"
+                        placeholder="ค้นหา (ห้อง, ผู้แจ้ง, อาการ)..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50 transition-all"
+                    />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">🔍</div>
                 </div>
 
-                {/* Content Area */}
+                {/* Filters & Toggle */}
+                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-center">
+                    <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto no-scrollbar">
+                        {[
+                            { id: 'all', label: 'ทั้งหมด' },
+                            { id: 'pending', label: 'รอดำเนินการ' },
+                            { id: 'in_progress', label: 'กำลังดำเนินการ' },
+                            { id: 'waiting_parts', label: 'รออะไหล่' },
+                            { id: 'completed', label: 'เสร็จสิ้น' },
+                            { id: 'cancelled', label: 'ยกเลิก' }
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setFilter(tab.id as any)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${filter === tab.id
+                                    ? 'bg-cyan-500 text-white shadow-md'
+                                    : 'bg-background border border-border text-text-secondary hover:bg-border/50'
+                                    }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex bg-background border border-border rounded-lg p-1">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-cyan-600' : 'text-text-secondary hover:text-text'}`}
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-cyan-600' : 'text-text-secondary hover:text-text'}`}
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="max-w-7xl mx-auto mt-8">
                 {viewMode === 'grid' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {filteredTickets.map((ticket) => (
@@ -448,28 +452,28 @@ export default function RepairDashboard() {
                             <div className="grid grid-cols-2 gap-4 text-sm text-text-secondary bg-background p-4 rounded-xl">
                                 <div>
                                     <p className="text-text-secondary/70">ผู้แจ้ง</p>
-                                    <p className="text-text">{selectedTicket.requesterName}</p>
+                                    <p className="text-text">{selectedTicket?.requesterName}</p>
                                 </div>
                                 <div>
                                     <p className="text-text-secondary/70">ห้อง/สถานที่</p>
-                                    <p className="text-text">{selectedTicket.room}</p>
+                                    <p className="text-text">{selectedTicket?.room}</p>
                                 </div>
                                 <div>
                                     <p className="text-text-secondary/70">เบอร์โทร</p>
-                                    <p className="text-text">{selectedTicket.phone}</p>
+                                    <p className="text-text">{selectedTicket?.phone}</p>
                                 </div>
                                 <div>
                                     <p className="text-text-secondary/70">วันที่แจ้ง</p>
-                                    <p className="text-text">{selectedTicket.createdAt?.toDate().toLocaleString('th-TH')}</p>
+                                    <p className="text-text">{selectedTicket?.createdAt?.toDate().toLocaleString('th-TH')}</p>
                                 </div>
                                 <div className="col-span-2">
                                     <p className="text-text-secondary/70">อาการเสีย</p>
-                                    <p className="text-text">{selectedTicket.description}</p>
+                                    <p className="text-text">{selectedTicket?.description}</p>
                                 </div>
                             </div>
 
                             {/* Images Carousel */}
-                            {selectedTicket.images && selectedTicket.images.length > 0 && (
+                            {selectedTicket?.images && selectedTicket.images.length > 0 && (
                                 <div className="flex gap-2 overflow-x-auto pb-2">
                                     {selectedTicket.images.map((img, idx) => (
                                         <a key={idx} href={img} target="_blank" rel="noreferrer" className="flex-shrink-0 w-32 h-32 rounded-lg overflow-hidden border border-border">
@@ -483,7 +487,7 @@ export default function RepairDashboard() {
                             <div className="border-t border-border pt-4">
                                 <h3 className="text-sm font-bold text-text mb-2">เบิกใช้อะไหล่ (Spare Parts)</h3>
 
-                                {selectedTicket.partsUsed && selectedTicket.partsUsed.length > 0 && (
+                                {selectedTicket?.partsUsed && selectedTicket.partsUsed.length > 0 && (
                                     <div className="mb-4 space-y-2">
                                         {selectedTicket.partsUsed.map((part, idx) => (
                                             <div key={idx} className="flex justify-between items-center bg-background px-3 py-2 rounded-lg text-sm">
@@ -562,7 +566,7 @@ export default function RepairDashboard() {
                                     />
                                 </div>
 
-                                {status === 'completed' && !selectedTicket.completionImage && (
+                                {status === 'completed' && !selectedTicket?.completionImage && (
                                     <div>
                                         <label className="block text-sm font-medium text-text-secondary mb-1">
                                             รูปภาพหลังซ่อมเสร็จ <span className="text-red-400">*</span>
@@ -573,7 +577,7 @@ export default function RepairDashboard() {
                                             onChange={(e) => setCompletionImage(e.target.files?.[0] || null)}
                                             accept="image/*"
                                             className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-500/10 file:text-cyan-600 dark:file:text-cyan-400 hover:file:bg-cyan-500/20"
-                                            required={!selectedTicket.completionImage}
+                                            required={!selectedTicket?.completionImage}
                                         />
                                     </div>
                                 )}
