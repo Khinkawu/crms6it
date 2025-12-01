@@ -253,7 +253,7 @@ export default function Dashboard() {
 
                                                     {act.details && (
                                                         <p className="text-xs text-gray-500 mt-1.5 bg-input-bg/50 p-2 rounded-lg border border-border/50 italic">
-                                                            "{act.details}"
+                                                            &quot;{act.details}&quot;
                                                         </p>
                                                     )}
                                                 </div>

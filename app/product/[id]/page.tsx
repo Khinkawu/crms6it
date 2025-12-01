@@ -22,7 +22,7 @@ const ProductDetailPage = () => {
     const [isBorrowModalOpen, setIsBorrowModalOpen] = useState(false);
     const [isRequisitionModalOpen, setIsRequisitionModalOpen] = useState(false);
 
-    const fetchProduct = async () => {
+    const fetchProduct = React.useCallback(async () => {
         if (!id) return;
         try {
             const docRef = doc(db, "products", id as string);
@@ -39,11 +39,11 @@ const ProductDetailPage = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
     useEffect(() => {
         fetchProduct();
-    }, [id]);
+    }, [fetchProduct]);
 
     const handleLogin = () => {
         router.push(`/login`);
