@@ -7,6 +7,7 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from "
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
+import { logActivity } from "../../utils/logger";
 
 interface BorrowModalProps {
     isOpen: boolean;
@@ -49,12 +50,12 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
         setError(null);
 
         if (!formData.room || !formData.phone || !formData.returnDate) {
-            setError("Please fill in all fields.");
+            setError("กรุณากรอกข้อมูลให้ครบถ้วน");
             return;
         }
 
         if (sigPad.current?.isEmpty()) {
-            setError("Please provide a signature.");
+            setError("กรุณาลงลายมือชื่อ");
             return;
         }
 
@@ -63,7 +64,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
         const availableStock = isBulk ? (product.quantity || 0) - (product.borrowedCount || 0) : (product.status === 'available' ? 1 : 0);
 
         if (availableStock <= 0) {
-            setError("Item is currently unavailable.");
+            setError("สินค้าไม่พร้อมให้ใช้งาน");
             return;
         }
 
@@ -110,13 +111,12 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                     });
                 } else {
                     await updateDoc(productRef, {
-                        status: "borrowed",
+                        status: "ไม่ว่าง",
                     });
                 }
             }
 
             // 4. Log Activity
-            const { logActivity } = await import("../../utils/logger");
             await logActivity({
                 action: 'borrow',
                 productName: product.name,
@@ -129,7 +129,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
 
         } catch (err: any) {
             console.error("Error processing borrow:", err);
-            setError("Failed to process request. Please try again.");
+            setError("เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่อีกครั้ง");
         } finally {
             setLoading(false);
         }
@@ -146,7 +146,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
             {/* Modal Content - Clean SaaS Theme */}
             <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-soft-lg overflow-hidden animate-fade-in-up">
                 <div className="p-6">
-                    <h2 className="text-2xl font-bold text-text mb-1">Borrow Item</h2>
+                    <h2 className="text-2xl font-bold text-text mb-1">ยืมวัสดุ อุปกรณ์</h2>
                     <p className="text-text-secondary text-sm mb-6">{product.name}</p>
 
                     {error && (
@@ -158,7 +158,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {/* Borrower Info */}
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Borrower</label>
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ชื่อผู้ยืม</label>
                             <div className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-text">
                                 {user?.displayName || user?.email}
                             </div>
@@ -167,7 +167,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                         {/* Inputs Grid */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Room / Dept</label>
+                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ห้อง / แผนก</label>
                                 <input
                                     type="text"
                                     name="room"
@@ -175,11 +175,11 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                                     onChange={handleInputChange}
                                     required
                                     className="input-field"
-                                    placeholder="e.g. 101"
+                                    placeholder="เช่น 126 , ห้องลีลาวดี"
                                 />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Phone</label>
+                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">เบอร์โทรศัพท์</label>
                                 <input
                                     type="tel"
                                     name="phone"
@@ -194,12 +194,13 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
 
                         {/* Return Date */}
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Expected Return</label>
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">วันที่คาดว่าจะคืน</label>
                             <input
                                 type="date"
                                 name="returnDate"
                                 value={formData.returnDate}
                                 onChange={handleInputChange}
+                                min={new Date().toISOString().split('T')[0]}
                                 required
                                 className="input-field"
                             />
@@ -208,13 +209,13 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                         {/* Signature Pad */}
                         <div className="space-y-2">
                             <div className="flex justify-between items-end">
-                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Signature</label>
+                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ลายเซ็นต์</label>
                                 <button
                                     type="button"
                                     onClick={handleClear}
                                     className="text-xs text-primary-start hover:text-primary-end transition-colors"
                                 >
-                                    Clear
+                                    ล้างลายเซ็นต์
                                 </button>
                             </div>
                             <div className="w-full h-40 bg-white rounded-xl overflow-hidden cursor-crosshair touch-none border-2 border-border focus-within:border-primary-start transition-colors">
@@ -236,14 +237,14 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                                 onClick={onClose}
                                 className="flex-1 btn-secondary"
                             >
-                                Cancel
+                                ยกเลิก
                             </button>
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50"
                             >
-                                {loading ? "Processing..." : "Confirm Borrow"}
+                                {loading ? "กำลังบันทึก..." : "ยืนยันการยืม"}
                             </button>
                         </div>
                     </form>

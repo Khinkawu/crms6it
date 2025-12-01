@@ -1,7 +1,7 @@
 import { db } from "../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
-export type LogAction = 'borrow' | 'return' | 'requisition' | 'add' | 'update';
+export type LogAction = 'borrow' | 'return' | 'requisition' | 'add' | 'update' | 'repair' | 'create' | 'delete';
 
 interface LogActivityParams {
     action: LogAction;

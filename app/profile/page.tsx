@@ -6,6 +6,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import ConfirmationModal from "../components/ConfirmationModal";
+import toast from "react-hot-toast";
 
 function ProfileContent() {
     const { user, role, loading } = useAuth();
@@ -15,6 +17,7 @@ function ProfileContent() {
     const [lineUserId, setLineUserId] = useState<string | null>(null);
     const [linkingStatus, setLinkingStatus] = useState<'idle' | 'linking' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState("");
+    const [isDisconnectConfirmOpen, setIsDisconnectConfirmOpen] = useState(false);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -101,8 +104,8 @@ function ProfileContent() {
                                 <p className="text-text-secondary">{user.email}</p>
                             </div>
                             <span className={`px-3 py-1 rounded-full text-xs font-bold border ${role === 'admin' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' :
-                                    role === 'technician' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800' :
-                                        'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800'
+                                role === 'technician' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800' :
+                                    'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800'
                                 }`}>
                                 {role?.toUpperCase() || 'USER'}
                             </span>
@@ -189,12 +192,7 @@ function ProfileContent() {
                                                 Open Chat
                                             </a>
                                             <button
-                                                onClick={() => {
-                                                    if (confirm("Are you sure you want to disconnect LINE?")) {
-                                                        // TODO: Implement disconnect logic
-                                                        alert("Disconnect feature coming soon");
-                                                    }
-                                                }}
+                                                onClick={() => setIsDisconnectConfirmOpen(true)}
                                                 className="px-4 py-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 font-medium text-sm"
                                             >
                                                 Disconnect
@@ -214,6 +212,28 @@ function ProfileContent() {
                     </div>
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={isDisconnectConfirmOpen}
+                onClose={() => setIsDisconnectConfirmOpen(false)}
+                onConfirm={async () => {
+                    // TODO: Implement actual disconnect logic here when API is ready
+                    // For now just show toast as per previous alert
+                    toast("Disconnect feature coming soon", {
+                        icon: '🚧',
+                        style: {
+                            borderRadius: '10px',
+                            background: '#333',
+                            color: '#fff',
+                        },
+                    });
+                    setIsDisconnectConfirmOpen(false);
+                }}
+                title="Disconnect LINE Account"
+                message="Are you sure you want to disconnect your LINE account? You will stop receiving notifications."
+                confirmText="Disconnect"
+                isDangerous={true}
+            />
         </div>
     );
 }

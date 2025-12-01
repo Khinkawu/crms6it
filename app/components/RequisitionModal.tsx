@@ -7,6 +7,7 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from "
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
+import { logActivity } from "../../utils/logger";
 
 interface RequisitionModalProps {
     isOpen: boolean;
@@ -54,22 +55,22 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
 
         // Validation
         if (!formData.room) {
-            setError("Please provide a room/location.");
+            setError("กรุณาระบุห้อง/สถานที่");
             return;
         }
 
         if (!formData.reason) {
-            setError("Please provide a reason for requisition.");
+            setError("กรุณาระบุเหตุผลในการเบิก");
             return;
         }
 
         if (isBulk && (quantity <= 0 || quantity > availableStock)) {
-            setError(`Invalid quantity. Max available: ${availableStock}`);
+            setError(`จำนวนไม่ถูกต้อง มีสินค้าเหลือ: ${availableStock}`);
             return;
         }
 
         if (sigPad.current?.isEmpty()) {
-            setError("Please provide a signature.");
+            setError("กรุณาลงลายมือชื่อ");
             return;
         }
 
@@ -119,7 +120,6 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
             });
 
             // 4. Log Activity
-            const { logActivity } = await import("../../utils/logger");
             await logActivity({
                 action: 'requisition',
                 productName: product.name,
@@ -132,7 +132,7 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
             onClose();
         } catch (err: any) {
             console.error("Error requisitioning item:", err);
-            setError(err.message || "Failed to process requisition.");
+            setError(err.message || "เกิดข้อผิดพลาดในการเบิกอุปกรณ์");
         } finally {
             setLoading(false);
         }
@@ -146,7 +146,7 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
             {/* Modal Content - Clean SaaS Theme */}
             <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-soft-lg overflow-hidden animate-fade-in-up">
                 <div className="p-6">
-                    <h2 className="text-2xl font-bold text-text mb-1">Requisition Item</h2>
+                    <h2 className="text-2xl font-bold text-text mb-1">เบิกอุปกรณ์</h2>
                     <p className="text-text-secondary text-sm mb-6">{product.name}</p>
 
                     {error && (
@@ -159,7 +159,7 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
 
                         {/* Requester Info (Read Only) */}
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Requester</label>
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ผู้เบิก</label>
                             <div className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-text">
                                 {user?.displayName || user?.email}
                             </div>
@@ -168,7 +168,7 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                         {/* Position & Room Grid */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Position</label>
+                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ตำแหน่ง</label>
                                 <select
                                     name="position"
                                     value={formData.position}
@@ -182,7 +182,7 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                                 </select>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Room / Location</label>
+                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ห้อง / สถานที่</label>
                                 <input
                                     type="text"
                                     name="room"
@@ -190,21 +190,21 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                                     onChange={handleInputChange}
                                     required
                                     className="input-field"
-                                    placeholder="e.g. 101"
+                                    placeholder="เช่น 126 , ห้องลีลาวดี"
                                 />
                             </div>
                         </div>
 
                         {/* Reason Field */}
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Reason for Requisition</label>
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">เหตุผลในการเบิก</label>
                             <textarea
                                 name="reason"
                                 value={formData.reason}
                                 onChange={handleInputChange}
                                 required
                                 className="input-field resize-none h-20"
-                                placeholder="e.g. For classroom project..."
+                                placeholder="กรุณากรอกเหตุผลในการเบิก"
                             />
                         </div>
 
@@ -212,7 +212,7 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                         {isBulk && (
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
-                                    Quantity (Max: {availableStock})
+                                    จำนวน (สูงสุด: {availableStock})
                                 </label>
                                 <input
                                     type="number"
@@ -228,13 +228,13 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                         {/* Signature Pad */}
                         <div className="space-y-2">
                             <div className="flex justify-between items-end">
-                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">Signature</label>
+                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ลายเซ็นต์</label>
                                 <button
                                     type="button"
                                     onClick={handleClear}
                                     className="text-xs text-primary-start hover:text-primary-end transition-colors"
                                 >
-                                    Clear
+                                    ล้างลายเซ็นต์
                                 </button>
                             </div>
                             <div className="w-full h-40 bg-white rounded-xl overflow-hidden cursor-crosshair touch-none border-2 border-border focus-within:border-primary-start transition-colors">
@@ -256,14 +256,14 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                                 onClick={onClose}
                                 className="flex-1 btn-secondary"
                             >
-                                Cancel
+                                ยกเลิก
                             </button>
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50"
                             >
-                                {loading ? "Processing..." : "Confirm Requisition"}
+                                {loading ? "กำลังดำเนินการ..." : "ยืนยันการเบิก"}
                             </button>
                         </div>
                     </form>

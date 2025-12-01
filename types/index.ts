@@ -10,7 +10,7 @@ export interface Product {
     location: string;
     imageUrl: string;
     stockId: string; // Unique Asset ID for QR
-    status: 'available' | 'borrowed' | 'requisitioned';
+    status: 'available' | 'borrowed' | 'requisitioned' | 'unavailable' | 'ไม่ว่าง';
     type?: 'unique' | 'bulk'; // Default 'unique'
     quantity?: number; // Total stock for bulk
     borrowedCount?: number; // Currently borrowed count for bulk
@@ -46,6 +46,7 @@ export interface UserProfile {
     displayName: string;
     photoURL?: string;
     role: UserRole;
+    responsibility?: 'junior_high' | 'senior_high' | 'all'; // For technicians
     createdAt?: Timestamp;
 }
 
@@ -58,6 +59,7 @@ export interface RepairTicket {
     position: string;
     phone: string;
     room: string;
+    zone: 'junior_high' | 'senior_high' | 'common'; // Added zone
     description: string;
     images: string[];
     status: RepairStatus;

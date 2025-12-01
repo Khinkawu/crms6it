@@ -16,16 +16,16 @@ export default function Sidebar() {
 
     const allMenuItems = [
         { name: "Dashboard", icon: "grid_view", path: "/", roles: ['user', 'technician', 'admin'] },
-        { name: "Inventory", icon: "inventory_2", path: "/admin/inventory", roles: ['technician', 'admin'] },
-        { name: "Repair System", icon: "build", path: "/admin/repairs", roles: ['technician', 'admin'] },
-        { name: "Users", icon: "group", path: "/admin/users", roles: ['admin'] },
+        { name: "ระบบจัดการอุปกรณ์", icon: "inventory_2", path: "/admin/inventory", roles: ['technician', 'admin'] },
+        { name: "ระบบงานซ่อม", icon: "build", path: "/admin/repairs", roles: ['technician', 'admin'] },
+        { name: "จัดการผู้ใช้", icon: "group", path: "/admin/users", roles: ['admin'] },
     ];
 
     const menuItems = allMenuItems.filter(item => role && item.roles.includes(role));
 
     const upcomingItems = [
-        { name: "My Repairs", icon: "history", path: "/repair" },
-        { name: "Bookings", icon: "event", path: "/booking" },
+        { name: "ระบบแจ้งซ่อม", icon: "history", path: "/repair" },
+        { name: "ระบบจองห้องประชุม", icon: "event", path: "/booking" },
     ];
 
     const isActive = (path: string) => pathname === path;
@@ -128,24 +128,29 @@ export default function Sidebar() {
                         </button>
 
                         {/* User Profile */}
-                        <div className="bg-background rounded-2xl p-3 flex items-center gap-3 hover:bg-border/50 transition-colors cursor-pointer group">
-                            <div className="w-10 h-10 rounded-full bg-card border border-border overflow-hidden">
-                                {user.photoURL ? (
-                                    <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-brand-gradient text-white font-bold">
-                                        {user.displayName?.charAt(0) || user.email?.charAt(0)}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-text truncate">
-                                    {user.displayName || "User"}
-                                </p>
-                                <p className="text-xs text-text-secondary truncate">
-                                    {role || "Member"}
-                                </p>
-                            </div>
+                        <div className="bg-background rounded-2xl p-2 flex items-center gap-2 hover:bg-border/50 transition-colors group">
+                            <Link
+                                href="/profile"
+                                className="flex-1 flex items-center gap-3 p-2 rounded-xl hover:bg-card/50 transition-colors min-w-0"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-card border border-border overflow-hidden flex-shrink-0">
+                                    {user.photoURL ? (
+                                        <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-brand-gradient text-white font-bold">
+                                            {user.displayName?.charAt(0) || user.email?.charAt(0)}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-text truncate">
+                                        {user.displayName || "User"}
+                                    </p>
+                                    <p className="text-xs text-text-secondary truncate">
+                                        {role || "Member"}
+                                    </p>
+                                </div>
+                            </Link>
                             <button
                                 onClick={signOut}
                                 className="p-2 rounded-lg text-text-secondary hover:text-red-500 hover:bg-card transition-all"

@@ -4,6 +4,7 @@ import "./globals.css";
 import ClientLayout from "./components/ClientLayout";
 import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
+import { Toaster } from "react-hot-toast";
 
 const prompt = Prompt({
     subsets: ["latin", "thai"],
@@ -17,6 +18,11 @@ export const metadata: Metadata = {
         default: "CRMS6 IT",
     },
     description: "Audio Visual Department Management System",
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: "default",
+        title: "CRMS6 IT",
+    },
 };
 
 export default function RootLayout({
@@ -32,6 +38,30 @@ export default function RootLayout({
                         <ClientLayout>
                             {children}
                         </ClientLayout>
+                        <Toaster
+                            position="top-center"
+                            toastOptions={{
+                                style: {
+                                    background: 'var(--card)',
+                                    color: 'var(--text)',
+                                    border: '1px solid var(--border)',
+                                    fontFamily: 'var(--font-prompt)',
+                                    borderRadius: '12px',
+                                },
+                                success: {
+                                    iconTheme: {
+                                        primary: '#10b981',
+                                        secondary: 'white',
+                                    },
+                                },
+                                error: {
+                                    iconTheme: {
+                                        primary: '#ef4444',
+                                        secondary: 'white',
+                                    },
+                                },
+                            }}
+                        />
                     </AuthProvider>
                 </ThemeProvider>
             </body>
