@@ -6,6 +6,7 @@ import { db } from "../../lib/firebase";
 import { Product } from "../../types";
 import ConfirmationModal from "./ConfirmationModal";
 import toast from "react-hot-toast";
+import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
 
 interface EditProductModalProps {
     isOpen: boolean;
@@ -103,6 +104,32 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
                 }
             }
 
+            // Detect Status Change for Stats
+            if (product.type !== 'bulk') {
+                // Unique Item
+                // Check if status is being updated
+                if (updates.status && updates.status !== product.status) {
+                    await updateStatsOnStatusChange(product.status!, updates.status);
+                }
+            } else {
+                // Bulk Item
+                // Check if availability status changes based on quantity update
+                // Old availability
+                const oldAvailable = (product.quantity || 0) - (product.borrowedCount || 0) > 0;
+                // New availability
+                const newQty = updates.quantity !== undefined ? updates.quantity : (product.quantity || 0);
+                const newBorrowed = updates.borrowedCount !== undefined ? updates.borrowedCount : (product.borrowedCount || 0);
+                const newAvailable = newQty - newBorrowed > 0;
+
+                if (oldAvailable !== newAvailable) {
+                    if (newAvailable) {
+                        await incrementStats('available');
+                    } else {
+                        await decrementStats('available');
+                    }
+                }
+            }
+
             await updateDoc(productRef, updates);
 
             // Log Activity
@@ -136,12 +163,28 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
             // Log Activity
             const { logActivity } = await import("@/utils/logger");
             await logActivity({
-                action: 'update',
+                action: 'delete', // Changed from 'update' to 'delete'
                 productName: product.name,
                 userName: "Admin",
                 details: `Deleted product: ${product.name}`,
                 imageUrl: product.imageUrl
             });
+
+            // Update Stats
+            await decrementStats('total');
+            if (product.type === 'bulk') {
+                // For bulk, if we delete the whole product, we lose all its quantity from "available" (assuming it was available)
+                // But wait, "available" count in Dashboard for bulk is: (quantity - borrowedCount) > 0 ? +1 : 0
+                // So if it was contributing +1 to available, we decrement it.
+                const isAvailable = (product.quantity || 0) - (product.borrowedCount || 0) > 0;
+                if (isAvailable) await decrementStats('available');
+
+                // If it was contributing to borrowed? (borrowedCount > 0)
+                if ((product.borrowedCount || 0) > 0) await decrementStats('borrowed');
+            } else {
+                // Unique
+                if (product.status) await decrementStats(product.status);
+            }
 
             toast.success("ลบสินค้าเรียบร้อยแล้ว");
             onSuccess();

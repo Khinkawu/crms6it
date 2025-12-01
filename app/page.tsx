@@ -3,10 +3,9 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { collection, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
+import { collection, query, onSnapshot, orderBy, limit, doc } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { Product } from "../types";
-import { LogAction } from "../utils/logger";
+import { LogAction } from "../types";
 
 interface ActivityLog {
     id: string;
@@ -32,39 +31,23 @@ export default function Dashboard() {
     useEffect(() => {
         if (!loading && !user) {
             router.push("/login");
+            return;
         }
-    }, [user, loading, router]);
 
-    useEffect(() => {
         if (!user) return;
 
-        // Inventory Stats
-        const q = query(collection(db, "products"));
-        const unsubInventory = onSnapshot(q, (snapshot) => {
-            let total = 0;
-            let available = 0;
-            let borrowed = 0;
-
-            snapshot.forEach((doc) => {
-                const data = doc.data() as Product;
-                total++;
-                const isBulk = data.type === 'bulk';
-                if (isBulk) {
-                    if ((data.quantity || 0) - (data.borrowedCount || 0) > 0) available++;
-                    if ((data.borrowedCount || 0) > 0) borrowed++;
-                } else {
-                    if (data.status === 'available') available++;
-                    if (data.status === 'borrowed') borrowed++;
-                }
-            });
-
-            setStats(prev => ({ ...prev, total, available, borrowed }));
-        });
-
-        // Repair Stats
-        const repairQ = query(collection(db, "repair_tickets"), where("status", "!=", "completed"));
-        const unsubRepairs = onSnapshot(repairQ, (snapshot) => {
-            setStats(prev => ({ ...prev, repairs: snapshot.size }));
+        // Inventory Stats (Optimized)
+        const unsubInventory = onSnapshot(doc(db, "stats", "inventory"), (doc) => {
+            if (doc.exists()) {
+                const data = doc.data();
+                setStats(prev => ({
+                    ...prev,
+                    total: data.total || 0,
+                    available: data.available || 0,
+                    borrowed: data.borrowed || 0,
+                    repairs: data.maintenance || 0
+                }));
+            }
         });
 
         // Recent Activity (All Logs)
@@ -79,10 +62,9 @@ export default function Dashboard() {
 
         return () => {
             unsubInventory();
-            unsubRepairs();
             unsubActivity();
         };
-    }, [user]);
+    }, [user, loading, router]);
 
     if (loading || !user) return null;
 
@@ -98,6 +80,7 @@ export default function Dashboard() {
         { name: "สแกน QR", icon: "📷", path: "/scan", role: ['admin', 'technician', 'user'] },
         { name: "แจ้งซ่อม", icon: "⚠️", path: "/repair", role: ['admin', 'technician', 'user'] },
         { name: "โปรไฟล์", icon: "👤", path: "/profile", role: ['admin', 'technician', 'user'] },
+        { name: "รีเซ็ตค่าสถิติ", icon: "🔄", path: "/admin/init-stats", role: ['admin'] },
     ];
 
     const getActionStyle = (action: LogAction) => {
@@ -145,13 +128,6 @@ export default function Dashboard() {
                             {today}
                         </p>
                     </div>
-                    {/* <div className="bg-white/20 backdrop-blur-md rounded-xl p-3 px-5 border border-white/30">
-                        <p className="text-sm font-medium opacity-90">สถานะระบบ</p>
-                        <div className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
-                            <span className="font-bold">ปกติ</span>
-                        </div>
-                    </div> */}
                 </div>
 
                 {/* Decorative Circles */}

@@ -8,6 +8,7 @@ import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import QRCode from "react-qr-code";
 import { Product } from "../../../types";
+import { incrementStats } from "../../../utils/aggregation";
 
 const AddProductPage = () => {
     const { user, loading: authLoading } = useAuth();
@@ -141,6 +142,10 @@ const AddProductPage = () => {
 
             setNewProductId(docRef.id);
             setSuccess(true);
+
+            // Update Stats
+            await incrementStats('total');
+            await incrementStats('available');
 
             // Clear form
             setFormData({

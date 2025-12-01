@@ -7,7 +7,9 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from "
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 import { logActivity } from "../../utils/logger";
+import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
 
 interface BorrowModalProps {
     isOpen: boolean;
@@ -109,27 +111,41 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                     await updateDoc(productRef, {
                         borrowedCount: increment(1)
                     });
+
+                    // Update Stats for Bulk
+                    const oldBorrowed = product.borrowedCount || 0;
+                    const totalQty = product.quantity || 0;
+
+                    // If first item borrowed, increment 'borrowed' stat (counting SKUs with borrowed items)
+                    if (oldBorrowed === 0) {
+                        await incrementStats('borrowed');
+                    }
+
+                    // If it becomes unavailable (stock runs out)
+                    const oldAvailable = totalQty - oldBorrowed > 0;
+                    const newAvailable = totalQty - (oldBorrowed + 1) > 0;
+
+                    if (oldAvailable && !newAvailable) {
+                        await decrementStats('available');
+                    }
+
                 } else {
                     await updateDoc(productRef, {
-                        status: "ไม่ว่าง",
+                        status: "ไม่ว่าง", // borrowed
                     });
+
+                    // Update Stats for Unique
+                    // Assumes it was available before (since we can borrow it)
+                    await updateStatsOnStatusChange('available', 'borrowed');
                 }
             }
 
-            // 4. Log Activity
-            await logActivity({
-                action: 'borrow',
-                productName: product.name,
-                userName: user?.displayName || user?.email || "Unknown",
-                imageUrl: product.imageUrl
-            });
-
+            toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
             onSuccess();
             onClose();
-
-        } catch (err: any) {
-            console.error("Error processing borrow:", err);
-            setError("เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่อีกครั้ง");
+        } catch (error) {
+            console.error("Error borrowing product:", error);
+            setError("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
         } finally {
             setLoading(false);
         }

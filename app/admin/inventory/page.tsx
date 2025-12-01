@@ -1,13 +1,12 @@
 "use client";
-// Force HMR Update
 
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, where, getDocs } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, getDocs, where, increment } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "../../../lib/firebase";
-import { Product, ProductStatus } from "../../../types";
+import { Product, ProductStatus, ActivityLog } from "../../../types";
 import { logActivity } from "../../../utils/logger";
 import toast from "react-hot-toast";
 import Image from "next/image";
@@ -16,6 +15,7 @@ import ConfirmationModal from "../../components/ConfirmationModal";
 import BorrowModal from "../../components/BorrowModal";
 import RequisitionModal from "../../components/RequisitionModal";
 import EditProductModal from "../../components/EditProductModal";
+import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../../utils/aggregation";
 
 export default function InventoryDashboard() {
     const { user, role, loading } = useAuth();
@@ -69,12 +69,42 @@ export default function InventoryDashboard() {
 
         try {
             const productRef = doc(db, "products", selectedProduct.id);
+            const isBulk = selectedProduct.type === 'bulk';
 
-            // Update status to available
-            await updateDoc(productRef, {
-                status: 'available',
-                updatedAt: serverTimestamp()
-            });
+            if (isBulk) {
+                // Bulk Item Logic
+                await updateDoc(productRef, {
+                    borrowedCount: increment(-1),
+                    updatedAt: serverTimestamp()
+                });
+
+                // Update Stats for Bulk
+                const currentBorrowed = selectedProduct.borrowedCount || 0;
+                const totalQty = selectedProduct.quantity || 0;
+
+                // If borrowed count goes to 0, decrement 'borrowed' stat
+                if (currentBorrowed === 1) {
+                    await decrementStats('borrowed');
+                }
+
+                // If it becomes available (was out of stock)
+                const wasAvailable = totalQty - currentBorrowed > 0;
+                const willBeAvailable = totalQty - (currentBorrowed - 1) > 0;
+
+                if (!wasAvailable && willBeAvailable) {
+                    await incrementStats('available');
+                }
+
+            } else {
+                // Unique Item Logic
+                await updateDoc(productRef, {
+                    status: 'available',
+                    updatedAt: serverTimestamp()
+                });
+
+                // Update Stats
+                await updateStatsOnStatusChange('borrowed', 'available');
+            }
 
             // Log activity
             await logActivity({
@@ -219,12 +249,7 @@ export default function InventoryDashboard() {
         return matchesFilter && matchesSearch;
     });
 
-    const stats = {
-        total: products.length,
-        available: products.filter(p => p.status === 'available').length,
-        borrowed: products.filter(p => p.status === 'borrowed').length,
-        maintenance: products.filter(p => p.status === 'maintenance').length
-    };
+
 
     if (loading || !user || role !== 'admin') return null;
 
@@ -273,45 +298,7 @@ export default function InventoryDashboard() {
 
 
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
-                        <div className="w-14 h-14 rounded-2xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center text-2xl shadow-sm text-gray-500">
-                            📦
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-text-secondary">ทั้งหมด</p>
-                            <p className="text-3xl font-bold text-text">{stats.total}</p>
-                        </div>
-                    </div>
-                    <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-2xl shadow-sm text-emerald-500">
-                            ✅
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-text-secondary">พร้อมใช้งาน</p>
-                            <p className="text-3xl font-bold text-text">{stats.available}</p>
-                        </div>
-                    </div>
-                    <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
-                        <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-2xl shadow-sm text-amber-500">
-                            ⏳
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-text-secondary">ถูกยืม</p>
-                            <p className="text-3xl font-bold text-text">{stats.borrowed}</p>
-                        </div>
-                    </div>
-                    <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
-                        <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-2xl shadow-sm text-red-500">
-                            🔧
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-text-secondary">ส่งซ่อม</p>
-                            <p className="text-3xl font-bold text-text">{stats.maintenance}</p>
-                        </div>
-                    </div>
-                </div>
+
 
                 {/* Control Bar */}
                 <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-card border border-border p-4 rounded-2xl shadow-sm">
@@ -460,7 +447,7 @@ export default function InventoryDashboard() {
                                                 </>
                                             )}
 
-                                            {product.status === 'borrowed' && (
+                                            {(product.status === 'borrowed' || (product.type === 'bulk' && (product.borrowedCount || 0) > 0)) && (
                                                 <button
                                                     onClick={() => handleAction('return', product)}
                                                     className="col-span-2 px-3 py-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg text-sm font-bold transition-colors"
@@ -553,7 +540,7 @@ export default function InventoryDashboard() {
                                                                 </button>
                                                             </>
                                                         )}
-                                                        {product.status === 'borrowed' && (
+                                                        {(product.status === 'borrowed' || (product.type === 'bulk' && (product.borrowedCount || 0) > 0)) && (
                                                             <button
                                                                 onClick={() => handleAction('return', product)}
                                                                 className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"

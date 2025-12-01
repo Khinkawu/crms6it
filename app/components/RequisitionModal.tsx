@@ -8,6 +8,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import { logActivity } from "../../utils/logger";
+import { decrementStats } from "../../utils/aggregation";
 
 interface RequisitionModalProps {
     isOpen: boolean;
@@ -127,6 +128,30 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                 details: `${isBulk ? `Qty: ${quantity}` : ''} Reason: ${formData.reason}`,
                 imageUrl: product.imageUrl
             });
+
+            // 5. Update Stats
+            if (isBulk) {
+                // Bulk Logic
+                const currentQty = product.quantity || 0;
+                const borrowedCount = product.borrowedCount || 0;
+                const availableBefore = currentQty - borrowedCount;
+                const availableAfter = availableBefore - quantity;
+
+                // If it was available (>0) and now is NOT available (<=0) -> -1 Available
+                if (availableBefore > 0 && availableAfter <= 0) {
+                    await decrementStats('available');
+                }
+                // Note: Requisition doesn't affect 'borrowed' count directly unless we return borrowed items? 
+                // But here we are requisitioning from stock.
+            } else {
+                // Unique Logic
+                // If it was available, now it's requisitioned (not available)
+                if (product.status === 'available') {
+                    await decrementStats('available');
+                }
+                // If it was borrowed? RequisitionModal usually assumes available items?
+                // The modal check `availableStock` at top.
+            }
 
             onSuccess();
             onClose();

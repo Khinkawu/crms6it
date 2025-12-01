@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { LogAction } from "../../utils/logger";
+import { LogAction } from "../../types";
 
 interface LogActivity {
     id: string;
