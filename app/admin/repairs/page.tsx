@@ -11,6 +11,10 @@ import { RepairTicket, RepairStatus, Product } from "../../../types";
 import { logActivity } from "../../../utils/logger";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toast from "react-hot-toast";
+import {
+    ClipboardList, Clock, Settings, CheckCircle2, Search,
+    Wrench, User, Calendar, X, LayoutGrid, List
+} from "lucide-react";
 
 export default function RepairDashboard() {
     const { user, role, loading } = useAuth();
@@ -258,7 +262,7 @@ export default function RepairDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
                         <div className="w-14 h-14 rounded-2xl bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center text-2xl shadow-sm text-gray-500">
-                            📋
+                            <ClipboardList size={28} />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-text-secondary">ทั้งหมด</p>
@@ -267,7 +271,7 @@ export default function RepairDashboard() {
                     </div>
                     <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
                         <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-2xl shadow-sm text-amber-500">
-                            ⏳
+                            <Clock size={28} />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-text-secondary">รอดำเนินการ</p>
@@ -276,7 +280,7 @@ export default function RepairDashboard() {
                     </div>
                     <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
                         <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-2xl shadow-sm text-blue-500">
-                            ⚙️
+                            <Settings size={28} />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-text-secondary">กำลังดำเนินการ</p>
@@ -285,7 +289,7 @@ export default function RepairDashboard() {
                     </div>
                     <div className="bg-card border border-border rounded-2xl p-6 flex items-center gap-4 shadow-sm">
                         <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-2xl shadow-sm text-emerald-500">
-                            ✅
+                            <CheckCircle2 size={28} />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-text-secondary">เสร็จสิ้น</p>
@@ -306,7 +310,9 @@ export default function RepairDashboard() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50 transition-all"
                     />
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">🔍</div>
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">
+                        <Search size={20} />
+                    </div>
                 </div>
 
                 {/* Filters & Toggle */}
@@ -338,13 +344,13 @@ export default function RepairDashboard() {
                             onClick={() => setViewMode('grid')}
                             className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-cyan-600' : 'text-text-secondary hover:text-text'}`}
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                            <LayoutGrid size={20} />
                         </button>
                         <button
                             onClick={() => setViewMode('list')}
                             className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-cyan-600' : 'text-text-secondary hover:text-text'}`}
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                            <List size={20} />
                         </button>
                     </div>
                 </div>
@@ -369,12 +375,18 @@ export default function RepairDashboard() {
                                             <img src={ticket.images[0]} alt="Thumbnail" className="w-full h-full object-cover" />
                                         </div>
                                     ) : (
-                                        <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-background border border-border flex items-center justify-center text-2xl">🔧</div>
+                                        <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-background border border-border flex items-center justify-center text-text-secondary">
+                                            <Wrench size={24} />
+                                        </div>
                                     )}
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-text font-medium line-clamp-2 mb-1">{ticket.description}</p>
-                                        <p className="text-xs text-text-secondary truncate">👤 {ticket.requesterName}</p>
-                                        <p className="text-xs text-text-secondary truncate">📅 {ticket.createdAt?.toDate().toLocaleDateString('th-TH')}</p>
+                                        <p className="text-xs text-text-secondary truncate flex items-center gap-1">
+                                            <User size={12} /> {ticket.requesterName}
+                                        </p>
+                                        <p className="text-xs text-text-secondary truncate flex items-center gap-1">
+                                            <Calendar size={12} /> {ticket.createdAt?.toDate().toLocaleDateString('th-TH')}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -445,7 +457,9 @@ export default function RepairDashboard() {
                         <div className="p-6 space-y-6">
                             <div className="flex justify-between items-start">
                                 <h2 className="text-2xl font-bold text-text">จัดการใบแจ้งซ่อม</h2>
-                                <button onClick={() => setIsModalOpen(false)} className="text-text-secondary hover:text-text">✕</button>
+                                <button onClick={() => setIsModalOpen(false)} className="text-text-secondary hover:text-text">
+                                    <X size={24} />
+                                </button>
                             </div>
 
                             {/* Ticket Info */}

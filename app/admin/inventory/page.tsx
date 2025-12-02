@@ -16,6 +16,10 @@ import BorrowModal from "../../components/BorrowModal";
 import RequisitionModal from "../../components/RequisitionModal";
 import EditProductModal from "../../components/EditProductModal";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../../utils/aggregation";
+import {
+    Download, Upload, RotateCcw, Edit, Package,
+    LayoutGrid, List, Check, Search, History, Printer, Plus
+} from "lucide-react";
 
 export default function InventoryDashboard() {
     const { user, role, loading } = useAuth();
@@ -269,13 +273,13 @@ export default function InventoryDashboard() {
                                 onClick={() => handleOpenLogModal('activity')}
                                 className="px-4 py-2 bg-white dark:bg-card border border-border text-text font-bold rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
                             >
-                                📜 ประวัติการใช้งาน
+                                <History size={20} /> ประวัติการใช้งาน
                             </button>
                             <button
                                 onClick={toggleSelectionMode}
                                 className={`px-4 py-2 border font-bold rounded-xl shadow-sm flex items-center gap-2 transition-all ${isSelectionMode ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-white dark:bg-card border-border text-text hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                             >
-                                🖨️ {isSelectionMode ? 'ยกเลิกเลือก' : 'พิมพ์ QR Code'}
+                                <Printer size={20} /> {isSelectionMode ? 'ยกเลิกเลือก' : 'พิมพ์ QR Code'}
                             </button>
                             {isSelectionMode && (
                                 <button
@@ -290,7 +294,7 @@ export default function InventoryDashboard() {
                                 onClick={() => router.push('/admin/add-product')}
                                 className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/20 flex items-center gap-2"
                             >
-                                ➕ เพิ่มรายการใหม่
+                                <Plus size={20} /> เพิ่มรายการใหม่
                             </button>
                         </div>
                     </div>
@@ -311,7 +315,9 @@ export default function InventoryDashboard() {
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50 transition-all"
                         />
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">🔍</div>
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">
+                            <Search size={20} />
+                        </div>
                     </div>
 
                     {/* Filters & Toggle */}
@@ -343,14 +349,14 @@ export default function InventoryDashboard() {
                                 className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-card shadow-sm text-cyan-600' : 'text-text-secondary hover:text-text'}`}
                                 title="Grid View"
                             >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                                <LayoutGrid size={20} />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
                                 className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-card shadow-sm text-cyan-600' : 'text-text-secondary hover:text-text'}`}
                                 title="List View"
                             >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                                <List size={20} />
                             </button>
                         </div>
                     </div>
@@ -378,7 +384,9 @@ export default function InventoryDashboard() {
                                                 className="w-full h-full object-cover"
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-4xl">📦</div>
+                                            <div className="w-full h-full flex items-center justify-center text-text-secondary">
+                                                <Package size={48} />
+                                            </div>
                                         )}
 
                                         {/* Status Badge */}
@@ -402,9 +410,7 @@ export default function InventoryDashboard() {
                                                     : 'bg-white/90 border-gray-300'
                                                     }`}>
                                                     {selectedProductIds.has(product.id!) && (
-                                                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                                        </svg>
+                                                        <Check size={16} className="text-white" />
                                                     )}
                                                 </div>
                                             </div>
@@ -434,15 +440,15 @@ export default function InventoryDashboard() {
                                                 <>
                                                     <button
                                                         onClick={() => handleAction('borrow', product)}
-                                                        className="px-3 py-1.5 bg-cyan-50 text-cyan-600 hover:bg-cyan-100 rounded-lg text-sm font-bold transition-colors"
+                                                        className="px-3 py-1.5 bg-cyan-50 text-cyan-600 hover:bg-cyan-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                                     >
-                                                        ยืม
+                                                        <Download size={16} /> ยืม
                                                     </button>
                                                     <button
                                                         onClick={() => handleAction('requisition', product)}
-                                                        className="px-3 py-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg text-sm font-bold transition-colors"
+                                                        className="px-3 py-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                                     >
-                                                        เบิก
+                                                        <Upload size={16} /> เบิก
                                                     </button>
                                                 </>
                                             )}
@@ -450,18 +456,17 @@ export default function InventoryDashboard() {
                                             {(product.status === 'borrowed' || (product.type === 'bulk' && (product.borrowedCount || 0) > 0)) && (
                                                 <button
                                                     onClick={() => handleAction('return', product)}
-                                                    className="col-span-2 px-3 py-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg text-sm font-bold transition-colors"
+                                                    className="px-3 py-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                                 >
-                                                    คืน
+                                                    <RotateCcw size={16} /> คืน
                                                 </button>
                                             )}
 
                                             <button
                                                 onClick={() => handleAction('edit', product)}
-                                                className={`px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-bold transition-colors ${(product.status !== 'available' && product.status !== 'borrowed' && product.type !== 'bulk') ? 'col-span-2' : ''
-                                                    }`}
+                                                className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                             >
-                                                แก้ไข
+                                                <Edit size={16} /> แก้ไข
                                             </button>
                                         </div>
                                     </div>
@@ -490,7 +495,9 @@ export default function InventoryDashboard() {
                                                         {product.imageUrl ? (
                                                             <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-lg">📦</div>
+                                                            <div className="w-full h-full flex items-center justify-center text-text-secondary">
+                                                                <Package size={20} />
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </td>
@@ -529,14 +536,14 @@ export default function InventoryDashboard() {
                                                                     className="p-1.5 text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
                                                                     title="ยืม"
                                                                 >
-                                                                    📥
+                                                                    <Download size={16} />
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleAction('requisition', product)}
                                                                     className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                                                                     title="เบิก"
                                                                 >
-                                                                    📤
+                                                                    <Upload size={16} />
                                                                 </button>
                                                             </>
                                                         )}
@@ -546,7 +553,7 @@ export default function InventoryDashboard() {
                                                                 className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                                                                 title="คืน"
                                                             >
-                                                                ↩️
+                                                                <RotateCcw size={16} />
                                                             </button>
                                                         )}
                                                         <button
@@ -554,7 +561,7 @@ export default function InventoryDashboard() {
                                                             className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                                                             title="แก้ไข"
                                                         >
-                                                            ✏️
+                                                            <Edit size={16} />
                                                         </button>
                                                     </div>
                                                 </td>

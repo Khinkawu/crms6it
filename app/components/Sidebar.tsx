@@ -6,6 +6,11 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
+import {
+    LayoutDashboard, Package, Wrench, Users,
+    History, Calendar, Sun, Moon, LogOut,
+    Menu, X, QrCode
+} from "lucide-react";
 
 export default function Sidebar() {
     const { user, role, signOut } = useAuth();
@@ -16,17 +21,17 @@ export default function Sidebar() {
     if (!user) return null;
 
     const allMenuItems = [
-        { name: "Dashboard", icon: "grid_view", path: "/", roles: ['user', 'technician', 'admin'] },
-        { name: "ระบบจัดการอุปกรณ์", icon: "inventory_2", path: "/admin/inventory", roles: ['technician', 'admin'] },
-        { name: "ระบบงานซ่อม", icon: "build", path: "/admin/repairs", roles: ['technician', 'admin'] },
-        { name: "จัดการผู้ใช้", icon: "group", path: "/admin/users", roles: ['admin'] },
+        { name: "Dashboard", icon: <LayoutDashboard size={20} />, path: "/", roles: ['user', 'technician', 'admin'] },
+        { name: "ระบบจัดการอุปกรณ์", icon: <Package size={20} />, path: "/admin/inventory", roles: ['technician', 'admin'] },
+        { name: "ระบบงานซ่อม", icon: <Wrench size={20} />, path: "/admin/repairs", roles: ['technician', 'admin'] },
+        { name: "จัดการผู้ใช้", icon: <Users size={20} />, path: "/admin/users", roles: ['admin'] },
     ];
 
     const menuItems = allMenuItems.filter(item => role && item.roles.includes(role));
 
     const upcomingItems = [
-        { name: "ระบบแจ้งซ่อม", icon: "history", path: "/repair" },
-        { name: "ระบบจองห้องประชุม", icon: "event", path: "/booking" },
+        { name: "ระบบแจ้งซ่อม", icon: <History size={20} />, path: "/repair" },
+        { name: "ระบบจองห้องประชุม", icon: <Calendar size={20} />, path: "/booking" },
     ];
 
     const isActive = (path: string) => pathname === path;
@@ -38,7 +43,7 @@ export default function Sidebar() {
                 onClick={() => setIsMobileOpen(!isMobileOpen)}
                 className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-border text-text shadow-sm"
             >
-                {isMobileOpen ? "✕" : "☰"}
+                {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
 
             {/* Sidebar Container */}
@@ -81,12 +86,7 @@ export default function Sidebar() {
                                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-brand-gradient rounded-r-full"></div>
                                 )}
                                 <span className={`text-lg ${isActive(item.path) ? "opacity-100" : "opacity-70 group-hover:opacity-100"}`}>
-                                    {/* Icons mapped to emojis for now, can be replaced with SVGs */}
-                                    {item.icon === "grid_view" && "📊"}
-                                    {item.icon === "inventory_2" && "📦"}
-                                    {item.icon === "build" && "🔧"}
-                                    {item.icon === "group" && "👥"}
-                                    {item.icon === "qr_code_scanner" && "📷"}
+                                    {item.icon}
                                 </span>
                                 <span>{item.name}</span>
                             </Link>
@@ -123,8 +123,7 @@ export default function Sidebar() {
                                 `}
                             >
                                 <span className="text-lg opacity-70 group-hover:opacity-100">
-                                    {item.icon === "history" && "📝"}
-                                    {item.icon === "event" && "📅"}
+                                    {item.icon}
                                 </span>
                                 <span>{item.name}</span>
                             </Link>
@@ -139,7 +138,9 @@ export default function Sidebar() {
                             className="w-full flex items-center justify-between px-4 py-2 rounded-xl text-text-secondary hover:bg-background hover:text-text transition-colors"
                         >
                             <span className="text-sm font-medium">Theme</span>
-                            <span className="text-lg">{theme === 'light' ? '☀️' : '🌙'}</span>
+                            <span className="text-lg">
+                                {theme === 'light' ? <Sun size={20} /> : <Moon size={20} />}
+                            </span>
                         </button>
 
                         {/* User Profile */}
@@ -171,9 +172,7 @@ export default function Sidebar() {
                                 className="p-2 rounded-lg text-text-secondary hover:text-red-500 hover:bg-card transition-all"
                                 title="Log Out"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-                                </svg>
+                                <LogOut size={20} />
                             </button>
                         </div>
                     </div>

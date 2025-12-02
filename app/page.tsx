@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import { collection, query, onSnapshot, orderBy, limit, doc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { LogAction } from "../types";
+import {
+    Package, CheckCircle, Clock, Wrench,
+    Plus, Camera, AlertTriangle, User, RefreshCw,
+    Zap, Lightbulb, FileText, Edit, Trash2, PlusCircle
+} from "lucide-react";
 
 interface ActivityLog {
     id: string;
@@ -69,31 +74,31 @@ export default function Dashboard() {
     if (loading || !user) return null;
 
     const statCards = [
-        { title: "อุปกรณ์ทั้งหมด", value: stats.total, icon: "📦", color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
-        { title: "พร้อมใช้งาน", value: stats.available, icon: "✅", color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-        { title: "ถูกยืม", value: stats.borrowed, icon: "⏳", color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-900/20" },
-        { title: "แจ้งซ่อม", value: stats.repairs, icon: "🔧", color: "text-red-500", bg: "bg-red-50 dark:bg-red-900/20" },
+        { title: "อุปกรณ์ทั้งหมด", value: stats.total, icon: <Package size={24} />, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
+        { title: "พร้อมใช้งาน", value: stats.available, icon: <CheckCircle size={24} />, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
+        { title: "ถูกยืม", value: stats.borrowed, icon: <Clock size={24} />, color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-900/20" },
+        { title: "แจ้งซ่อม", value: stats.repairs, icon: <Wrench size={24} />, color: "text-red-500", bg: "bg-red-50 dark:bg-red-900/20" },
     ];
 
     const quickActions = [
-        { name: "เพิ่มอุปกรณ์", icon: "➕", path: "/admin/inventory", role: ['admin'] },
-        { name: "สแกน QR", icon: "📷", path: "/scan", role: ['admin', 'technician', 'user'] },
-        { name: "แจ้งซ่อม", icon: "⚠️", path: "/repair", role: ['admin', 'technician', 'user'] },
-        { name: "โปรไฟล์", icon: "👤", path: "/profile", role: ['admin', 'technician', 'user'] },
-        { name: "รีเซ็ตค่าสถิติ", icon: "🔄", path: "/admin/init-stats", role: ['admin'] },
+        { name: "เพิ่มอุปกรณ์", icon: <Plus size={24} />, path: "/admin/inventory", role: ['admin'] },
+        { name: "สแกน QR", icon: <Camera size={24} />, path: "/scan", role: ['admin', 'technician', 'user'] },
+        { name: "แจ้งซ่อม", icon: <AlertTriangle size={24} />, path: "/repair", role: ['admin', 'technician', 'user'] },
+        { name: "โปรไฟล์", icon: <User size={24} />, path: "/profile", role: ['admin', 'technician', 'user'] },
+        { name: "รีเซ็ตค่าสถิติ", icon: <RefreshCw size={24} />, path: "/admin/init-stats", role: ['admin'] },
     ];
 
     const getActionStyle = (action: LogAction) => {
         switch (action) {
-            case 'borrow': return { icon: '⏳', label: 'ยืมอุปกรณ์', color: 'text-orange-600', bg: 'bg-orange-100' };
-            case 'return': return { icon: '✅', label: 'คืนอุปกรณ์', color: 'text-emerald-600', bg: 'bg-emerald-100' };
-            case 'requisition': return { icon: '📦', label: 'เบิกอุปกรณ์', color: 'text-purple-600', bg: 'bg-purple-100' };
-            case 'repair': return { icon: '🔧', label: 'แจ้งซ่อม', color: 'text-red-600', bg: 'bg-red-100' };
+            case 'borrow': return { icon: <Clock size={18} />, label: 'ยืมอุปกรณ์', color: 'text-orange-600', bg: 'bg-orange-100' };
+            case 'return': return { icon: <CheckCircle size={18} />, label: 'คืนอุปกรณ์', color: 'text-emerald-600', bg: 'bg-emerald-100' };
+            case 'requisition': return { icon: <Package size={18} />, label: 'เบิกอุปกรณ์', color: 'text-purple-600', bg: 'bg-purple-100' };
+            case 'repair': return { icon: <Wrench size={18} />, label: 'แจ้งซ่อม', color: 'text-red-600', bg: 'bg-red-100' };
             case 'add':
-            case 'create': return { icon: '✨', label: 'เพิ่มอุปกรณ์ใหม่', color: 'text-blue-600', bg: 'bg-blue-100' };
-            case 'update': return { icon: '✏️', label: 'แก้ไขข้อมูล', color: 'text-amber-600', bg: 'bg-amber-100' };
-            case 'delete': return { icon: '🗑️', label: 'ลบอุปกรณ์', color: 'text-gray-600', bg: 'bg-gray-100' };
-            default: return { icon: '📝', label: 'กิจกรรม', color: 'text-gray-600', bg: 'bg-gray-100' };
+            case 'create': return { icon: <PlusCircle size={18} />, label: 'เพิ่มอุปกรณ์ใหม่', color: 'text-blue-600', bg: 'bg-blue-100' };
+            case 'update': return { icon: <Edit size={18} />, label: 'แก้ไขข้อมูล', color: 'text-amber-600', bg: 'bg-amber-100' };
+            case 'delete': return { icon: <Trash2 size={18} />, label: 'ลบอุปกรณ์', color: 'text-gray-600', bg: 'bg-gray-100' };
+            default: return { icon: <FileText size={18} />, label: 'กิจกรรม', color: 'text-gray-600', bg: 'bg-gray-100' };
         }
     };
 
@@ -139,7 +144,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {statCards.map((stat, index) => (
                     <div key={index} className="bg-card border border-border rounded-2xl p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-all">
-                        <div className={`w-12 h-12 rounded-xl ${stat.bg} flex items-center justify-center text-2xl shadow-sm`}>
+                        <div className={`w-12 h-12 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center shadow-sm`}>
                             {stat.icon}
                         </div>
                         <div>
@@ -156,7 +161,7 @@ export default function Dashboard() {
                     {/* Quick Actions */}
                     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
                         <h2 className="text-lg font-bold text-text mb-4 flex items-center gap-2">
-                            <span>⚡</span> เมนูด่วน
+                            <Zap className="w-5 h-5 text-amber-500" /> เมนูด่วน
                         </h2>
                         <div className="grid grid-cols-2 gap-3">
                             {quickActions.filter(action => !role || action.role.includes(role)).map((action, index) => (
@@ -165,7 +170,7 @@ export default function Dashboard() {
                                     onClick={() => router.push(action.path)}
                                     className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-input-bg border border-transparent hover:border-primary-start/30 hover:bg-primary-start/5 transition-all group"
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-600 group-hover:text-primary-start group-hover:scale-110 transition-all">
                                         {action.icon}
                                     </div>
                                     <span className="text-sm font-medium text-text group-hover:text-primary-start transition-colors">
@@ -179,12 +184,16 @@ export default function Dashboard() {
                     {/* Tips or Announcement could go here */}
                     <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
                         <div className="relative z-10">
-                            <h3 className="font-bold text-lg mb-2">💡 ทริกการใช้งาน</h3>
+                            <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
+                                <Lightbulb className="w-5 h-5" /> ทริกการใช้งาน
+                            </h3>
                             <p className="text-white/90 text-sm leading-relaxed">
                                 คุณสามารถเชื่อมต่อ Line ได้ที่หน้า Profile เพื่อให้ได้รับข้อมูลแจ้งเตือนอัตโนมัติ
                             </p>
                         </div>
-                        <div className="absolute -bottom-4 -right-4 text-9xl opacity-10">📱</div>
+                        <div className="absolute -bottom-4 -right-4 opacity-10">
+                            <Zap size={100} />
+                        </div>
                     </div>
                 </div>
 
@@ -193,7 +202,7 @@ export default function Dashboard() {
                     <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col h-full max-h-[600px]">
                         <div className="p-6 border-b border-border flex justify-between items-center bg-gray-50/50">
                             <h2 className="text-lg font-bold text-text flex items-center gap-2">
-                                <span>🕒</span> กิจกรรมล่าสุด
+                                <Clock className="w-5 h-5 text-blue-500" /> กิจกรรมล่าสุด
                             </h2>
                             <span className="text-xs font-medium px-2 py-1 rounded-full bg-input-bg text-text-secondary">
                                 {recentActivity.length} รายการ
@@ -208,7 +217,7 @@ export default function Dashboard() {
                                         return (
                                             <div key={act.id} className="p-4 hover:bg-gray-50/50 transition-colors flex gap-4 items-start group">
                                                 {/* Icon */}
-                                                <div className={`w-10 h-10 rounded-full ${style.bg} ${style.color} flex-shrink-0 flex items-center justify-center text-lg shadow-sm mt-1`}>
+                                                <div className={`w-10 h-10 rounded-full ${style.bg} ${style.color} flex-shrink-0 flex items-center justify-center shadow-sm mt-1`}>
                                                     {style.icon}
                                                 </div>
 
@@ -246,7 +255,9 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
-                                    <div className="text-4xl mb-3 opacity-20">📝</div>
+                                    <div className="mb-3 opacity-20">
+                                        <FileText size={48} />
+                                    </div>
                                     <p>ยังไม่มีกิจกรรมล่าสุด</p>
                                 </div>
                             )}
