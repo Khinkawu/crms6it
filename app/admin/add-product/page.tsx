@@ -133,6 +133,7 @@ const AddProductPage = () => {
                 stockId: "", // Will update after getting doc ID
                 status: "available",
                 createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now(),
                 type: isBulk ? 'bulk' : 'unique',
                 quantity: isBulk ? parseInt(formData.quantity) : 1,
                 borrowedCount: 0,

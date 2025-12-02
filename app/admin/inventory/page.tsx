@@ -290,6 +290,7 @@ export default function InventoryDashboard() {
                                     พิมพ์ ({selectedProductIds.size})
                                 </button>
                             )}
+
                             <button
                                 onClick={() => router.push('/admin/add-product')}
                                 className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/20 flex items-center gap-2"

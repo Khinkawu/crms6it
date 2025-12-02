@@ -128,7 +128,8 @@ export default function RepairPage() {
                 productName: `แจ้งซ่อม: ${formData.room}`,
                 userName: user?.displayName || "Unknown",
                 details: formData.description,
-                imageUrl: imageUrls.length > 0 ? imageUrls[0] : undefined
+                imageUrl: imageUrls.length > 0 ? imageUrls[0] : undefined,
+                zone: formData.zone
             });
 
             toast.success("แจ้งซ่อมเรียบร้อยแล้ว", { id: toastId });

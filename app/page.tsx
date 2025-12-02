@@ -10,7 +10,7 @@ import {
     Package, CheckCircle, Clock, Wrench,
     Plus, Camera, AlertTriangle, User, RefreshCw,
     Zap, Lightbulb, FileText, Edit, Trash2, PlusCircle, Calendar as CalendarIcon,
-    ChevronLeft, ChevronRight, MapPin
+    ChevronLeft, ChevronRight, MapPin, Globe
 } from "lucide-react";
 import { Calendar, momentLocalizer, Views, View, ToolbarProps } from "react-big-calendar";
 import moment from "moment";
@@ -29,6 +29,7 @@ interface ActivityLog {
     userName: string;
     imageUrl?: string;
     details?: string;
+    zone?: string;
     timestamp: any;
 }
 
@@ -269,11 +270,11 @@ export default function Dashboard() {
     if (loading || !user) return null;
 
     const quickActions = [
-        { name: "เพิ่มอุปกรณ์", icon: <Plus size={24} />, path: "/admin/inventory", role: ['admin'] },
-        { name: "สแกน QR", icon: <Camera size={24} />, path: "/scan", role: ['admin', 'technician', 'user'] },
+        { name: "โปรไฟล์", icon: <User size={24} />, path: "/profile", role: ['admin', 'technician', 'user'] },
+        { name: "Wi-Fi Users", icon: <Globe size={24} />, path: "https://sites.google.com/tesaban6.ac.th/crms6wifiusers", role: ['admin', 'technician', 'user'], external: true },
         { name: "แจ้งซ่อม", icon: <AlertTriangle size={24} />, path: "/repair", role: ['admin', 'technician', 'user'] },
         { name: "จองห้องประชุม", icon: <CalendarIcon size={24} />, path: "/booking", role: ['admin', 'technician', 'user'] },
-        { name: "โปรไฟล์", icon: <User size={24} />, path: "/profile", role: ['admin', 'technician', 'user'] },
+        { name: "เพิ่มอุปกรณ์", icon: <Plus size={24} />, path: "/admin/inventory", role: ['admin'] },
         { name: "รีเซ็ตค่าสถิติ", icon: <RefreshCw size={24} />, path: "/admin/init-stats", role: ['admin'] },
     ];
 
@@ -309,6 +310,16 @@ export default function Dashboard() {
     };
 
     const today = new Date().toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const getZoneLabel = (zone?: string) => {
+        if (!zone) return "";
+        switch (zone) {
+            case 'junior_high': return '(ม.ต้น)';
+            case 'senior_high': return '(ม.ปลาย)';
+            case 'common': return '(ส่วนกลาง)';
+            default: return `(${zone})`;
+        }
+    };
 
     return (
         <div className="space-y-8 animate-fade-in pb-20">
@@ -491,6 +502,10 @@ export default function Dashboard() {
                             setDate(moment(slotInfo.start).startOf('day').toDate());
                             setView(Views.AGENDA);
                         }}
+                        onDrillDown={(date) => {
+                            setDate(moment(date).startOf('day').toDate());
+                            setView(Views.AGENDA);
+                        }}
                         onSelectEvent={(event) => {
                             setSelectedEvent(event);
                             setIsDetailsModalOpen(true);
@@ -525,7 +540,13 @@ export default function Dashboard() {
                             {quickActions.filter(action => !role || action.role.includes(role)).map((action, index) => (
                                 <button
                                     key={index}
-                                    onClick={() => router.push(action.path)}
+                                    onClick={() => {
+                                        if (action.external) {
+                                            window.open(action.path, '_blank');
+                                        } else {
+                                            router.push(action.path);
+                                        }
+                                    }}
                                     className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl bg-input-bg border border-transparent hover:border-primary-start/30 hover:bg-primary-start/5 transition-all group"
                                 >
                                     <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-600 group-hover:text-primary-start group-hover:scale-110 transition-all">
@@ -583,7 +604,7 @@ export default function Dashboard() {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex justify-between items-start">
                                                 <p className="text-sm font-bold text-text truncate pr-2">
-                                                    {act.productName}
+                                                    {act.productName} {getZoneLabel(act.zone)}
                                                 </p>
                                                 <span className="text-[10px] text-text-secondary whitespace-nowrap bg-input-bg px-1.5 py-0.5 rounded">
                                                     {formatTime(act.timestamp)}
