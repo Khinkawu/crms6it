@@ -218,7 +218,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                                 onChange={handleInputChange}
                                 min={new Date().toISOString().split('T')[0]}
                                 required
-                                className="input-field"
+                                className="input-field dark:[color-scheme:dark]"
                             />
                         </div>
 

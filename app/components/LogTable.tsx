@@ -42,15 +42,15 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
 
     const getActionStyle = (action: LogAction) => {
         switch (action) {
-            case 'borrow': return 'bg-orange-100 text-orange-700';
-            case 'return': return 'bg-emerald-100 text-emerald-700';
-            case 'requisition': return 'bg-purple-100 text-purple-700';
-            case 'repair': return 'bg-red-100 text-red-700';
+            case 'borrow': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+            case 'return': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
+            case 'requisition': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300';
+            case 'repair': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
             case 'add':
-            case 'create': return 'bg-blue-100 text-blue-700';
-            case 'update': return 'bg-amber-100 text-amber-700';
-            case 'delete': return 'bg-gray-100 text-gray-700';
-            default: return 'bg-gray-100 text-gray-700';
+            case 'create': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+            case 'update': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+            case 'delete': return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+            default: return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
         }
     };
 
@@ -70,7 +70,7 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-card w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="bg-card w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-border">
                 {/* Header */}
                 <div className="p-6 border-b border-border flex justify-between items-center bg-background">
                     <div>
@@ -79,19 +79,19 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
                         </h2>
                         <p className="text-text-secondary text-sm">ประวัติการใช้งานระบบและกิจกรรมต่างๆ</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-border/50 rounded-full transition-colors">
+                    <button onClick={onClose} className="p-2 hover:bg-border/50 rounded-full transition-colors text-text-secondary hover:text-text">
                         ✕
                     </button>
                 </div>
 
                 {/* Controls */}
-                <div className="p-4 border-b border-border bg-gray-50/50 flex flex-col md:flex-row md:items-end gap-4">
+                <div className="p-4 border-b border-border bg-gray-50/50 dark:bg-gray-800/50 flex flex-col md:flex-row md:items-end gap-4">
                     <div>
-                        <label className="text-xs font-bold text-text-secondary mb-1 block">ประเภทกิจกรรม</label>
+                        <label className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-1 block">ประเภทกิจกรรม</label>
                         <select
                             value={filterAction}
                             onChange={(e) => setFilterAction(e.target.value as any)}
-                            className="px-3 py-2 rounded-lg border border-border bg-white text-sm focus:outline-none focus:border-primary-start"
+                            className="px-3 py-2 rounded-lg border border-border bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary-start"
                         >
                             <option value="all">ทั้งหมด</option>
                             <option value="borrow">ยืม</option>
@@ -104,21 +104,21 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
                         </select>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-text-secondary mb-1 block">ตั้งแต่วันที่</label>
+                        <label className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-1 block">ตั้งแต่วันที่</label>
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="px-3 py-2 rounded-lg border border-border bg-white text-sm focus:outline-none focus:border-primary-start"
+                            className="px-3 py-2 rounded-lg border border-border bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary-start"
                         />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-text-secondary mb-1 block">ถึงวันที่</label>
+                        <label className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-1 block">ถึงวันที่</label>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="px-3 py-2 rounded-lg border border-border bg-white text-sm focus:outline-none focus:border-primary-start"
+                            className="px-3 py-2 rounded-lg border border-border bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary-start"
                         />
                     </div>
                     {onGenerateReport && (
@@ -145,11 +145,11 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
                 </div>
 
                 {/* Table Content */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-white">
-                    <div className="bg-white rounded-lg border border-gray-100 overflow-x-auto">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-white dark:bg-gray-900">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 overflow-x-auto">
                         <table className="w-full text-sm text-left border-collapse min-w-[800px]">
                             <thead>
-                                <tr className="bg-gray-100 border-b-2 border-gray-200 text-gray-600">
+                                <tr className="bg-gray-100 dark:bg-gray-700 border-b-2 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200">
                                     <th className="px-4 py-3 font-bold w-40">วัน-เวลา</th>
                                     <th className="px-4 py-3 font-bold w-32">กิจกรรม</th>
                                     <th className="px-4 py-3 font-bold">รายการ</th>
@@ -157,11 +157,11 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
                                     <th className="px-4 py-3 font-bold">รายละเอียด</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                 {filteredLogs.length > 0 ? (
                                     filteredLogs.map((log) => (
-                                        <tr key={log.id} className="hover:bg-gray-50">
-                                            <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                                        <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                                 {log.timestamp?.toDate().toLocaleString('th-TH')}
                                             </td>
                                             <td className="px-4 py-3">
@@ -169,20 +169,20 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
                                                     {getActionLabel(log.action)}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 font-medium text-gray-900">
+                                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
                                                 {log.productName}
                                             </td>
-                                            <td className="px-4 py-3 text-gray-600">
+                                            <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                                                 {log.userName}
                                             </td>
-                                            <td className="px-4 py-3 text-gray-500 italic">
+                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 italic">
                                                 {log.details || "-"}
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                                        <td colSpan={5} className="px-4 py-12 text-center text-gray-400 dark:text-gray-500">
                                             ไม่พบข้อมูลตามเงื่อนไข
                                         </td>
                                     </tr>
@@ -190,7 +190,7 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
                             </tbody>
                         </table>
 
-                        <div className="p-4 border-t border-gray-200 flex justify-between text-xs text-gray-400 bg-gray-50">
+                        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/50">
                             <p>Report Generated by CRMS6 IT System</p>
                             <p>Page 1 of 1</p>
                         </div>

@@ -9,6 +9,10 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../lib/firebase";
 import { Toaster, toast } from 'react-hot-toast';
 import { logActivity } from "../../utils/logger";
+import {
+    User, MapPin, Image as ImageIcon, FileText,
+    Send, Loader2, X, Plus
+} from "lucide-react";
 
 export default function RepairPage() {
     const { user, loading: authLoading } = useAuth();
@@ -152,11 +156,11 @@ export default function RepairPage() {
     if (authLoading || !user) return null;
 
     return (
-        <div className="w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col md:flex-row h-auto md:h-[85vh] max-h-[900px] animate-fade-in">
+        <div className="w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 md:overflow-hidden flex flex-col md:flex-row h-auto md:h-[85vh] md:max-h-[900px] animate-fade-in">
             <Toaster position="top-center" />
 
             {/* Left Side: Form Inputs */}
-            <div className="w-full md:w-7/12 p-6 md:p-8 overflow-y-auto custom-scrollbar">
+            <div className="w-full md:w-7/12 p-6 md:p-8 md:overflow-y-auto md:custom-scrollbar">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                         <span className="w-2 h-8 bg-blue-600 rounded-full"></span>
@@ -169,9 +173,7 @@ export default function RepairPage() {
                     {/* 1. User Info */}
                     <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100 space-y-4">
                         <div className="flex items-center gap-2 text-blue-600 font-semibold text-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                                <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
-                            </svg>
+                            <User size={16} />
                             ข้อมูลผู้แจ้ง
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -216,9 +218,7 @@ export default function RepairPage() {
                     {/* 2. Location */}
                     <div className="bg-gray-50/50 p-4 rounded-xl border border-gray-100 space-y-4">
                         <div className="flex items-center gap-2 text-blue-600 font-semibold text-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                                <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.006.003.002.001.001.001zm4.961-9.422a1 1 0 11-1.414-1.414 3 3 0 00-4.242 0 1 1 0 01-1.414-1.414 5 5 0 017.07 0z" clipRule="evenodd" />
-                            </svg>
+                            <MapPin size={16} />
                             สถานที่
                         </div>
                         <div className="space-y-3">
@@ -236,7 +236,7 @@ export default function RepairPage() {
                             </div>
                             <div>
                                 <label className="text-xs font-medium text-gray-500 mb-1 block">โซน <span className="text-red-500">*</span></label>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2">
                                     {[
                                         { value: 'junior_high', label: 'ม.ต้น', icon: '' },
                                         { value: 'senior_high', label: 'ม.ปลาย', icon: '' },
@@ -245,7 +245,7 @@ export default function RepairPage() {
                                         <label
                                             key={option.value}
                                             className={`
-                                                flex-1 flex items-center justify-center gap-2 px-2 py-2.5 rounded-lg border cursor-pointer transition-all
+                                                flex-1 min-w-[80px] flex items-center justify-center gap-2 px-2 py-2.5 rounded-lg border cursor-pointer transition-all whitespace-nowrap
                                                 ${formData.zone === option.value
                                                     ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm'
                                                     : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -272,11 +272,11 @@ export default function RepairPage() {
             </div>
 
             {/* Right Side: Details & Submit */}
-            <div className="w-full md:w-5/12 bg-gray-50 p-6 md:p-8 flex flex-col border-l border-gray-100">
+            <div className="w-full md:w-5/12 bg-gray-50 p-6 md:p-8 flex flex-col md:border-l border-t md:border-t-0 border-gray-100">
                 <div className="flex-1 space-y-5">
                     <div className="space-y-3">
                         <label className="text-sm font-semibold text-gray-800 flex justify-between items-center">
-                            <span>รูปภาพประกอบ <span className="text-red-500">*</span></span>
+                            <span className="flex items-center gap-2"><ImageIcon size={16} /> รูปภาพประกอบ <span className="text-red-500">*</span></span>
                             <span className="text-xs text-gray-400 font-normal">{images.length}/5</span>
                         </label>
 
@@ -289,7 +289,7 @@ export default function RepairPage() {
                                         onClick={() => removeImage(index)}
                                         className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500"
                                     >
-                                        <span className="text-xs">×</span>
+                                        <X size={12} />
                                     </button>
                                 </div>
                             ))}
@@ -300,7 +300,7 @@ export default function RepairPage() {
                                     onClick={() => fileInputRef.current?.click()}
                                     className="aspect-square rounded-lg bg-white border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-all"
                                 >
-                                    <span className="text-xl leading-none">+</span>
+                                    <Plus size={24} />
                                 </button>
                             )}
                         </div>
@@ -315,7 +315,9 @@ export default function RepairPage() {
                     </div>
 
                     <div className="space-y-2 flex-1 flex flex-col">
-                        <label className="text-sm font-semibold text-gray-800">รายละเอียด <span className="text-red-500">*</span></label>
+                        <label className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                            <FileText size={16} /> รายละเอียด <span className="text-red-500">*</span>
+                        </label>
                         <textarea
                             name="description"
                             value={formData.description}
@@ -336,14 +338,14 @@ export default function RepairPage() {
                     >
                         {isSubmitting ? (
                             <>
-                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
+                                <Loader2 size={20} className="animate-spin" />
                                 กำลังบันทึก...
                             </>
                         ) : (
-                            "แจ้งซ่อม"
+                            <>
+                                <Send size={20} />
+                                แจ้งซ่อม
+                            </>
                         )}
                     </button>
                 </div>
