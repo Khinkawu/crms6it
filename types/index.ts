@@ -78,7 +78,7 @@ export interface RepairTicket {
     updatedAt: Timestamp;
 }
 
-export type LogAction = 'borrow' | 'return' | 'requisition' | 'add' | 'update' | 'repair' | 'create' | 'delete';
+export type LogAction = 'borrow' | 'return' | 'requisition' | 'add' | 'update' | 'repair' | 'repair_update' | 'create' | 'delete';
 
 export interface ActivityLog {
     id?: string;

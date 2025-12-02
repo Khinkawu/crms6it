@@ -98,22 +98,8 @@ export default function Sidebar() {
                         {upcomingItems.map((item) => (
                             <Link
                                 key={item.path}
-                                href={item.path === "/booking" ? "#" : item.path}
-                                onClick={(e) => {
-                                    if (item.path === "/booking") {
-                                        e.preventDefault();
-                                        toast("กำลังพัฒนา", {
-                                            icon: "🚧",
-                                            style: {
-                                                borderRadius: '10px',
-                                                background: '#333',
-                                                color: '#fff',
-                                            },
-                                        });
-                                    } else {
-                                        setIsMobileOpen(false);
-                                    }
-                                }}
+                                href={item.path}
+                                onClick={() => setIsMobileOpen(false)}
                                 className={`
                                     flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
                                     ${isActive(item.path)

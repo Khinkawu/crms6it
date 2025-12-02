@@ -172,6 +172,14 @@ export default function RepairDashboard() {
                 updatedAt: serverTimestamp()
             });
 
+            await logActivity({
+                action: 'repair_update',
+                productName: `อัปเดตงานซ่อม: ${selectedTicket.room}`,
+                userName: user?.displayName || "Technician",
+                details: `สถานะ: ${status} - ${technicianNote}`,
+                imageUrl: completionImageUrl || selectedTicket.images?.[0]
+            });
+
             if (status === 'completed') {
                 try {
                     await fetch('/api/notify-user', {
