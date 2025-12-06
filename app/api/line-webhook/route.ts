@@ -161,7 +161,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
 
     } catch (error) {
         console.error('Track Status Error:', error);
-        await client.replyMessage(replyToken, { type: 'text', text: 'เกิดข้อผิดพลาดในการตรวจสอบสถานะ' });
+        await client.replyMessage(replyToken, { type: 'text', text: `เกิดข้อผิดพลาด: ${(error as any).message}` });
     }
 }
 
