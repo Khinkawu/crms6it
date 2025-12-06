@@ -20,14 +20,19 @@ export default function RepairLiffPage() {
         const checkBindingAndLogin = async () => {
             if (!isLoggedIn || !profile) return;
 
-            // Debug: Check if Env Vars are loaded
-            if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-                setStatus("Error: Missing Firebase Config (Env Vars)");
+            // Debug: Detailed Env Check
+            const missingVars = [];
+            if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) missingVars.push("API_KEY");
+            if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) missingVars.push("PROJECT_ID");
+            if (!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) missingVars.push("AUTH_DOMAIN");
+
+            if (missingVars.length > 0) {
+                setStatus(`Error: Missing Vercel Env Vars: ${missingVars.join(", ")}`);
                 return;
             }
 
             try {
-                setStatus(`Checking User: ${profile.userId.slice(0, 5)}...`);
+                setStatus(`Checking Binding (User: ${profile.userId.slice(0, 5)}...)...`);
 
                 // 1. Check Binding with Timeout
                 const docRef = doc(db, "line_bindings", profile.userId);
