@@ -11,7 +11,7 @@ import BookingForm from "../../components/BookingForm";
 export default function BookingLiffPage() {
     const { profile, isLoggedIn, error } = useLiff(process.env.NEXT_PUBLIC_LINE_LIFF_ID_BOOKING || "");
     const router = useRouter();
-    const [status, setStatus] = useState("Checking permissions...");
+    const [status, setStatus] = useState("กรุณารอสักครู่...");
     const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
@@ -21,12 +21,12 @@ export default function BookingLiffPage() {
             try {
                 // Optimize: Fast Path
                 if (auth.currentUser) {
-                    setStatus("Restoring session...");
+                    setStatus("กำลังเข้าสู่ระบบ...");
                     setIsReady(true);
                     return;
                 }
 
-                setStatus("Synchronizing account...");
+                setStatus("กำลังตรวจสอบสิทธิ์...");
                 // Optimize: Use API directly to check binding & get token
                 const res = await fetch("/api/auth/line-custom-token", {
                     method: "POST",
@@ -42,6 +42,9 @@ export default function BookingLiffPage() {
 
                 if (!res.ok) throw new Error("Auth Failed");
 
+                // User requested change for Sync step
+                setStatus("กำลังอัปเดตข้อมูลผู้ใช้...");
+
                 const { token } = await res.json();
 
                 // Silent Login
@@ -51,7 +54,7 @@ export default function BookingLiffPage() {
 
             } catch (err) {
                 console.error(err);
-                setStatus("Error: " + (err as any).message);
+                setStatus("เกิดข้อผิดพลาด: " + (err as any).message);
             }
         };
 
@@ -84,9 +87,32 @@ export default function BookingLiffPage() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-            <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-            <p className="text-gray-500 font-medium animate-pulse">{status}</p>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-white px-8">
+            <div className="w-full max-w-xs space-y-4 text-center">
+                <div className="relative w-20 h-20 mx-auto">
+                    <img src="/logo_2.png" alt="Logo" className="w-full h-full object-contain opacity-80" />
+                </div>
+
+                <h3 className="text-gray-700 font-medium text-lg">{status}</h3>
+
+                {/* Fake Progress Bar */}
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full animate-progress-indeterminate"></div>
+                </div>
+                <p className="text-xs text-gray-400">กำลังเชื่อมต่อฐานข้อมูล...</p>
+            </div>
+
+            {/* Inline CSS for animation if not in global css */}
+            <style jsx>{`
+                @keyframes progress-indeterminate {
+                    0% { width: 0%; margin-left: 0%; }
+                    50% { width: 70%; margin-left: 30%; }
+                    100% { width: 0%; margin-left: 100%; }
+                }
+                .animate-progress-indeterminate {
+                    animation: progress-indeterminate 1.5s infinite ease-in-out;
+                }
+            `}</style>
         </div>
     );
 }
