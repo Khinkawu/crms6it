@@ -92,7 +92,8 @@ export default function RepairForm() {
             }
 
             // 2. Save to Firestore
-            await addDoc(collection(db, "repair_tickets"), {
+            // 2. Save to Firestore
+            const docRef = await addDoc(collection(db, "repair_tickets"), {
                 requesterName: user.displayName || "Unknown",
                 requesterEmail: user.email || "Unknown",
                 position: formData.position,
