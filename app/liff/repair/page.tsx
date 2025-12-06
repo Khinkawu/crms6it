@@ -7,64 +7,56 @@ import { useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 import { signInWithCustomToken } from "firebase/auth";
 import { db, auth } from "../../../lib/firebase";
-import liff from "@line/liff";
 import RepairForm from "../../../components/repair/RepairForm";
 
 export default function RepairLiffPage() {
     const { profile, isLoggedIn, error } = useLiff(process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || "");
     const router = useRouter();
-    const [status, setStatus] = useState("Checking permissions (v2.0 - Seamless)...");
+    const [status, setStatus] = useState("Checking permissions...");
     const [isReady, setIsReady] = useState(false);
+    const [debugInfo, setDebugInfo] = useState<string>("");
 
     useEffect(() => {
         const checkBindingAndLogin = async () => {
+            // Basic Debug Info
+            const debug = [
+                `Ver: v2.1`,
+                `Online: ${navigator.onLine}`,
+                `LIFF: ${isLoggedIn ? "Yes" : "No"}`,
+                `UID: ${profile?.userId?.slice(0, 5) || "N/A"}`,
+                `API: ${process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? "OK" : "MISSING"}`,
+                `Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "MISSING"}`,
+                `AuthDom: ${process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "MISSING"}`
+            ].join(" | ");
+            setDebugInfo(debug);
+
             if (!isLoggedIn || !profile) return;
 
-            // Debug: Detailed Env Check
-            const missingVars = [];
-            if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) missingVars.push("API_KEY");
-            if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) missingVars.push("PROJECT_ID");
-            if (!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) missingVars.push("AUTH_DOMAIN");
-
-            if (missingVars.length > 0) {
-                setStatus(`Error: Missing Vercel Env Vars: ${missingVars.join(", ")}`);
-                return;
-            }
-
             try {
-                setStatus(`Checking Binding (User: ${profile.userId.slice(0, 5)}...)...`);
+                // Optimize: Skip client-side getDoc. Use API to check binding & get token.
+                setStatus("Synchronizing account...");
 
-                // 1. Check Binding with Timeout
-                const docRef = doc(db, "line_bindings", profile.userId);
+                const res = await fetch("/api/auth/line-custom-token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ lineUserId: profile.userId })
+                });
 
-                const docSnap = await Promise.race([
-                    getDoc(docRef),
-                    new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Database Timeout (5s)")), 5000))
-                ]);
-
-                if (docSnap.exists()) {
-                    setStatus("Synchronizing account...");
-
-                    // 2. Fetch Custom Token for Silent Login
-                    const res = await fetch("/api/auth/line-custom-token", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ lineUserId: profile.userId })
-                    });
-
-                    if (!res.ok) throw new Error("Auth Failed");
-
-                    const { token } = await res.json();
-
-                    // 3. Sign In to Firebase (Silent)
-                    await signInWithCustomToken(auth, token);
-
-                    // 4. Ready to Render Form
-                    setIsReady(true);
-                } else {
+                if (res.status === 404) {
                     // Not bound -> Go to Entry
                     router.push("/liff/entry");
+                    return;
                 }
+
+                if (!res.ok) throw new Error("Auth Failed");
+
+                const { token } = await res.json();
+
+                // Sign In to Firebase (Silent)
+                await signInWithCustomToken(auth, token);
+
+                setIsReady(true);
+
             } catch (err) {
                 console.error(err);
                 setStatus("Error: " + (err as any).message);

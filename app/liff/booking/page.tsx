@@ -4,46 +4,51 @@ import React, { useEffect, useState } from "react";
 import { useLiff } from "../../../hooks/useLiff";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../../lib/firebase";
-import liff from "@line/liff";
+import { signInWithCustomToken } from "firebase/auth";
+import { auth } from "../../../lib/firebase";
+import BookingForm from "../../../components/BookingForm";
 
 export default function BookingLiffPage() {
     const { profile, isLoggedIn, error } = useLiff(process.env.NEXT_PUBLIC_LINE_LIFF_ID_BOOKING || "");
     const router = useRouter();
     const [status, setStatus] = useState("Checking permissions...");
+    const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
-        const checkBinding = async () => {
+        const checkBindingAndLogin = async () => {
             if (!isLoggedIn || !profile) return;
 
             try {
-                // Check if this LINE user is bound to a school account
-                const docRef = doc(db, "line_bindings", profile.userId);
-                const docSnap = await getDoc(docRef);
+                setStatus("Synchronizing account...");
+                // Optimize: Use API directly to check binding & get token
+                const res = await fetch("/api/auth/line-custom-token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ lineUserId: profile.userId })
+                });
 
-                if (docSnap.exists()) {
-                    setStatus("Redirecting to Booking System...");
-                    // If bound, open the actual Web App in External Browser
-                    if (liff.isInClient()) {
-                        liff.openWindow({
-                            url: `${window.location.origin}/booking`,
-                            external: true
-                        });
-                    } else {
-                        router.push("/booking");
-                    }
-                } else {
-                    // Not bound -> Go to Entry (Binding) Page
+                if (res.status === 404) {
+                    // Not bound -> Go to Entry
                     router.push("/liff/entry");
+                    return;
                 }
+
+                if (!res.ok) throw new Error("Auth Failed");
+
+                const { token } = await res.json();
+
+                // Silent Login
+                await signInWithCustomToken(auth, token);
+
+                setIsReady(true);
+
             } catch (err) {
                 console.error(err);
-                setStatus("Error checking binding.");
+                setStatus("Error: " + (err as any).message);
             }
         };
 
-        checkBinding();
+        checkBindingAndLogin();
     }, [isLoggedIn, profile, router]);
 
     if (error) {
@@ -52,6 +57,21 @@ export default function BookingLiffPage() {
                 <AlertCircle className="w-8 h-8 mb-2" />
                 {error}
                 <div className="mt-2 text-xs text-gray-400">ID: {process.env.NEXT_PUBLIC_LINE_LIFF_ID_BOOKING}</div>
+            </div>
+        );
+    }
+
+    if (isReady) {
+        // BookingForm handles its own layout, but we wrap it to ensure full screen
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-start p-0">
+                {/* Pass callbacks or props if BookingForm expects them, checking page source... 
+                    It expects onSuccess and onCancel.
+                 */}
+                <BookingForm
+                    onSuccess={() => {/* Maybe close window or show success overlay? for now just let it be */ }}
+                    onCancel={() => {/* Close window? */ }}
+                />
             </div>
         );
     }
