@@ -98,7 +98,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
         }
 
         // 2. Query Repairs
-        const repairsSnapshot = await dbAdmin.collection('repair_tickets')
+        const repairsSnapshot = await adminDb.collection('repair_tickets')
             .where('requesterEmail', '==', email)
             .where('status', 'in', ['pending', 'in_progress', 'waiting_parts']) // Active only
             .orderBy('createdAt', 'desc')
