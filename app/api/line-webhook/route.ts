@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Client, FlexMessage, TextMessage } from '@line/bot-sdk';
-import { dbAdmin } from '../../../lib/firebaseAdmin';
+import { adminDb } from '../../../lib/firebaseAdmin';
 
 // Initialize LINE Client
 const config = {
@@ -51,7 +51,7 @@ async function handleMessageEvent(event: any) {
 async function handleTrackStatus(replyToken: string, userId: string) {
     try {
         // 1. Check Binding
-        const bindingDoc = await dbAdmin.collection('line_bindings').doc(userId).get();
+        const bindingDoc = await adminDb.collection('line_bindings').doc(userId).get();
 
         if (!bindingDoc.exists) {
             // Not Linked -> Invite to Register
