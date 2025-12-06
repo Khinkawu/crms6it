@@ -18,8 +18,18 @@ export default function LIFFEntryPage() {
     useEffect(() => {
         const initializeLiff = async () => {
             try {
-                // Initialize LIFF with Repair ID (defaulting to it as entry point)
-                await liff.init({ liffId: process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || process.env.NEXT_PUBLIC_LINE_LIFF_ID || "" });
+                const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || process.env.NEXT_PUBLIC_LINE_LIFF_ID || "";
+                console.log("Initializing LIFF with ID:", liffId);
+
+                if (!liffId) {
+                    throw new Error("LIFF ID is missing in Environment Variables");
+                }
+
+                // Race liff.init with a 5s timeout
+                await Promise.race([
+                    liff.init({ liffId }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("LIFF Init Timeout")), 5000))
+                ]);
 
                 if (!liff.isLoggedIn()) {
                     liff.login();
@@ -102,7 +112,10 @@ export default function LIFFEntryPage() {
                     <AlertCircle size={32} />
                 </div>
                 <h1 className="text-xl font-bold text-gray-800 mb-2">Connection Error</h1>
-                <p className="text-gray-500 mb-6 max-w-xs mx-auto">{error}</p>
+                <p className="text-gray-500 mb-2 max-w-xs mx-auto">{error}</p>
+                <div className="text-xs text-gray-400 mb-6 font-mono bg-gray-100 p-2 rounded">
+                    LID: {process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || 'MISSING'}
+                </div>
                 <button
                     onClick={() => window.location.reload()}
                     className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
