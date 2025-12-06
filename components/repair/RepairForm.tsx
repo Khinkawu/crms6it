@@ -111,6 +111,7 @@ export default function RepairForm() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    ticketId: docRef.id,
                     requesterName: user.displayName || "Unknown",
                     room: formData.room,
                     zone: formData.zone,
