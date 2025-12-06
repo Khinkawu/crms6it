@@ -40,33 +40,85 @@ export async function POST(request: Request) {
             messages: [
                 {
                     type: "flex",
-                    altText: "✅ Repair Completed: " + problem,
+                    altText: "✅ งานซ่อมเสร็จสิ้น: " + problem,
                     contents: {
                         type: "bubble",
+                        size: "mega",
                         header: {
                             type: "box",
                             layout: "vertical",
+                            backgroundColor: "#10B981", // สีเขียว Success
+                            paddingAll: "20px",
                             contents: [
                                 {
+                                    type: "box",
+                                    layout: "horizontal",
+                                    contents: [
+                                        {
+                                            type: "text",
+                                            text: "COMPLETED",
+                                            color: "#ffffff",
+                                            weight: "bold",
+                                            size: "xs",
+                                            flex: 1
+                                        },
+                                        {
+                                            type: "text",
+                                            text: "✅ SUCCESS",
+                                            color: "#ffffff",
+                                            weight: "bold",
+                                            size: "xs",
+                                            align: "end"
+                                        }
+                                    ]
+                                },
+                                {
                                     type: "text",
-                                    text: "✅ Repair Completed",
+                                    text: "การซ่อมเสร็จสิ้น",
                                     weight: "bold",
-                                    color: "#1DB446",
-                                    size: "lg"
+                                    size: "xl",
+                                    color: "#ffffff",
+                                    margin: "md"
+                                },
+                                {
+                                    type: "text",
+                                    text: "ขอบคุณที่ใช้บริการ",
+                                    size: "xs",
+                                    color: "#E0F2F1",
+                                    margin: "xs"
                                 }
                             ]
                         },
+                        // ตรวจสอบว่ามีรูปภาพแนบมาหรือไม่ ถ้าไม่มีจะไม่แสดงส่วน Hero
                         hero: completionImage ? {
                             type: "image",
                             url: completionImage,
                             size: "full",
                             aspectRatio: "20:13",
-                            aspectMode: "cover"
+                            aspectMode: "cover",
+                            action: {
+                                type: "uri",
+                                uri: completionImage // กดที่รูปเพื่อดูรูปเต็ม
+                            }
                         } : undefined,
                         body: {
                             type: "box",
                             layout: "vertical",
+                            paddingAll: "20px",
                             contents: [
+                                {
+                                    type: "text",
+                                    text: problem, // ชื่อปัญหา (ตัวใหญ่)
+                                    weight: "bold",
+                                    size: "lg",
+                                    color: "#333333",
+                                    wrap: true
+                                },
+                                {
+                                    type: "separator",
+                                    margin: "lg",
+                                    color: "#eeeeee"
+                                },
                                 {
                                     type: "box",
                                     layout: "vertical",
@@ -80,10 +132,10 @@ export async function POST(request: Request) {
                                             contents: [
                                                 {
                                                     type: "text",
-                                                    text: "Room",
+                                                    text: "📍 สถานที่",
                                                     color: "#aaaaaa",
                                                     size: "sm",
-                                                    flex: 1
+                                                    flex: 2
                                                 },
                                                 {
                                                     type: "text",
@@ -91,7 +143,7 @@ export async function POST(request: Request) {
                                                     wrap: true,
                                                     color: "#666666",
                                                     size: "sm",
-                                                    flex: 5
+                                                    flex: 4
                                                 }
                                             ]
                                         },
@@ -102,18 +154,18 @@ export async function POST(request: Request) {
                                             contents: [
                                                 {
                                                     type: "text",
-                                                    text: "Issue",
+                                                    text: "📝 บันทึกช่าง",
                                                     color: "#aaaaaa",
                                                     size: "sm",
-                                                    flex: 1
+                                                    flex: 2
                                                 },
                                                 {
                                                     type: "text",
-                                                    text: problem,
+                                                    text: technicianNote || "-", // ถ้าไม่มีโน้ต ใส่ขีด
                                                     wrap: true,
                                                     color: "#666666",
                                                     size: "sm",
-                                                    flex: 5
+                                                    flex: 4
                                                 }
                                             ]
                                         },
@@ -124,22 +176,39 @@ export async function POST(request: Request) {
                                             contents: [
                                                 {
                                                     type: "text",
-                                                    text: "Note",
+                                                    text: "📅 วันที่",
                                                     color: "#aaaaaa",
                                                     size: "sm",
-                                                    flex: 1
+                                                    flex: 2
                                                 },
                                                 {
                                                     type: "text",
-                                                    text: technicianNote || "-",
+                                                    text: new Date().toLocaleDateString('th-TH'), // วันที่ปัจจุบัน (Format ไทย)
                                                     wrap: true,
                                                     color: "#666666",
                                                     size: "sm",
-                                                    flex: 5
+                                                    flex: 4
                                                 }
                                             ]
                                         }
                                     ]
+                                }
+                            ]
+                        },
+                        footer: {
+                            type: "box",
+                            layout: "vertical",
+                            contents: [
+                                {
+                                    type: "button",
+                                    style: "secondary",
+                                    color: "#10B981",
+                                    action: {
+                                        type: "uri",
+                                        label: "เปิดดูประวัติการซ่อม",
+                                        // อย่าลืมใส่ LIFF ID ที่ถูกต้องใน .env
+                                        uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID_REPAIR}`
+                                    }
                                 }
                             ]
                         }

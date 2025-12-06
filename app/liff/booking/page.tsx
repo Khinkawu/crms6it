@@ -96,21 +96,21 @@ export default function BookingLiffPage() {
                 <h3 className="text-gray-700 font-medium text-lg">{status}</h3>
 
                 {/* Fake Progress Bar */}
-                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full animate-progress-indeterminate"></div>
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden relative">
+                    <div className="absolute top-0 left-0 h-full w-1/3 bg-blue-500 rounded-full animate-progress-smooth"></div>
                 </div>
                 <p className="text-xs text-gray-400">กำลังเชื่อมต่อฐานข้อมูล...</p>
             </div>
 
-            {/* Inline CSS for animation if not in global css */}
+            {/* Inline CSS for smoother animation */}
             <style jsx>{`
-                @keyframes progress-indeterminate {
-                    0% { width: 0%; margin-left: 0%; }
-                    50% { width: 70%; margin-left: 30%; }
-                    100% { width: 0%; margin-left: 100%; }
+                @keyframes progress-smooth {
+                    0% { left: -40%; width: 40%; }
+                    50% { left: 100%; width: 40%; }
+                    100% { left: -40%; width: 40%; }
                 }
-                .animate-progress-indeterminate {
-                    animation: progress-indeterminate 1.5s infinite ease-in-out;
+                .animate-progress-smooth {
+                    animation: progress-smooth 1.5s infinite linear;
                 }
             `}</style>
         </div>
