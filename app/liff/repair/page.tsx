@@ -20,10 +20,22 @@ export default function RepairLiffPage() {
         const checkBindingAndLogin = async () => {
             if (!isLoggedIn || !profile) return;
 
+            // Debug: Check if Env Vars are loaded
+            if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+                setStatus("Error: Missing Firebase Config (Env Vars)");
+                return;
+            }
+
             try {
-                // 1. Check Binding
+                setStatus(`Checking User: ${profile.userId.slice(0, 5)}...`);
+
+                // 1. Check Binding with Timeout
                 const docRef = doc(db, "line_bindings", profile.userId);
-                const docSnap = await getDoc(docRef);
+
+                const docSnap = await Promise.race([
+                    getDoc(docRef),
+                    new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Database Timeout (5s)")), 5000))
+                ]);
 
                 if (docSnap.exists()) {
                     setStatus("Synchronizing account...");
