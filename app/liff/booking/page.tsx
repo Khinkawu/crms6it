@@ -19,6 +19,13 @@ export default function BookingLiffPage() {
             if (!isLoggedIn || !profile) return;
 
             try {
+                // Optimize: Fast Path
+                if (auth.currentUser) {
+                    setStatus("Restoring session...");
+                    setIsReady(true);
+                    return;
+                }
+
                 setStatus("Synchronizing account...");
                 // Optimize: Use API directly to check binding & get token
                 const res = await fetch("/api/auth/line-custom-token", {

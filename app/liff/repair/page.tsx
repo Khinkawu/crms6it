@@ -33,6 +33,13 @@ export default function RepairLiffPage() {
             if (!isLoggedIn || !profile) return;
 
             try {
+                // Optimize: Fast Path - Check if already logged in via Firebase
+                if (auth.currentUser) {
+                    setStatus("Restoring session...");
+                    setIsReady(true);
+                    return;
+                }
+
                 // Optimize: Skip client-side getDoc. Use API to check binding & get token.
                 setStatus("Synchronizing account...");
 
