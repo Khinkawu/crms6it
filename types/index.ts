@@ -41,7 +41,7 @@ export interface Transaction {
     userPosition?: string; // for requisition
 }
 
-export type UserRole = 'user' | 'technician' | 'admin';
+export type UserRole = 'user' | 'technician' | 'admin' | 'reporter';
 
 export interface UserProfile {
     uid: string;

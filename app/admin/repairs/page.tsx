@@ -15,6 +15,7 @@ import {
     ClipboardList, Clock, Settings, CheckCircle2, Search,
     Wrench, User, Calendar, X, LayoutGrid, List
 } from "lucide-react";
+import RepairActionsBar from "../../../components/admin/RepairActionsBar";
 
 export default function RepairDashboard() {
     const { user, role, loading } = useAuth();
@@ -25,6 +26,9 @@ export default function RepairDashboard() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [selectedTicket, setSelectedTicket] = useState<RepairTicket | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // Date Filter State
+    const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null }>({ start: null, end: null });
 
     // Modal State
     const [status, setStatus] = useState<RepairStatus>('pending');
@@ -42,7 +46,7 @@ export default function RepairDashboard() {
 
     useEffect(() => {
         if (!loading) {
-            if (!user || (role !== 'admin' && role !== 'technician')) {
+            if (!user || (role !== 'admin' && role !== 'technician' && role !== 'reporter')) {
                 router.push("/");
             }
         }
@@ -216,7 +220,17 @@ export default function RepairDashboard() {
             (t.room || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
             (t.requesterName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
             (t.description || "").toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesFilter && matchesSearch;
+
+        let matchesDate = true;
+        if (dateRange.start && dateRange.end && t.createdAt) {
+            const ticketDate = t.createdAt.toDate();
+            // Reset time part to compare dates only, strictly inclusive
+            const start = new Date(dateRange.start); start.setHours(0, 0, 0, 0);
+            const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
+            matchesDate = ticketDate >= start && ticketDate <= end;
+        }
+
+        return matchesFilter && matchesSearch && matchesDate;
     });
 
     // Stats Calculation
@@ -250,7 +264,7 @@ export default function RepairDashboard() {
         }
     };
 
-    if (loading || !user || (role !== 'admin' && role !== 'technician')) return null;
+    if (loading || !user || (role !== 'admin' && role !== 'technician' && role !== 'reporter')) return null;
 
     return (
         <div className="animate-fade-in pb-20">
@@ -265,6 +279,12 @@ export default function RepairDashboard() {
                         </div>
                     </div>
                 </div>
+
+                {/* Repair Actions Bar */}
+                <RepairActionsBar
+                    data={filteredTickets}
+                    onFilterChange={(start, end) => setDateRange({ start, end })}
+                />
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -424,18 +444,18 @@ export default function RepairDashboard() {
                                 <tbody className="divide-y divide-border">
                                     {filteredTickets.map((ticket) => (
                                         <tr key={ticket.id} className="hover:bg-background/50 transition-colors">
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(ticket.status)}`}>
                                                     {getThaiStatus(ticket.status)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-text-secondary">
+                                            <td className="px-6 py-4 text-text-secondary whitespace-nowrap">
                                                 {ticket.createdAt?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
                                             </td>
-                                            <td className="px-6 py-4 font-bold text-text">{ticket.room}</td>
+                                            <td className="px-6 py-4 font-bold text-text whitespace-nowrap">{ticket.room}</td>
                                             <td className="px-6 py-4 text-text max-w-xs truncate">{ticket.description}</td>
-                                            <td className="px-6 py-4 text-text-secondary">{ticket.requesterName}</td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="px-6 py-4 text-text-secondary whitespace-nowrap">{ticket.requesterName}</td>
+                                            <td className="px-6 py-4 text-right whitespace-nowrap">
                                                 <button
                                                     onClick={() => handleOpenModal(ticket)}
                                                     className="text-cyan-600 hover:text-cyan-700 font-medium hover:underline"
@@ -506,11 +526,64 @@ export default function RepairDashboard() {
                             )}
 
                             {/* Spare Parts / Requisition Section */}
-                            <div className="border-t border-border pt-4">
-                                <h3 className="text-sm font-bold text-text mb-2">เบิกใช้อะไหล่ (Spare Parts)</h3>
+                            {role !== 'reporter' && (
+                                <div className="border-t border-border pt-4">
+                                    <h3 className="text-sm font-bold text-text mb-2">เบิกใช้อะไหล่ (Spare Parts)</h3>
 
-                                {selectedTicket?.partsUsed && selectedTicket.partsUsed.length > 0 && (
-                                    <div className="mb-4 space-y-2">
+                                    {selectedTicket?.partsUsed && selectedTicket.partsUsed.length > 0 && (
+                                        <div className="mb-4 space-y-2">
+                                            {selectedTicket.partsUsed.map((part, idx) => (
+                                                <div key={idx} className="flex justify-between items-center bg-background px-3 py-2 rounded-lg text-sm">
+                                                    <span className="text-text">{part.name}</span>
+                                                    <span className="text-text-secondary">จำนวน: {part.quantity}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-2 items-end">
+                                        <div className="flex-1">
+                                            <label className="text-xs text-text-secondary mb-1 block">เลือกอะไหล่</label>
+                                            <select
+                                                value={selectedPartId}
+                                                onChange={(e) => setSelectedPartId(e.target.value)}
+                                                className="w-full px-4 py-2 rounded-xl bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50"
+                                            >
+                                                <option value="" className="bg-card">เลือกรายการ...</option>
+                                                {inventory.map(item => (
+                                                    <option key={item.id} value={item.id} className="bg-card">
+                                                        {item.name} (คงเหลือ: {item.quantity})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="w-24">
+                                            <label className="text-xs text-text-secondary mb-1 block">จำนวน</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={useQuantity}
+                                                onChange={(e) => setUseQuantity(parseInt(e.target.value))}
+                                                className="w-full px-4 py-2 rounded-xl bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleUsePartClick}
+                                            disabled={!selectedPartId || isRequisitioning}
+                                            className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-200 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all text-sm font-medium disabled:opacity-50 h-[38px]"
+                                        >
+                                            {isRequisitioning ? "..." : "เบิกของ"}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Show Parts Used for Reporter (Read-only) */}
+                            {role === 'reporter' && selectedTicket?.partsUsed && selectedTicket.partsUsed.length > 0 && (
+                                <div className="border-t border-border pt-4">
+                                    <h3 className="text-sm font-bold text-text mb-2">อะไหล่ที่ใช้ (Spare Parts)</h3>
+                                    <div className="space-y-2">
                                         {selectedTicket.partsUsed.map((part, idx) => (
                                             <div key={idx} className="flex justify-between items-center bg-background px-3 py-2 rounded-lg text-sm">
                                                 <span className="text-text">{part.name}</span>
@@ -518,102 +591,68 @@ export default function RepairDashboard() {
                                             </div>
                                         ))}
                                     </div>
-                                )}
-
-                                <div className="flex gap-2 items-end">
-                                    <div className="flex-1">
-                                        <label className="text-xs text-text-secondary mb-1 block">เลือกอะไหล่</label>
-                                        <select
-                                            value={selectedPartId}
-                                            onChange={(e) => setSelectedPartId(e.target.value)}
-                                            className="w-full px-4 py-2 rounded-xl bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50"
-                                        >
-                                            <option value="" className="bg-card">เลือกรายการ...</option>
-                                            {inventory.map(item => (
-                                                <option key={item.id} value={item.id} className="bg-card">
-                                                    {item.name} (คงเหลือ: {item.quantity})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="w-24">
-                                        <label className="text-xs text-text-secondary mb-1 block">จำนวน</label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            value={useQuantity}
-                                            onChange={(e) => setUseQuantity(parseInt(e.target.value))}
-                                            className="w-full px-4 py-2 rounded-xl bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleUsePartClick}
-                                        disabled={!selectedPartId || isRequisitioning}
-                                        className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-200 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all text-sm font-medium disabled:opacity-50 h-[38px]"
-                                    >
-                                        {isRequisitioning ? "..." : "เบิกของ"}
-                                    </button>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Technician Actions */}
-                            <form onSubmit={handleUpdateTicket} className="space-y-4 border-t border-border pt-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-1">อัปเดตสถานะ</label>
-                                    <select
-                                        value={status}
-                                        onChange={(e) => setStatus(e.target.value as RepairStatus)}
-                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50"
-                                    >
-                                        <option value="pending" className="bg-card">รอดำเนินการ</option>
-                                        <option value="in_progress" className="bg-card">กำลังดำเนินการ</option>
-                                        <option value="waiting_parts" className="bg-card">รออะไหล่</option>
-                                        <option value="completed" className="bg-card">เสร็จสิ้น</option>
-                                        <option value="cancelled" className="bg-card">ยกเลิกงาน</option>
-                                    </select>
-                                </div>
+                            {role !== 'reporter' && (
+                                <form onSubmit={handleUpdateTicket} className="space-y-4 border-t border-border pt-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">อัปเดตสถานะ</label>
+                                        <select
+                                            value={status}
+                                            onChange={(e) => setStatus(e.target.value as RepairStatus)}
+                                            className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50"
+                                        >
+                                            <option value="pending" className="bg-card">รอดำเนินการ</option>
+                                            <option value="in_progress" className="bg-card">กำลังดำเนินการ</option>
+                                            <option value="waiting_parts" className="bg-card">รออะไหล่</option>
+                                            <option value="completed" className="bg-card">เสร็จสิ้น</option>
+                                            <option value="cancelled" className="bg-card">ยกเลิกงาน</option>
+                                        </select>
+                                    </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-1">
-                                        หมายเหตุช่าง {status === 'completed' && <span className="text-red-400">*</span>}
-                                    </label>
-                                    <textarea
-                                        value={technicianNote}
-                                        onChange={(e) => setTechnicianNote(e.target.value)}
-                                        rows={3}
-                                        placeholder="รายละเอียดการซ่อม..."
-                                        className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50 resize-none"
-                                        required={status === 'completed'}
-                                    />
-                                </div>
-
-                                {status === 'completed' && !selectedTicket?.completionImage && (
                                     <div>
                                         <label className="block text-sm font-medium text-text-secondary mb-1">
-                                            รูปภาพหลังซ่อมเสร็จ <span className="text-red-400">*</span>
+                                            หมายเหตุช่าง {status === 'completed' && <span className="text-red-400">*</span>}
                                         </label>
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            onChange={(e) => setCompletionImage(e.target.files?.[0] || null)}
-                                            accept="image/*"
-                                            className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-500/10 file:text-cyan-600 dark:file:text-cyan-400 hover:file:bg-cyan-500/20"
-                                            required={!selectedTicket?.completionImage}
+                                        <textarea
+                                            value={technicianNote}
+                                            onChange={(e) => setTechnicianNote(e.target.value)}
+                                            rows={3}
+                                            placeholder="รายละเอียดการซ่อม..."
+                                            className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50 resize-none"
+                                            required={status === 'completed'}
                                         />
                                     </div>
-                                )}
 
-                                <div className="pt-2">
-                                    <button
-                                        type="submit"
-                                        disabled={isUpdating}
-                                        className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50"
-                                    >
-                                        {isUpdating ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
-                                    </button>
-                                </div>
-                            </form>
+                                    {status === 'completed' && !selectedTicket?.completionImage && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-secondary mb-1">
+                                                รูปภาพหลังซ่อมเสร็จ <span className="text-red-400">*</span>
+                                            </label>
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                onChange={(e) => setCompletionImage(e.target.files?.[0] || null)}
+                                                accept="image/*"
+                                                className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-500/10 file:text-cyan-600 dark:file:text-cyan-400 hover:file:bg-cyan-500/20"
+                                                required={!selectedTicket?.completionImage}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="pt-2">
+                                        <button
+                                            type="submit"
+                                            disabled={isUpdating}
+                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50"
+                                        >
+                                            {isUpdating ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
                         </div>
                     </div>
                 </div>

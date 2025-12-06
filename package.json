@@ -10,8 +10,11 @@
   },
   "dependencies": {
     "@blackbox-vision/react-qr-reader": "^5.0.0",
+    "@line/bot-sdk": "^10.5.0",
+    "@line/liff": "^2.27.3",
     "@types/react-signature-canvas": "^1.0.7",
     "firebase": "^10.7.1",
+    "firebase-admin": "^13.6.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
@@ -23,7 +26,8 @@
     "react-dom": "^18",
     "react-hot-toast": "^2.6.0",
     "react-qr-code": "^2.0.18",
-    "react-signature-canvas": "^1.1.0-alpha.2"
+    "react-signature-canvas": "^1.1.0-alpha.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/jspdf": "^1.3.3",
