@@ -13,7 +13,7 @@ import RepairForm from "../../../components/repair/RepairForm";
 export default function RepairLiffPage() {
     const { profile, isLoggedIn, error } = useLiff(process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || "");
     const router = useRouter();
-    const [status, setStatus] = useState("Checking permissions...");
+    const [status, setStatus] = useState("Checking permissions (v2.0 - Seamless)...");
     const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
