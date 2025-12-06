@@ -53,20 +53,136 @@ export async function POST(req: Request) {
             return NextResponse.json({ status: 'skipped', reason: 'No technicians found' });
         }
 
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
+        const deepLink = `${appUrl}/admin/repairs?ticketId=${body.ticketId}`; // Ensure ticketId is passed in body
+
         const messages: any[] = [
             {
-                type: 'text',
-                text: `🔧 **แจ้งซ่อมใหม่!** (${zone === 'junior_high' ? 'ม.ต้น' : zone === 'senior_high' ? 'ม.ปลาย' : 'ส่วนกลาง'})\n\n📍 ห้อง: ${room}\n📝 อาการ: ${description}\n👤 ผู้แจ้ง: ${requesterName}`
+                type: "flex",
+                altText: `🔧 งานซ่อมใหม่: ${room}`,
+                contents: {
+                    type: "bubble",
+                    header: {
+                        type: "box",
+                        layout: "vertical",
+                        backgroundColor: "#ef4444", // Red for urgency
+                        paddingAll: "lg",
+                        contents: [
+                            {
+                                type: "text",
+                                text: "NEW REPAIR REQUEST",
+                                color: "#ffffff",
+                                weight: "bold",
+                                size: "xs",
+                                align: "center"
+                            },
+                            {
+                                type: "text",
+                                text: "มีงานซ่อมใหม่!",
+                                color: "#ffffff",
+                                weight: "bold",
+                                size: "xl",
+                                margin: "md",
+                                align: "center"
+                            }
+                        ]
+                    },
+                    hero: imageOneUrl ? {
+                        type: "image",
+                        url: imageOneUrl,
+                        size: "full",
+                        aspectRatio: "20:13",
+                        aspectMode: "cover",
+                        action: {
+                            type: "uri",
+                            uri: imageOneUrl
+                        }
+                    } : undefined,
+                    body: {
+                        type: "box",
+                        layout: "vertical",
+                        contents: [
+                            {
+                                type: "text",
+                                text: description,
+                                weight: "bold",
+                                size: "lg",
+                                wrap: true
+                            },
+                            {
+                                type: "box",
+                                layout: "vertical",
+                                margin: "lg",
+                                spacing: "sm",
+                                contents: [
+                                    {
+                                        type: "box",
+                                        layout: "baseline",
+                                        spacing: "sm",
+                                        contents: [
+                                            {
+                                                type: "text",
+                                                text: "📍 สถานที่",
+                                                color: "#aaaaaa",
+                                                size: "sm",
+                                                flex: 2
+                                            },
+                                            {
+                                                type: "text",
+                                                text: room,
+                                                wrap: true,
+                                                color: "#666666",
+                                                size: "sm",
+                                                flex: 4
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        type: "box",
+                                        layout: "baseline",
+                                        spacing: "sm",
+                                        contents: [
+                                            {
+                                                type: "text",
+                                                text: "👤 ผู้แจ้ง",
+                                                color: "#aaaaaa",
+                                                size: "sm",
+                                                flex: 2
+                                            },
+                                            {
+                                                type: "text",
+                                                text: requesterName,
+                                                wrap: true,
+                                                color: "#666666",
+                                                size: "sm",
+                                                flex: 4
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    footer: {
+                        type: "box",
+                        layout: "vertical",
+                        spacing: "sm",
+                        contents: [
+                            {
+                                type: "button",
+                                style: "primary",
+                                color: "#ef4444", // Red button
+                                action: {
+                                    type: "uri",
+                                    label: "รับงานซ่อม",
+                                    uri: deepLink
+                                }
+                            }
+                        ]
+                    }
+                }
             }
         ];
-
-        if (imageOneUrl) {
-            messages.push({
-                type: 'image',
-                originalContentUrl: imageOneUrl,
-                previewImageUrl: imageOneUrl
-            });
-        }
 
         // Use Multicast API
         await fetch('https://api.line.me/v2/bot/message/multicast', {

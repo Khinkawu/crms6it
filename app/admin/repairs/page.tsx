@@ -80,6 +80,21 @@ export default function RepairDashboard() {
         };
     }, [user]);
 
+    // Deep Link Handling: Open Modal if ticketId is in URL
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const ticketIdFromUrl = searchParams?.get('ticketId');
+
+    useEffect(() => {
+        if (ticketIdFromUrl && tickets.length > 0 && !isModalOpen) {
+            const targetTicket = tickets.find(t => t.id === ticketIdFromUrl);
+            if (targetTicket) {
+                handleOpenModal(targetTicket);
+                // Optional: Clean URL
+                window.history.replaceState({}, '', '/admin/repairs');
+            }
+        }
+    }, [ticketIdFromUrl, tickets]);
+
     const handleOpenModal = (ticket: RepairTicket) => {
         setSelectedTicket(ticket);
         setStatus(ticket.status);
