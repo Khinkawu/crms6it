@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Download, Printer, FileSpreadsheet, Filter, X } from 'lucide-react';
+import { Download, Printer, FileSpreadsheet, Filter, X, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { RepairTicket } from '../../types';
 import { generateStockReport } from '@/lib/generateReport';
@@ -14,6 +14,8 @@ interface RepairActionsBarProps {
     data: RepairTicket[];
     onFilterChange: (startDate: Date | null, endDate: Date | null) => void;
 }
+
+// ... (helpers remain unchanged)
 
 // Helper: แปลง Zone เป็นภาษาไทย
 const getZoneThai = (zone: string) => {
@@ -61,6 +63,7 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
         onFilterChange(null, null);
     };
 
+    // ... (prepareReportData remains unchanged)
     // Helper to format data for the report (Updated Logic)
     const prepareReportData = (tickets: RepairTicket[]) => {
         return {
@@ -159,8 +162,15 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px]"
+                            className={`px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px] ${!startDate ? 'text-transparent' : ''
+                                }`}
                         />
+                        {!startDate && (
+                            <div className="absolute inset-0 flex items-center px-3 pointer-events-none text-slate-400 dark:text-slate-500 text-sm gap-2">
+                                <Calendar size={16} />
+                                <span>Start Date</span>
+                            </div>
+                        )}
                     </div>
                     <span className="text-slate-400 dark:text-slate-500">-</span>
                     <div className="relative w-full sm:w-auto">
@@ -168,8 +178,15 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px]"
+                            className={`px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px] ${!endDate ? 'text-transparent' : ''
+                                }`}
                         />
+                        {!endDate && (
+                            <div className="absolute inset-0 flex items-center px-3 pointer-events-none text-slate-400 dark:text-slate-500 text-sm gap-2">
+                                <Calendar size={16} />
+                                <span>End Date</span>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
