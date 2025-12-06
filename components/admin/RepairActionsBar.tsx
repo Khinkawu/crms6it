@@ -154,19 +154,23 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
             {/* Left: Date Filters */}
             <div className="flex flex-col sm:flex-row gap-2 items-center w-full xl:w-auto">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full transition-colors dark:[color-scheme:dark]"
-                    />
+                    <div className="relative w-full sm:w-auto">
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px]"
+                        />
+                    </div>
                     <span className="text-slate-400 dark:text-slate-500">-</span>
-                    <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full transition-colors dark:[color-scheme:dark]"
-                    />
+                    <div className="relative w-full sm:w-auto">
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px]"
+                        />
+                    </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <button

@@ -108,7 +108,7 @@ export default function BookingLiffPage() {
 
                 <div className="pt-4">
                     <p className="text-xs text-gray-400 font-light tracking-wide">
-                        ระบบกำลังตรวจสอบข้อมูลห้องประชุม
+                        ระบบกำลังตรวจสอบข้อมูลจากเซิร์ฟเวอร์
                         <br />
                         กรุณารอสักครู่...
                     </p>

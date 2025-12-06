@@ -142,7 +142,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                                 },
                                 {
                                     type: 'text',
-                                    text: statusText,
+                                    text: 'สถานะการแจ้งซ่อม',
                                     color: '#ffffff',
                                     weight: 'bold',
                                     size: 'xs',
@@ -152,7 +152,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                         },
                         {
                             type: 'text',
-                            text: 'สถานะการแจ้งซ่อม',
+                            text: statusText,
                             weight: 'bold',
                             size: 'xl',
                             color: '#ffffff',
@@ -239,21 +239,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                         }
                     ]
                 },
-                footer: {
-                    type: 'box',
-                    layout: 'vertical',
-                    contents: [
-                        {
-                            type: 'button',
-                            style: 'secondary',
-                            action: {
-                                type: 'uri',
-                                label: 'เปิดดูรายละเอียด',
-                                uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}`
-                            }
-                        }
-                    ]
-                }
+
             });
         });
 
