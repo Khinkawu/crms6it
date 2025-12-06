@@ -121,29 +121,138 @@ async function handleTrackStatus(replyToken: string, userId: string) {
 
             bubbles.push({
                 type: 'bubble',
-                size: 'micro',
+                size: 'mega',
                 header: {
                     type: 'box',
                     layout: 'vertical',
                     backgroundColor: statusColor,
-                    paddingAll: 'md',
+                    paddingAll: '20px',
                     contents: [
-                        { type: 'text', text: statusText, color: '#ffffff', weight: 'bold', align: 'center', size: 'xs' }
+                        {
+                            type: 'box',
+                            layout: 'horizontal',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: 'REPAIR TICKET',
+                                    color: '#ffffff',
+                                    weight: 'bold',
+                                    size: 'xs',
+                                    flex: 1
+                                },
+                                {
+                                    type: 'text',
+                                    text: statusText,
+                                    color: '#ffffff',
+                                    weight: 'bold',
+                                    size: 'xs',
+                                    align: 'end'
+                                }
+                            ]
+                        },
+                        {
+                            type: 'text',
+                            text: 'สถานะการแจ้งซ่อม',
+                            weight: 'bold',
+                            size: 'xl',
+                            color: '#ffffff',
+                            margin: 'md'
+                        },
+                        {
+                            type: 'text',
+                            text: `ID: ${doc.id.slice(0, 8).toUpperCase()}`,
+                            size: 'xs',
+                            color: '#ffffffcc',
+                            margin: 'xs'
+                        }
                     ]
                 },
                 body: {
                     type: 'box',
                     layout: 'vertical',
+                    paddingAll: '20px',
                     contents: [
-                        { type: 'text', text: data.room || 'Unknown Room', weight: 'bold', size: 'sm' },
-                        { type: 'text', text: data.description || 'No description', size: 'xs', color: '#aaaaaa', wrap: true, maxLines: 2, margin: 'sm' },
-                        { type: 'text', text: `Date: ${dateStr}`, size: 'xxs', color: '#cccccc', margin: 'md' }
+                        {
+                            type: 'text',
+                            text: data.description || 'No description',
+                            weight: 'bold',
+                            size: 'lg',
+                            color: '#333333',
+                            wrap: true
+                        },
+                        {
+                            type: 'separator',
+                            margin: 'lg',
+                            color: '#eeeeee'
+                        },
+                        {
+                            type: 'box',
+                            layout: 'vertical',
+                            margin: 'lg',
+                            spacing: 'sm',
+                            contents: [
+                                {
+                                    type: 'box',
+                                    layout: 'baseline',
+                                    spacing: 'sm',
+                                    contents: [
+                                        {
+                                            type: 'text',
+                                            text: '📍 สถานที่',
+                                            color: '#aaaaaa',
+                                            size: 'sm',
+                                            flex: 2
+                                        },
+                                        {
+                                            type: 'text',
+                                            text: data.room || 'Unknown',
+                                            wrap: true,
+                                            color: '#666666',
+                                            size: 'sm',
+                                            flex: 4
+                                        }
+                                    ]
+                                },
+                                {
+                                    type: 'box',
+                                    layout: 'baseline',
+                                    spacing: 'sm',
+                                    contents: [
+                                        {
+                                            type: 'text',
+                                            text: '📅 วันที่',
+                                            color: '#aaaaaa',
+                                            size: 'sm',
+                                            flex: 2
+                                        },
+                                        {
+                                            type: 'text',
+                                            text: dateStr,
+                                            wrap: true,
+                                            color: '#666666',
+                                            size: 'sm',
+                                            flex: 4
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
                     ]
                 },
-                action: {
-                    type: 'uri',
-                    label: 'View',
-                    uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}`
+                footer: {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'button',
+                            style: 'secondary',
+                            action: {
+                                type: 'uri',
+                                label: 'เปิดดูรายละเอียด',
+                                uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}`
+                            }
+                        }
+                    ]
                 }
             });
         });
