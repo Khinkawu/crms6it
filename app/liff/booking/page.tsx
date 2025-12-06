@@ -6,7 +6,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signInWithCustomToken } from "firebase/auth";
 import { auth } from "../../../lib/firebase";
-import BookingForm from "../../../components/BookingForm";
+import BookingForm from "../../components/BookingForm";
 
 export default function BookingLiffPage() {
     const { profile, isLoggedIn, error } = useLiff(process.env.NEXT_PUBLIC_LINE_LIFF_ID_BOOKING || "");
