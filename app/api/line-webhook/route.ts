@@ -129,41 +129,12 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                     paddingAll: '20px',
                     contents: [
                         {
-                            type: 'box',
-                            layout: 'horizontal',
-                            contents: [
-                                {
-                                    type: 'text',
-                                    text: 'REPAIR TICKET',
-                                    color: '#ffffff',
-                                    weight: 'bold',
-                                    size: 'xs',
-                                    flex: 1
-                                },
-                                {
-                                    type: 'text',
-                                    text: 'สถานะการแจ้งซ่อม',
-                                    color: '#ffffff',
-                                    weight: 'bold',
-                                    size: 'xs',
-                                    align: 'end'
-                                }
-                            ]
-                        },
-                        {
                             type: 'text',
                             text: statusText,
                             weight: 'bold',
                             size: 'xl',
                             color: '#ffffff',
-                            margin: 'md'
-                        },
-                        {
-                            type: 'text',
-                            text: `ID: ${doc.id.slice(0, 8).toUpperCase()}`,
-                            size: 'xs',
-                            color: '#ffffffcc',
-                            margin: 'xs'
+                            align: 'center'
                         }
                     ]
                 },
