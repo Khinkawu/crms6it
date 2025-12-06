@@ -87,19 +87,32 @@ export default function BookingLiffPage() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-white px-8">
-            <div className="w-full max-w-xs space-y-4 text-center">
-                <div className="relative w-20 h-20 mx-auto">
-                    <img src="/logo_2.png" alt="Logo" className="w-full h-full object-contain opacity-80" />
+        <div className="min-h-screen flex flex-col items-center justify-center bg-white px-8 relative overflow-hidden">
+            {/* Background Decoration */}
+            <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-60"></div>
+            <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-purple-50 rounded-full blur-3xl opacity-60"></div>
+
+            <div className="w-full max-w-sm space-y-8 text-center relative z-10">
+                <div className="relative w-32 h-32 mx-auto mb-6 animate-fade-in">
+                    <img src="/logo_2.png" alt="Logo" className="w-full h-full object-contain drop-shadow-sm" />
                 </div>
 
-                <h3 className="text-gray-700 font-medium text-lg">{status}</h3>
+                <div className="space-y-4">
+                    <h3 className="text-gray-800 font-semibold text-xl tracking-tight">{status}</h3>
 
-                {/* Fake Progress Bar */}
-                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden relative">
-                    <div className="absolute top-0 left-0 h-full w-1/3 bg-blue-500 rounded-full animate-progress-smooth"></div>
+                    {/* Fake Progress Bar */}
+                    <div className="w-48 mx-auto h-1.5 bg-gray-100 rounded-full overflow-hidden relative shadow-inner">
+                        <div className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-blue-500 to-purple-400 rounded-full animate-progress-smooth shadow-lg"></div>
+                    </div>
                 </div>
-                <p className="text-xs text-gray-400">กำลังเชื่อมต่อฐานข้อมูล...</p>
+
+                <div className="pt-4">
+                    <p className="text-xs text-gray-400 font-light tracking-wide">
+                        ระบบกำลังตรวจสอบข้อมูลห้องประชุม
+                        <br />
+                        กรุณารอสักครู่...
+                    </p>
+                </div>
             </div>
 
             {/* Inline CSS for smoother animation */}
@@ -111,6 +124,13 @@ export default function BookingLiffPage() {
                 }
                 .animate-progress-smooth {
                     animation: progress-smooth 1.5s infinite linear;
+                }
+                @keyframes fade-in {
+                    0% { opacity: 0; transform: translateY(10px); }
+                    100% { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in {
+                    animation: fade-in 0.5s ease-out forwards;
                 }
             `}</style>
         </div>
