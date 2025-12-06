@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "../../../lib/firebaseAdmin";
+import { adminAuth, adminDb } from "../../../../lib/firebaseAdmin";
 
 // This endpoint receives a LINE User ID (trusted from LIFF context? Or verified ID Token?)
 // Ideally, we should verify the ID Token. But for MVP, if we trust the caller (LIFF), we can look up binding.
