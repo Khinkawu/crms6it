@@ -65,7 +65,7 @@ export async function POST(req: Request) {
                     header: {
                         type: "box",
                         layout: "vertical",
-                        backgroundColor: "#ef4444", // Red for urgency
+                        backgroundColor: "#1d9befff", // Red for urgency
                         paddingAll: "lg",
                         contents: [
                             {
@@ -171,7 +171,7 @@ export async function POST(req: Request) {
                             {
                                 type: "button",
                                 style: "primary",
-                                color: "#ef4444", // Red button
+                                color: "#1d9befff", // Red button
                                 action: {
                                     type: "uri",
                                     label: "รับงานซ่อม",

@@ -51,7 +51,7 @@ export default function RepairLiffPage() {
 
                 if (res.status === 404) {
                     // Not bound -> Go to Entry
-                    router.push("/liff/entry");
+                    router.push("/liff/entry?returnUrl=/liff/repair");
                     return;
                 }
 
