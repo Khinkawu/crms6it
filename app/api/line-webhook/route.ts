@@ -211,41 +211,42 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                     ]
                 },
             });
+        });
 
-            const flexMessage: FlexMessage = {
-                type: 'flex',
-                altText: 'รายการแจ้งซ่อมของคุณ',
-                contents: {
-                    type: 'carousel',
-                    contents: bubbles
-                }
-            };
+        const flexMessage: FlexMessage = {
+            type: 'flex',
+            altText: 'รายการแจ้งซ่อมของคุณ',
+            contents: {
+                type: 'carousel',
+                contents: bubbles
+            }
+        };
 
-            await client.replyMessage(replyToken, flexMessage);
+        await client.replyMessage(replyToken, flexMessage);
 
-        } catch (error) {
-            console.error('Track Status Error:', error);
-            await client.replyMessage(replyToken, { type: 'text', text: `เกิดข้อผิดพลาด: ${(error as any).message}` });
-        }
+    } catch (error) {
+        console.error('Track Status Error:', error);
+        await client.replyMessage(replyToken, { type: 'text', text: `เกิดข้อผิดพลาด: ${(error as any).message}` });
     }
+}
 
 // Helpers
 function getStatusColor(status: string): string {
-        switch (status) {
-            case 'pending': return '#f59e0b'; // Amber
-            case 'in_progress': return '#3b82f6'; // Blue
-            case 'waiting_parts': return '#f97316'; // Orange
-            case 'completed': return '#10b981'; // Emerald
-            default: return '#64748b';
-        }
+    switch (status) {
+        case 'pending': return '#f59e0b'; // Amber
+        case 'in_progress': return '#3b82f6'; // Blue
+        case 'waiting_parts': return '#f97316'; // Orange
+        case 'completed': return '#10b981'; // Emerald
+        default: return '#64748b';
     }
+}
 
-    function getStatusThai(status: string): string {
-        switch (status) {
-            case 'pending': return 'รอดำเนินการ';
-            case 'in_progress': return 'กำลังดำเนินการ';
-            case 'waiting_parts': return 'รออะไหล่';
-            case 'completed': return 'เสร็จสิ้น';
-            default: return status;
-        }
+function getStatusThai(status: string): string {
+    switch (status) {
+        case 'pending': return 'รอดำเนินการ';
+        case 'in_progress': return 'กำลังดำเนินการ';
+        case 'waiting_parts': return 'รออะไหล่';
+        case 'completed': return 'เสร็จสิ้น';
+        default: return status;
     }
+}
