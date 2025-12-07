@@ -19,15 +19,16 @@ export default function BookingLiffPage() {
             if (!isLoggedIn || !profile) return;
 
             try {
-                // Optimize: Fast Path
+                // Optimize: Fast Path - Check if already logged in via Firebase
                 if (auth.currentUser) {
-                    setStatus("กำลังเข้าสู่ระบบ...");
+                    setStatus("กำลังตรวจสอบสิทธิ์...");
                     setIsReady(true);
                     return;
                 }
 
-                setStatus("กำลังตรวจสอบสิทธิ์...");
-                // Optimize: Use API directly to check binding & get token
+                // Optimize: Skip client-side getDoc. Use API to check binding & get token.
+                setStatus("กำลังตรวจสอบการผูกบัญชี...");
+
                 const res = await fetch("/api/auth/line-custom-token", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -47,7 +48,7 @@ export default function BookingLiffPage() {
 
                 const { token } = await res.json();
 
-                // Silent Login
+                // Sign In to Firebase (Silent)
                 await signInWithCustomToken(auth, token);
 
                 setIsReady(true);
@@ -75,9 +76,6 @@ export default function BookingLiffPage() {
         // BookingForm handles its own layout, but we wrap it to ensure full screen
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-start p-0">
-                {/* Pass callbacks or props if BookingForm expects them, checking page source... 
-                    It expects onSuccess and onCancel.
-                 */}
                 <BookingForm
                     onSuccess={() => {/* Maybe close window or show success overlay? for now just let it be */ }}
                     onCancel={() => {/* Close window? */ }}
@@ -90,7 +88,7 @@ export default function BookingLiffPage() {
         <div className="min-h-screen flex flex-col items-center justify-center bg-white px-8 relative overflow-hidden">
             {/* Background Decoration */}
             <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-60"></div>
-            <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-purple-50 rounded-full blur-3xl opacity-60"></div>
+            <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-green-50 rounded-full blur-3xl opacity-60"></div>
 
             <div className="w-full max-w-sm space-y-8 text-center relative z-10">
                 <div className="relative w-32 h-32 mx-auto mb-6 animate-fade-in">
@@ -102,7 +100,7 @@ export default function BookingLiffPage() {
 
                     {/* Fake Progress Bar */}
                     <div className="w-48 mx-auto h-1.5 bg-gray-100 rounded-full overflow-hidden relative shadow-inner">
-                        <div className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-blue-500 to-purple-400 rounded-full animate-progress-smooth shadow-lg"></div>
+                        <div className="absolute top-0 left-0 h-full w-1/3 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full animate-progress-smooth shadow-lg"></div>
                     </div>
                 </div>
 
@@ -110,7 +108,7 @@ export default function BookingLiffPage() {
                     <p className="text-xs text-gray-400 font-light tracking-wide">
                         ระบบกำลังตรวจสอบข้อมูลจากเซิร์ฟเวอร์
                         <br />
-                        กรุณารอสักครู่...
+                        เพื่อให้มั่นใจในความปลอดภัยของคุณ
                     </p>
                 </div>
             </div>
