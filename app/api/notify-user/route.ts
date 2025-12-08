@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { adminDb } from '../../../lib/firebaseAdmin';
 
 export async function POST(request: Request) {
     try {
@@ -11,9 +10,8 @@ export async function POST(request: Request) {
         }
 
         // 1. Find User by Email
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('email', '==', email));
-        const querySnapshot = await getDocs(q);
+        const usersRef = adminDb.collection('users');
+        const querySnapshot = await usersRef.where('email', '==', email).get();
 
         if (querySnapshot.empty) {
             console.log(`No user found for email: ${email}`);

@@ -239,19 +239,32 @@ function InventoryContent() {
         const printWindow = window.open('', '', 'width=800,height=600');
         if (!printWindow) return;
 
-        const qrCodeUrl = (id: string) => `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+        const origin = window.location.origin;
+        // Use react-qr-code approach conceptually, but for raw HTML print we use a clear API or just text if preferred. 
+        // Actually, the previous code used `api.qrserver.com`. Let's stick to that but with full URL.
+        const qrCodeUrl = (id: string) => `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${origin}/product/${id}`)}`;
 
         const htmlContent = `
             <html>
                 <head>
                     <title>Print QR Codes</title>
                     <style>
-                        body { font-family: sans-serif; padding: 20px; }
-                        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; }
-                        .card { border: 1px solid #ccc; padding: 10px; text-align: center; border-radius: 8px; page-break-inside: avoid; }
-                        img { width: 100px; height: 100px; }
-                        .name { font-size: 12px; margin-top: 5px; font-weight: bold; }
-                        .id { font-size: 10px; color: #666; }
+                        body { font-family: 'Sarabun', sans-serif; padding: 20px; }
+                        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+                        .card { 
+                            border: 2px solid #000; 
+                            padding: 10px; 
+                            text-align: center; 
+                            border-radius: 8px; 
+                            page-break-inside: avoid;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                        }
+                        img { width: 100px; height: 100px; display: block; margin-bottom: 5px; }
+                        .name { font-size: 14px; font-weight: bold; line-height: 1.2; margin-bottom: 2px; }
+                        .id { font-size: 10px; color: #555; font-family: monospace; }
                         @media print {
                             .no-print { display: none; }
                         }
@@ -259,7 +272,7 @@ function InventoryContent() {
                 </head>
                 <body>
                     <h1 class="no-print">QR Codes (${selectedProductIds.size > 0 ? selectedProductIds.size : filteredProducts.length} items)</h1>
-                    <button class="no-print" onclick="window.print()" style="padding: 10px 20px; margin-bottom: 20px; cursor: pointer;">Print Now</button>
+                    <button class="no-print" onclick="window.print()" style="padding: 10px 20px; margin-bottom: 20px; cursor: pointer; font-size: 16px;">Print Now</button>
                     <div class="grid">
                         ${(selectedProductIds.size > 0
                 ? products.filter(p => p.id && selectedProductIds.has(p.id))
@@ -268,7 +281,7 @@ function InventoryContent() {
                             <div class="card">
                                 <img src="${qrCodeUrl(p.id!)}" alt="QR Code" />
                                 <div class="name">${p.name}</div>
-                                <div class="id">${p.id!.slice(0, 8)}...</div>
+                                <div class="id">${p.stockId || p.id}</div>
                             </div>
                         `).join('')}
                     </div>
@@ -278,6 +291,56 @@ function InventoryContent() {
 
         printWindow.document.write(htmlContent);
         printWindow.document.close();
+    };
+
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleBulkDownload = async () => {
+        setIsDownloading(true);
+        try {
+            // Dynamic import for JSZip and FileSaver to strictly avoid SSR issues if any, though "use client" handles most.
+            // But we need to make sure they are installed.
+            const JSZip = (await import('jszip')).default;
+            const { saveAs } = await import('file-saver');
+
+            const zip = new JSZip();
+            const origin = window.location.origin;
+
+            const items = selectedProductIds.size > 0
+                ? products.filter(p => p.id && selectedProductIds.has(p.id))
+                : filteredProducts;
+
+            if (items.length === 0) {
+                toast.error("No items to download");
+                return;
+            }
+
+            const promises = items.map(async (p) => {
+                if (!p.id) return;
+                try {
+                    const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${origin}/product/${p.id}`)}`;
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    // Filename: Name_IDFirst4.png
+                    const safeName = p.name.replace(/[^a-z0-9]/gi, '_').slice(0, 20);
+                    zip.file(`${safeName}_${p.stockId || p.id}.png`, blob);
+                } catch (err) {
+                    console.error("Failed to fetch QR for", p.name, err);
+                }
+            });
+
+            await Promise.all(promises);
+
+            const content = await zip.generateAsync({ type: "blob" });
+            saveAs(content, `qr_codes_${new Date().toISOString().slice(0, 10)}.zip`);
+            toast.success("Downloaded QR Codes");
+
+        } catch (error) {
+            console.error("Bulk download error:", error);
+            toast.error("Failed to create zip file");
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     // Filter Logic
@@ -319,13 +382,23 @@ function InventoryContent() {
                                 <Printer size={20} /> {isSelectionMode ? 'ยกเลิกเลือก' : 'พิมพ์ QR Code'}
                             </button>
                             {isSelectionMode && (
-                                <button
-                                    onClick={handleBulkPrint}
-                                    disabled={selectedProductIds.size === 0}
-                                    className="px-4 py-2 bg-cyan-600 text-white font-bold rounded-xl shadow-sm hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                >
-                                    พิมพ์ ({selectedProductIds.size})
-                                </button>
+                                <>
+                                    <button
+                                        onClick={handleBulkPrint}
+                                        disabled={selectedProductIds.size === 0}
+                                        className="px-4 py-2 bg-cyan-600 text-white font-bold rounded-xl shadow-sm hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        <Printer size={20} /> พิมพ์ ({selectedProductIds.size})
+                                    </button>
+                                    <button
+                                        onClick={handleBulkDownload}
+                                        disabled={selectedProductIds.size === 0 || isDownloading}
+                                        className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        {isDownloading ? <span className="animate-spin">⏳</span> : <Download size={20} />}
+                                        โหลด PNG ({selectedProductIds.size})
+                                    </button>
+                                </>
                             )}
 
                             <button

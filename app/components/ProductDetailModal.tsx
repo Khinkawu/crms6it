@@ -2,8 +2,9 @@
 
 import React, { useRef, useEffect } from "react";
 import { Product } from "../../types";
-import { X, Calendar, MapPin, Tag, Hash, Package, Clock, Download, Upload, RotateCcw, Edit, ExternalLink } from "lucide-react";
+import { X, Calendar, MapPin, Tag, Hash, Package, Clock, Download, Upload, RotateCcw, Edit, ExternalLink, Printer } from "lucide-react";
 import Image from "next/image";
+import QRCode from "react-qr-code";
 
 interface ProductDetailModalProps {
     isOpen: boolean;
@@ -129,12 +130,85 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                                     <span className="text-xs text-gray-500 flex items-center gap-1"><Hash size={12} /> หมวดหมู่/Category</span>
                                     <p className="font-semibold text-gray-900 line-clamp-1">{product.category || "-"}</p>
                                 </div>
-                                <div className="space-y-1 col-span-2">
+
+                                {/* Serial Number */}
+                                <div className="space-y-1">
                                     <span className="text-xs text-gray-500 flex items-center gap-1"><Hash size={12} /> Serial Number (S/N)</span>
-                                    <p className="font-mono text-sm bg-gray-50 px-2 py-1 rounded border border-gray-100 inline-block text-gray-700">
+                                    <p className="font-mono text-sm bg-gray-50 px-2 py-1 rounded border border-gray-100 inline-block text-gray-700 break-all">
                                         {product.serialNumber || "-"}
                                     </p>
                                 </div>
+
+                                {/* Compact QR Code Section */}
+                                <div className="space-y-1">
+                                    <span className="text-xs text-gray-500 flex items-center gap-1"><Printer size={12} /> QR Code</span>
+
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-white p-1 rounded border border-gray-100 shrink-0">
+                                            <QRCode
+                                                value={`${typeof window !== 'undefined' ? window.location.origin : ''}/product/${product.id || ''}`}
+                                                size={48}
+                                                className="w-12 h-12"
+                                            />
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={() => {
+                                                    const printWindow = window.open('', '', 'width=600,height=600');
+                                                    if (printWindow) {
+                                                        printWindow.document.write(`
+                                                            <html><head><title>Print QR</title></head>
+                                                            <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
+                                                                <div style="border:2px solid black;padding:20px;text-align:center;border-radius:10px;">
+                                                                    ${(document.getElementById(`modal-qr-${product.id}`) as any)?.outerHTML || ''}
+                                                                    <div style="font-weight:bold;margin-top:10px;font-size:18px;">${product.name}</div>
+                                                                    <div style="font-family:monospace;color:#555;">${product.stockId || product.id}</div>
+                                                                </div>
+                                                                <script>window.onload=()=>{window.print();window.close();}</script>
+                                                            </body></html>`
+                                                        );
+                                                        printWindow.document.close();
+                                                    }
+                                                }}
+                                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-200"
+                                                title="Print QR"
+                                            >
+                                                <Printer size={18} />
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        const origin = window.location.origin;
+                                                        const url = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${origin}/product/${product.id}`)}`;
+                                                        const response = await fetch(url);
+                                                        const blob = await response.blob();
+                                                        const downloadLink = document.createElement('a');
+                                                        downloadLink.href = URL.createObjectURL(blob);
+                                                        downloadLink.download = `QR_${product.name}_${product.stockId || product.id}.png`;
+                                                        document.body.appendChild(downloadLink);
+                                                        downloadLink.click();
+                                                        document.body.removeChild(downloadLink);
+                                                    } catch (e) {
+                                                        console.error("Download failed", e);
+                                                        alert("Could not download QR Code");
+                                                    }
+                                                }}
+                                                className="p-2 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors border border-transparent hover:border-cyan-100"
+                                                title="Download PNG"
+                                            >
+                                                <Download size={18} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'none' }}>
+                                    <QRCode
+                                        id={`modal-qr-${product.id || ''}`}
+                                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/product/${product.id || ''}`}
+                                        size={150}
+                                    />
+                                </div>
+
                                 <div className="space-y-1">
                                     <span className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={12} /> สถานที่จัดเก็บ</span>
                                     <p className="font-semibold text-gray-900">{product.location || "-"}</p>

@@ -4,7 +4,7 @@ import React, { useState, useRef } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { db, storage } from "../../../lib/firebase";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { collection, addDoc, Timestamp, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import QRCode from "react-qr-code";
 import { Product } from "../../../types";
@@ -28,6 +28,8 @@ const AddProductPage = () => {
         location: "",
         quantity: "1",
         serialNumber: "",
+        category: "",
+        stockId: ""
     });
     const [isBulk, setIsBulk] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -35,7 +37,18 @@ const AddProductPage = () => {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [newProductId, setNewProductId] = useState<string | null>(null);
+    const [createdStockId, setCreatedStockId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Categories Configuration
+    const categories = [
+        { id: 'IT', label: 'คอมพิวเตอร์ (IT)', prefix: 'COM' },
+        { id: 'AV', label: 'โสตทัศนูปกรณ์ (AV)', prefix: 'AV' },
+        { id: 'NET', label: 'เครือข่าย (Network)', prefix: 'NET' },
+        { id: 'OFF', label: 'อุปกรณ์สำนักงาน (Office)', prefix: 'OFF' },
+        { id: 'TOOL', label: 'เครื่องมือช่าง (Tools)', prefix: 'TOOL' },
+        { id: 'GEN', label: 'อื่นๆ (General)', prefix: 'GEN' },
+    ];
 
     // Protect Route
     if (!authLoading && !user) {
@@ -43,9 +56,67 @@ const AddProductPage = () => {
         return null;
     }
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const generateNextStockId = async (prefix: string) => {
+        setLoading(true); // Show loading while generating
+        try {
+            // Logic: Query products with this prefix to find the max number
+            // Note: In a high-concurrency real app, use a transaction or counter document.
+            // For now, querying client-side is acceptable for this scale.
+
+            // Get all products that MIGHT match this prefix (simple check)
+            // Ideally we'd have a counter, but let's query recent items.
+            // A precise way provided there's no "where 'stockId' startsWith" is to fetch all and filter, 
+            // or better, maintain a dedicated counter collection. 
+            // Given the constraints, let's try to query 'products' where category matches.
+
+            const q = query(
+                collection(db, "products"),
+                where("stockId", ">=", prefix),
+                where("stockId", "<=", prefix + '\uf8ff'),
+                orderBy("stockId", "desc"),
+                limit(1)
+            );
+
+            const snapshot = await getDocs(q);
+
+            let nextNum = 1;
+            if (!snapshot.empty) {
+                const lastId = snapshot.docs[0].data().stockId;
+                // Parse "INV-001" -> 1
+                const parts = lastId.split('-');
+                if (parts.length > 1) {
+                    const num = parseInt(parts[parts.length - 1], 10);
+                    if (!isNaN(num)) nextNum = num + 1;
+                }
+            }
+
+            // Format: AAA-001
+            return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+
+        } catch (err) {
+            console.error("Error generating ID", err);
+            return `${prefix}-${Date.now().toString().slice(-4)}`; // Fallback
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCategoryChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const categoryId = e.target.value;
+        const selectedCat = categories.find(c => c.id === categoryId);
+
+        // Update category immediately
+        setFormData(prev => ({ ...prev, category: categoryId }));
+
+        if (selectedCat) {
+            const nextId = await generateNextStockId(selectedCat.prefix);
+            setFormData(prev => ({ ...prev, category: categoryId, stockId: nextId }));
+        }
     };
 
     const handleBulkToggle = () => {
@@ -56,7 +127,6 @@ const AddProductPage = () => {
             serialNumber: "" // Clear serial number when switching to bulk
         }));
     };
-
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
@@ -121,6 +191,7 @@ const AddProductPage = () => {
 
         try {
             if (!imageFile) throw new Error("กรุณาเลือกรูปภาพ");
+            if (!formData.stockId) throw new Error("กรุณากระบุรหัสครุภัณฑ์ (Stock ID)");
 
             // 1. Resize & Compress Image
             const resizedImageBlob = await resizeImage(imageFile);
@@ -139,7 +210,8 @@ const AddProductPage = () => {
                 warrantyInfo: formData.warrantyInfo,
                 location: formData.location,
                 imageUrl: downloadURL,
-                stockId: "", // Will update after getting doc ID
+                stockId: formData.stockId, // Use the generated/edited Stock ID
+                category: categories.find(c => c.id === formData.category)?.label || "ทั่วไป", // Store label
                 status: "available",
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
@@ -152,9 +224,10 @@ const AddProductPage = () => {
             const docRef = await addDoc(collection(db, "products"), productData);
 
             setNewProductId(docRef.id);
+            setCreatedStockId(formData.stockId); // Save for display
             setSuccess(true);
 
-            // Update Stats
+            // ... (stats update preserved)
             await incrementStats('total');
             await incrementStats('available');
 
@@ -168,6 +241,8 @@ const AddProductPage = () => {
                 location: "",
                 quantity: "1",
                 serialNumber: "",
+                category: "",
+                stockId: ""
             });
             setIsBulk(false);
             setImageFile(null);
@@ -180,7 +255,6 @@ const AddProductPage = () => {
             setLoading(false);
         }
     };
-
     const handlePrintQR = () => {
         window.print();
     };
@@ -205,7 +279,8 @@ const AddProductPage = () => {
                                 value={`${typeof window !== 'undefined' ? window.location.origin : ''}/product/${newProductId}`}
                                 size={200}
                             />
-                            <p className="text-black text-sm font-mono mt-2">{newProductId}</p>
+                            <p className="text-black text-xl font-bold mt-2">{createdStockId || newProductId}</p>
+                            {!createdStockId && <p className="text-gray-500 text-xs font-mono">{newProductId}</p>}
                         </div>
 
                         <div className="flex gap-4 justify-center print:hidden">
@@ -238,6 +313,9 @@ const AddProductPage = () => {
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-6">
+
+
+
                             {/* Image Upload */}
                             <div
                                 className={`relative w-full h-48 rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden group
@@ -299,7 +377,7 @@ const AddProductPage = () => {
                             ) : (
                                 <div className="space-y-2 animate-fade-in-up">
                                     <label className="text-sm font-medium text-gray-700 dark:text-white/70 flex items-center gap-2">
-                                        <Hash className="w-4 h-4 text-blue-400" /> Serial Number
+                                        <Hash className="w-4 h-4 text-blue-400" /> Serial Number (S/N)
                                     </label>
                                     <input
                                         type="text"
@@ -312,6 +390,47 @@ const AddProductPage = () => {
                                 </div>
                             )}
 
+                            {/* Category and Auto-ID Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/20">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700 dark:text-white/70 flex items-center gap-2">
+                                        <Box className="w-4 h-4 text-blue-500" /> หมวดหมู่ (Category)
+                                    </label>
+                                    <select
+                                        name="category"
+                                        value={formData.category}
+                                        onChange={handleCategoryChange}
+                                        required
+                                        className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer appearance-none"
+                                    >
+                                        <option value="">-- กรุณาเลือกหมวดหมู่ --</option>
+                                        {categories.map(cat => (
+                                            <option key={cat.id} value={cat.id}>
+                                                {cat.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-gray-700 dark:text-white/70 flex items-center gap-2">
+                                        <Hash className="w-4 h-4 text-emerald-500" /> รหัสครุภัณฑ์ (Stock ID)
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            name="stockId"
+                                            value={formData.stockId}
+                                            onChange={handleInputChange}
+                                            required
+                                            placeholder="ระบบจะสร้างให้อัตโนมัติ"
+                                            className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-emerald-600 dark:text-emerald-400 font-bold font-mono focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder-gray-400"
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium bg-gray-100 dark:bg-white/10 px-2 py-1 rounded">
+                                            Auto-Gen
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-gray-700 dark:text-white/70">ชื่ออุปกรณ์</label>

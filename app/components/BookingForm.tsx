@@ -162,8 +162,8 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
     const [loading, setLoading] = useState(false);
 
     const [formData, setFormData] = useState({
-        position: "ครู",
-        department: "วิชาการ",
+        position: "",
+        department: "",
         phoneNumber: "",
         roomZone: "junior_high",
         roomId: "",
@@ -246,6 +246,14 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
 
         if (!formData.roomId) {
             toast.error("กรุณาเลือกห้องประชุม");
+            return;
+        }
+        if (!formData.position) {
+            toast.error("กรุณาเลือกตำแหน่ง");
+            return;
+        }
+        if (!formData.department) {
+            toast.error("กรุณาเลือกฝ่ายงาน");
             return;
         }
 
@@ -353,6 +361,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                 value={formData.position}
                                 options={POSITIONS}
                                 onChange={(val) => handleSelectChange("position", val)}
+                                placeholder="กรุณาเลือก"
                             />
                         </div>
                         <div className="space-y-1">
@@ -361,6 +370,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                 value={formData.department}
                                 options={DEPARTMENTS}
                                 onChange={(val) => handleSelectChange("department", val)}
+                                placeholder="กรุณาเลือก"
                             />
                         </div>
                     </div>
