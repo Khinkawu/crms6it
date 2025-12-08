@@ -145,7 +145,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                     contents: [
                         {
                             type: 'text',
-                            text: data.description || 'No description',
+                            text: data.description || 'ไม่ได้ระบุรายละเอียด',
                             weight: 'bold',
                             size: 'md',
                             color: '#333333',
@@ -156,7 +156,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                             { type: 'separator', margin: 'md', color: '#eeeeee' },
                             {
                                 type: 'text',
-                                text: `📝 ช่าง: ${data.technicianNote}`,
+                                text: `📝 หมายเหตุจากช่าง: ${data.technicianNote}`,
                                 size: 'sm',
                                 color: '#16a34a', // Green-600
                                 wrap: true,
