@@ -151,6 +151,40 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                             color: '#333333',
                             wrap: true
                         },
+                        // Technician Note
+                        ...(data.technicianNote ? [
+                            { type: 'separator', margin: 'md', color: '#eeeeee' },
+                            {
+                                type: 'text',
+                                text: `📝 ช่าง: ${data.technicianNote}`,
+                                size: 'sm',
+                                color: '#16a34a', // Green-600
+                                wrap: true,
+                                margin: 'md',
+                                weight: 'bold'
+                            }
+                        ] : []),
+                        // Parts Used
+                        ...(data.partsUsed && data.partsUsed.length > 0 ? [
+                            { type: 'separator', margin: 'md', color: '#eeeeee' },
+                            {
+                                type: 'text',
+                                text: '🛠️ อะไหล่ที่ใช้:',
+                                size: 'sm',
+                                weight: 'bold',
+                                color: '#333333',
+                                margin: 'md'
+                            },
+                            ...data.partsUsed.map((p: any) => ({
+                                type: 'text',
+                                text: `- ${p.name} (${p.quantity})`,
+                                size: 'xs',
+                                color: '#666666',
+                                wrap: true,
+                                margin: 'sm',
+                                offsetStart: 'lg'
+                            }))
+                        ] : []),
                         {
                             type: 'separator',
                             margin: 'lg',
