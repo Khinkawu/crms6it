@@ -368,42 +368,42 @@ function InventoryContent() {
                             <h1 className="text-3xl font-bold text-text mb-1">คลังพัสดุ</h1>
                             <p className="text-text-secondary">จัดการรายการวัสดุและครุภัณฑ์ทั้งหมด</p>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="grid grid-cols-2 sm:flex sm:flex-row gap-3 w-full sm:w-auto">
                             <button
                                 onClick={() => handleOpenLogModal('activity')}
-                                className="px-4 py-2 bg-white dark:bg-card border border-border text-text font-bold rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
+                                className="px-4 py-2 bg-white dark:bg-card border border-border text-text font-bold rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center gap-2"
                             >
-                                <History size={20} /> ประวัติการใช้งาน
+                                <History size={20} /> ประวัติ
                             </button>
                             <button
                                 onClick={toggleSelectionMode}
-                                className={`px-4 py-2 border font-bold rounded-xl shadow-sm flex items-center gap-2 transition-all ${isSelectionMode ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-white dark:bg-card border-border text-text hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                                className={`px-4 py-2 border font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all ${isSelectionMode ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-white dark:bg-card border-border text-text hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                             >
-                                <Printer size={20} /> {isSelectionMode ? 'ยกเลิกเลือก' : 'พิมพ์ QR Code'}
+                                <Printer size={20} /> {isSelectionMode ? 'ยกเลิก' : 'พิมพ์ QR'}
                             </button>
                             {isSelectionMode && (
                                 <>
                                     <button
                                         onClick={handleBulkPrint}
                                         disabled={selectedProductIds.size === 0}
-                                        className="px-4 py-2 bg-cyan-600 text-white font-bold rounded-xl shadow-sm hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                        className="px-4 py-2 bg-cyan-600 text-white font-bold rounded-xl shadow-sm hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         <Printer size={20} /> พิมพ์ ({selectedProductIds.size})
                                     </button>
                                     <button
                                         onClick={handleBulkDownload}
                                         disabled={selectedProductIds.size === 0 || isDownloading}
-                                        className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                        className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isDownloading ? <span className="animate-spin">⏳</span> : <Download size={20} />}
-                                        โหลด PNG ({selectedProductIds.size})
+                                        โหลด ({selectedProductIds.size})
                                     </button>
                                 </>
                             )}
 
                             <button
                                 onClick={() => router.push('/admin/add-product')}
-                                className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/20 flex items-center gap-2"
+                                className="col-span-2 sm:col-span-1 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold rounded-xl shadow-lg hover:shadow-cyan-500/20 flex items-center justify-center gap-2"
                             >
                                 <Plus size={20} /> เพิ่มรายการใหม่
                             </button>
