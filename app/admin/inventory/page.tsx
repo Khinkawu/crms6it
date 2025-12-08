@@ -22,10 +22,14 @@ import {
     LayoutGrid, List, Check, Search, History, Printer, Plus
 } from "lucide-react";
 
-export default function InventoryDashboard() {
+import { Suspense } from 'react';
+
+function InventoryContent() {
     const { user, role, loading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
+    // ... rest of the component logic
+
     const [products, setProducts] = useState<Product[]>([]);
     const [filter, setFilter] = useState<ProductStatus | 'all'>('all');
     const [searchQuery, setSearchQuery] = useState("");
@@ -435,9 +439,9 @@ export default function InventoryDashboard() {
                                         {/* Status Badge */}
                                         <div className="absolute top-2 right-2">
                                             <span className={`px-2 py-1 rounded-full text-xs font-bold shadow-sm ${product.status === 'available' ? 'bg-emerald-100 text-emerald-700' :
-                                                    product.status === 'borrowed' ? 'bg-amber-100 text-amber-700' :
-                                                        product.status === 'maintenance' ? 'bg-red-100 text-red-700' :
-                                                            'bg-gray-100 text-gray-700'
+                                                product.status === 'borrowed' ? 'bg-amber-100 text-amber-700' :
+                                                    product.status === 'maintenance' ? 'bg-red-100 text-red-700' :
+                                                        'bg-gray-100 text-gray-700'
                                                 }`}>
                                                 {product.status === 'available' ? 'พร้อมใช้' :
                                                     product.status === 'borrowed' ? 'ถูกยืม' :
@@ -449,8 +453,8 @@ export default function InventoryDashboard() {
                                         {(isSelectionMode || selectedProductIds.has(product.id!)) && (
                                             <div className="absolute top-2 left-2">
                                                 <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${selectedProductIds.has(product.id!)
-                                                        ? 'bg-cyan-500 border-cyan-500'
-                                                        : 'bg-white/90 border-gray-300'
+                                                    ? 'bg-cyan-500 border-cyan-500'
+                                                    : 'bg-white/90 border-gray-300'
                                                     }`}>
                                                     {selectedProductIds.has(product.id!) && (
                                                         <Check size={16} className="text-white" />
@@ -715,5 +719,13 @@ export default function InventoryDashboard() {
                 }
             </div >
         </div >
+    );
+}
+
+export default function InventoryDashboard() {
+    return (
+        <Suspense fallback={<div className="flex justify-center p-8">Loading...</div>}>
+            <InventoryContent />
+        </Suspense>
     );
 }
