@@ -50,6 +50,7 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialDate }
         endTime: "10:00",
         equipment: [] as string[],
         ownEquipment: "",
+        meetingLink: "",
     });
 
     const [files, setFiles] = useState<File[]>([]);
@@ -162,7 +163,8 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialDate }
                 equipment: formData.equipment,
                 ownEquipment: formData.ownEquipment,
                 attachments: attachmentUrls,
-                status: 'pending', // Default to pending
+                meetingLink: formData.meetingLink, // Added meeting link
+                status: 'approved', // Auto-approve
                 createdAt: serverTimestamp(),
             });
 
@@ -335,6 +337,18 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialDate }
                                     rows={3}
                                     placeholder="รายละเอียดเพิ่มเติม..."
                                     className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">ลิ้งก์การประชุม (ถ้ามี)</label>
+                                <input
+                                    type="text"
+                                    name="meetingLink"
+                                    value={formData.meetingLink}
+                                    onChange={handleInputChange}
+                                    placeholder="https://meet.google.com/..."
+                                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
                                 />
                             </div>
                         </div>

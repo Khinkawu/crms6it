@@ -9,6 +9,10 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import QRCode from "react-qr-code";
 import { Product } from "../../../types";
 import { incrementStats } from "../../../utils/aggregation";
+import {
+    Upload, CheckCircle, Printer, Plus, Loader2,
+    Image as ImageIcon, Box, Hash
+} from "lucide-react";
 
 const AddProductPage = () => {
     const { user, loading: authLoading } = useAuth();
@@ -23,6 +27,7 @@ const AddProductPage = () => {
         warrantyInfo: "",
         location: "",
         quantity: "1",
+        serialNumber: "",
     });
     const [isBulk, setIsBulk] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -45,7 +50,11 @@ const AddProductPage = () => {
 
     const handleBulkToggle = () => {
         setIsBulk(!isBulk);
-        setFormData(prev => ({ ...prev, quantity: !isBulk ? "10" : "1" }));
+        setFormData(prev => ({
+            ...prev,
+            quantity: !isBulk ? "10" : "1",
+            serialNumber: "" // Clear serial number when switching to bulk
+        }));
     };
 
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -111,7 +120,7 @@ const AddProductPage = () => {
         setError(null);
 
         try {
-            if (!imageFile) throw new Error("Please select an image.");
+            if (!imageFile) throw new Error("กรุณาเลือกรูปภาพ");
 
             // 1. Resize & Compress Image
             const resizedImageBlob = await resizeImage(imageFile);
@@ -137,6 +146,7 @@ const AddProductPage = () => {
                 type: isBulk ? 'bulk' : 'unique',
                 quantity: isBulk ? parseInt(formData.quantity) : 1,
                 borrowedCount: 0,
+                ...(isBulk ? {} : { serialNumber: formData.serialNumber }),
             };
 
             const docRef = await addDoc(collection(db, "products"), productData);
@@ -157,6 +167,7 @@ const AddProductPage = () => {
                 warrantyInfo: "",
                 location: "",
                 quantity: "1",
+                serialNumber: "",
             });
             setIsBulk(false);
             setImageFile(null);
@@ -164,7 +175,7 @@ const AddProductPage = () => {
 
         } catch (err: any) {
             console.error("Error adding product:", err);
-            setError(err.message || "Failed to add product.");
+            setError(err.message || "ไม่สามารถเพิ่มอุปกรณ์ได้");
         } finally {
             setLoading(false);
         }
@@ -183,13 +194,11 @@ const AddProductPage = () => {
                 {/* Success State with QR Code */}
                 {success && newProductId ? (
                     <div className="glass-panel p-8 text-center animate-fade-in space-y-6">
-                        <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
+                        <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
+                            <CheckCircle className="w-8 h-8" />
                         </div>
-                        <h2 className="text-3xl font-bold text-white">Product Added!</h2>
-                        <p className="text-white/60">The product has been successfully added to inventory.</p>
+                        <h2 className="text-3xl font-bold text-white">บันทึกสำเร็จ!</h2>
+                        <p className="text-white/60">อุปกรณ์ถูกเพิ่มลงในระบบเรียบร้อยแล้ว</p>
 
                         <div className="bg-white p-4 rounded-xl inline-block shadow-2xl mx-auto print:block print:absolute print:top-0 print:left-0 print:w-full print:h-full print:flex print:items-center print:justify-center">
                             <QRCode
@@ -202,30 +211,29 @@ const AddProductPage = () => {
                         <div className="flex gap-4 justify-center print:hidden">
                             <button
                                 onClick={handlePrintQR}
-                                className="px-6 py-3 rounded-xl bg-white text-blue-900 font-bold hover:bg-blue-50 transition-colors flex items-center gap-2"
+                                className="px-6 py-3 rounded-xl bg-white text-blue-900 font-bold hover:bg-blue-50 transition-colors flex items-center gap-2 shadow-lg"
                             >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                                </svg>
-                                Print QR
+                                <Printer className="w-5 h-5" />
+                                พิมพ์ QR
                             </button>
                             <button
                                 onClick={() => setSuccess(false)}
-                                className="px-6 py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
+                                className="px-6 py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-colors flex items-center gap-2 backdrop-blur-md"
                             >
-                                Add Another
+                                <Plus className="w-5 h-5" />
+                                เพิ่มรายการอื่น
                             </button>
                         </div>
                     </div>
                 ) : (
                     /* Form State */
-                    <div className="glass-panel p-8 animate-fade-in">
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Add New Product</h1>
-                        <p className="text-gray-500 dark:text-white/50 mb-8">Enter product details to add to inventory.</p>
+                    <div className="glass-panel p-8 animate-fade-in shadow-2xl border border-white/10">
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">เพิ่มอุปกรณ์ใหม่</h1>
+                        <p className="text-gray-500 dark:text-white/50 mb-8">กรอกรายละเอียดอุปกรณ์เพื่อเพิ่มลงในระบบ</p>
 
                         {error && (
-                            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-xl text-red-200 text-sm">
-                                {error}
+                            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-xl text-red-200 text-sm flex items-center gap-2">
+                                <span className="font-bold">Error:</span> {error}
                             </div>
                         )}
 
@@ -243,12 +251,10 @@ const AddProductPage = () => {
                                 ) : (
                                     <div className="text-center p-4">
                                         <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                                            <svg className="w-6 h-6 text-gray-400 dark:text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
+                                            <Upload className="w-6 h-6 text-gray-400 dark:text-white/70" />
                                         </div>
-                                        <p className="text-gray-600 dark:text-white/60 font-medium">Click or drop image here</p>
-                                        <p className="text-gray-400 dark:text-white/30 text-xs mt-1">Supports JPG, PNG, WEBP</p>
+                                        <p className="text-gray-600 dark:text-white/60 font-medium">คลิกหรือลากรูปภาพมาวางที่นี่</p>
+                                        <p className="text-gray-400 dark:text-white/30 text-xs mt-1">รองรับไฟล์ JPG, PNG, WEBP</p>
                                     </div>
                                 )}
                                 <input
@@ -262,7 +268,10 @@ const AddProductPage = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="flex items-center justify-between bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3">
-                                    <span className="text-sm font-medium text-gray-700 dark:text-white/70">Bulk Item?</span>
+                                    <div className="flex items-center gap-2">
+                                        <Box className="w-5 h-5 text-gray-400 dark:text-white/50" />
+                                        <span className="text-sm font-medium text-gray-700 dark:text-white/70">วัสดุอุปกรณ์หลายชิ้น?</span>
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={handleBulkToggle}
@@ -273,9 +282,10 @@ const AddProductPage = () => {
                                 </div>
                             </div>
 
-                            {isBulk && (
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Quantity</label>
+                            {/* Conditional Fields: Quantity OR Serial Number */}
+                            {isBulk ? (
+                                <div className="space-y-2 animate-fade-in-up">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">จำนวน</label>
                                     <input
                                         type="number"
                                         name="quantity"
@@ -283,14 +293,28 @@ const AddProductPage = () => {
                                         onChange={handleInputChange}
                                         min="1"
                                         required
-                                        className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white dark:focus:bg-white/10 transition-all"
+                                        className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white dark:focus:bg-white/10 transition-all font-mono"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="space-y-2 animate-fade-in-up">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70 flex items-center gap-2">
+                                        <Hash className="w-4 h-4 text-blue-400" /> Serial Number
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="serialNumber"
+                                        value={formData.serialNumber}
+                                        onChange={handleInputChange}
+                                        placeholder="เช่น SN-2024-001"
+                                        className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white dark:focus:bg-white/10 transition-all font-mono"
                                     />
                                 </div>
                             )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Product Name</label>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">ชื่ออุปกรณ์</label>
                                     <input
                                         type="text"
                                         name="name"
@@ -298,11 +322,11 @@ const AddProductPage = () => {
                                         onChange={handleInputChange}
                                         required
                                         className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white dark:focus:bg-white/10 transition-all"
-                                        placeholder="e.g. MacBook Pro 16"
+                                        placeholder="เช่น MacBook Pro 16"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Brand / Model</label>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">ยี่ห้อ / รุ่น</label>
                                     <input
                                         type="text"
                                         name="brand"
@@ -310,11 +334,11 @@ const AddProductPage = () => {
                                         onChange={handleInputChange}
                                         required
                                         className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white dark:focus:bg-white/10 transition-all"
-                                        placeholder="e.g. Apple / M1 Pro"
+                                        placeholder="เช่น Apple / M1 Pro"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Price</label>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">ราคา</label>
                                     <input
                                         type="number"
                                         name="price"
@@ -326,7 +350,7 @@ const AddProductPage = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Purchase Date</label>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">วันที่ซื้อ</label>
                                     <input
                                         type="date"
                                         name="purchaseDate"
@@ -337,7 +361,7 @@ const AddProductPage = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Warranty Info</label>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">การรับประกัน</label>
                                     <input
                                         type="text"
                                         name="warrantyInfo"
@@ -345,11 +369,11 @@ const AddProductPage = () => {
                                         onChange={handleInputChange}
                                         required
                                         className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white dark:focus:bg-white/10 transition-all"
-                                        placeholder="e.g. 1 Year AppleCare+"
+                                        placeholder="เช่น 1 ปี"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">Location</label>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">สถานที่เก็บ</label>
                                     <input
                                         type="text"
                                         name="location"
@@ -357,7 +381,7 @@ const AddProductPage = () => {
                                         onChange={handleInputChange}
                                         required
                                         className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white dark:focus:bg-white/10 transition-all"
-                                        placeholder="e.g. Cabinet A, Room 101"
+                                        placeholder="ห้องโสต , ห้อง 126 (ม.ปลาย)"
                                     />
                                 </div>
                             </div>
@@ -365,18 +389,15 @@ const AddProductPage = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-4 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-bold text-lg shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold text-lg shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? (
                                     <span className="flex items-center justify-center gap-2">
-                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Processing...
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        กำลังบันทึก...
                                     </span>
                                 ) : (
-                                    "Add Product"
+                                    "บันทึกข้อมูล"
                                 )}
                             </button>
                         </form>

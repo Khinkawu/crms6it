@@ -22,6 +22,7 @@ export interface Product {
     category?: string;
     serialNumber?: string;
     description?: string;
+    updatedAt?: any;
 }
 
 export interface Transaction {
@@ -87,5 +88,8 @@ export interface ActivityLog {
     userName: string;
     imageUrl?: string;
     details?: string;
+    zone?: string;
+    status?: string; // Added status for specific updates
+    signatureUrl?: string; // Added for borrow signature
     timestamp: Timestamp;
 }

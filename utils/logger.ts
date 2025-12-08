@@ -9,9 +9,11 @@ interface LogActivityParams {
     imageUrl?: string;
     details?: string;
     zone?: string;
+    status?: string;
+    signatureUrl?: string;
 }
 
-export const logActivity = async ({ action, productName, userName, imageUrl, details, zone }: LogActivityParams) => {
+export const logActivity = async ({ action, productName, userName, imageUrl, details, zone, status, signatureUrl }: LogActivityParams) => {
     try {
         await addDoc(collection(db, "activities"), {
             action,
@@ -20,6 +22,8 @@ export const logActivity = async ({ action, productName, userName, imageUrl, det
             imageUrl: imageUrl || "",
             details: details || null,
             zone: zone || null,
+            status: status || null,
+            signatureUrl: signatureUrl || null,
             timestamp: serverTimestamp()
         });
     } catch (error) {

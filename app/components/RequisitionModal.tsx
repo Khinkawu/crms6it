@@ -126,7 +126,8 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                 productName: product.name,
                 userName: user?.displayName || user?.email || "Unknown",
                 details: `${isBulk ? `Qty: ${quantity}` : ''} Reason: ${formData.reason}`,
-                imageUrl: product.imageUrl
+                imageUrl: product.imageUrl,
+                signatureUrl: signatureUrl
             });
 
             // 5. Update Stats

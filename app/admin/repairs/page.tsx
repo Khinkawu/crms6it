@@ -193,9 +193,10 @@ export default function RepairDashboard() {
 
             await logActivity({
                 action: 'repair_update',
-                productName: `อัปเดตงานซ่อม: ${selectedTicket.room}`,
+                productName: selectedTicket.room,
                 userName: user?.displayName || "Technician",
-                details: `สถานะ: ${status} - ${technicianNote}`,
+                details: technicianNote,
+                status: status,
                 imageUrl: completionImageUrl || selectedTicket.images?.[0]
             });
 

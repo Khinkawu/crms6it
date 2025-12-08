@@ -124,7 +124,7 @@ export default function RepairForm() {
             // 4. LogActivity
             await logActivity({
                 action: 'repair',
-                productName: `แจ้งซ่อม: ${formData.room}`,
+                productName: formData.room,
                 userName: user.displayName || "Unknown",
                 details: formData.description,
                 imageUrl: imageUrls.length > 0 ? imageUrls[0] : undefined,

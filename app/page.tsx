@@ -10,7 +10,7 @@ import {
     Package, CheckCircle, Clock, Wrench,
     Plus, Camera, AlertTriangle, User, RefreshCw,
     Zap, Lightbulb, FileText, Edit, Trash2, PlusCircle, Calendar as CalendarIcon,
-    ChevronLeft, ChevronRight, MapPin, Globe
+    ChevronLeft, ChevronRight, MapPin, Globe, CheckCircle2, PackageMinus, PackagePlus
 } from "lucide-react";
 import { Calendar, momentLocalizer, Views, View, ToolbarProps } from "react-big-calendar";
 import moment from "moment";
@@ -220,9 +220,10 @@ export default function Dashboard() {
 
     const eventStyleGetter = (event: BookingEvent) => {
         let backgroundColor = '#3b82f6'; // blue-500
-        if (event.status === 'pending') backgroundColor = '#f59e0b'; // amber-500
+        // if (event.status === 'pending') backgroundColor = '#f59e0b'; // amber-500 (Disabled)
         if (event.status === 'cancelled') backgroundColor = '#ef4444'; // red-500
-        if (event.status === 'approved') backgroundColor = '#10b981'; // emerald-500
+        if (event.status === 'approved') backgroundColor = '#3b82f6'; // Keep blue for approved too, or emerald. User said "cut function out", so maybe just one color for active?
+        // Let's use blue for standard active bookings to match theme.
 
         // Month/Week/Day view styles
         if (view !== Views.AGENDA) {
@@ -578,8 +579,9 @@ export default function Dashboard() {
             </div>
 
             {/* Recent Activity (Full Width) */}
+            {/* Recent Activity (Full Width) */}
             <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col h-full max-h-[600px]">
-                <div className="p-6 border-b border-border flex justify-between items-center bg-gray-50/50">
+                <div className="p-6 border-b border-border flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
                     <h2 className="text-lg font-bold text-text flex items-center gap-2">
                         <Clock className="w-5 h-5 text-blue-500" /> กิจกรรมล่าสุด (งานซ่อม)
                     </h2>
@@ -592,40 +594,110 @@ export default function Dashboard() {
                     {recentActivity.length > 0 ? (
                         <div className="divide-y divide-border">
                             {recentActivity.map((act) => {
-                                const style = getActionStyle(act.action);
-                                return (
-                                    <div key={act.id} className="p-4 hover:bg-gray-50/50 transition-colors flex gap-4 items-start group">
-                                        {/* Icon */}
-                                        <div className={`w-10 h-10 rounded-full ${style.bg} ${style.color} flex-shrink-0 flex items-center justify-center shadow-sm mt-1`}>
-                                            {style.icon}
-                                        </div>
+                                // 1. Parse Status and Details (Handle Legacy Data)
+                                let derivedStatus = act.status;
+                                let displayDetails = act.details || "";
 
-                                        {/* Content */}
+                                if (act.action === 'repair_update' && !derivedStatus && displayDetails) {
+                                    // Robust regex: allows optional spaces, optional dash/note
+                                    const match = displayDetails.match(/สถานะ:\s*([a-zA-Z_]+)(?:\s*-\s*(.*))?/);
+                                    if (match) {
+                                        derivedStatus = match[1];
+                                        displayDetails = match[2] || "";
+                                    }
+                                }
+
+                                // 2. Determine Styling based on Action & Status
+                                let iconColor = "bg-gray-400"; // Solid gray default
+                                let actionLabel = "ทำรายการ";
+
+                                if (act.action === 'repair') {
+                                    iconColor = "bg-red-500"; // Solid Red
+                                    actionLabel = "แจ้งซ่อม";
+                                } else if (act.action === 'repair_update') {
+                                    // Traffic Light Colors (Solid)
+                                    if (derivedStatus === 'completed') {
+                                        iconColor = "bg-emerald-500"; // Solid Green
+                                    } else if (derivedStatus === 'in_progress' || derivedStatus === 'waiting_parts') {
+                                        iconColor = "bg-amber-400"; // Solid Yellow (Amber-400 is brighter/yellowish)
+                                    } else if (derivedStatus === 'pending') {
+                                        iconColor = "bg-red-500"; // Solid Red
+                                    } else {
+                                        iconColor = "bg-blue-500"; // Solid Blue
+                                    }
+                                    actionLabel = "อัปเดตงานซ่อม";
+                                } else if (act.action === 'borrow') {
+                                    iconColor = "bg-amber-500";
+                                    actionLabel = "ยืมอุปกรณ์";
+                                } else if (act.action === 'return') {
+                                    iconColor = "bg-emerald-500";
+                                    actionLabel = "คืนอุปกรณ์";
+                                }
+
+                                // 3. Format Header Text
+                                let headerText = act.productName;
+                                let statusLabel = "";
+
+                                if (act.action === 'repair') {
+                                    // Clean potential prefix if already saved with one
+                                    const rawName = act.productName.replace(/^แจ้งซ่อม: /, '');
+                                    headerText = `แจ้งซ่อม: ${rawName}`;
+
+                                    if (act.zone) {
+                                        const zoneLabel = act.zone === 'junior_high' ? 'ม.ต้น' : act.zone === 'senior_high' ? 'ม.ปลาย' : act.zone;
+                                        headerText += ` (${zoneLabel})`;
+                                    }
+                                } else if (act.action === 'repair_update') {
+                                    // Clean potential double prefix
+                                    const rawName = act.productName.replace(/^อัปเดตงานซ่อม: /, '');
+                                    headerText = `อัปเดตงานซ่อม: ${rawName}`;
+
+                                    if (derivedStatus) {
+                                        // Map status to Thai
+                                        switch (derivedStatus) {
+                                            case 'pending': statusLabel = "(รอดำเนินการ)"; break;
+                                            case 'in_progress': statusLabel = "(กำลังดำเนินการ)"; break;
+                                            case 'waiting_parts': statusLabel = "(รออะไหล่)"; break;
+                                            case 'completed': statusLabel = "(เสร็จสิ้น)"; break;
+                                            case 'cancelled': statusLabel = "(ยกเลิก)"; break;
+                                            default: statusLabel = `(${derivedStatus})`;
+                                        }
+                                    }
+                                }
+
+                                return (
+                                    <div key={act.id} className="p-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors flex gap-4 items-start group border-b border-gray-100 dark:border-gray-800 last:border-0">
+                                        {/* Small Solid Status Dot */}
+                                        <div className={`w-3 h-3 rounded-full ${iconColor} flex-shrink-0 shadow-sm mt-1.5 ring-2 ring-white dark:ring-gray-900`}></div>
+
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-start">
-                                                <p className="text-sm font-bold text-text truncate pr-2">
-                                                    {act.productName} {getZoneLabel(act.zone)}
-                                                </p>
-                                                <span className="text-[10px] text-text-secondary whitespace-nowrap bg-input-bg px-1.5 py-0.5 rounded">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1">
+                                                    {headerText} <span className={`font-normal ml-1 ${derivedStatus === 'completed' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>{statusLabel}</span>
+                                                </h3>
+                                                <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap ml-2">
                                                     {formatTime(act.timestamp)}
                                                 </span>
                                             </div>
 
-                                            <p className="text-xs text-text-secondary mt-0.5">
-                                                โดย <span className="font-medium text-text">{act.userName}</span> • {style.label}
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mb-2">
+                                                <span>โดย {act.userName}</span>
+                                                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                                                <span className="text-gray-400 dark:text-gray-500">{actionLabel}</span>
                                             </p>
 
-                                            {act.details && (
-                                                <p className="text-xs text-gray-500 mt-1.5 bg-input-bg/50 p-2 rounded-lg border border-border/50 italic">
-                                                    &quot;{act.details}&quot;
-                                                </p>
+                                            {/* Details Box */}
+                                            {(displayDetails) && (
+                                                <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-lg p-3 shadow-sm text-xs text-gray-600 dark:text-gray-300 leading-relaxed group-hover:border-blue-100 dark:group-hover:border-blue-900/50 transition-colors">
+                                                    <span>"{displayDetails}"</span>
+                                                </div>
                                             )}
                                         </div>
 
                                         {/* Image (Optional) */}
                                         {act.imageUrl && (
-                                            <div className="w-12 h-12 rounded-lg bg-input-bg border border-border overflow-hidden flex-shrink-0">
-                                                <img src={act.imageUrl} alt="Product" className="w-full h-full object-cover" />
+                                            <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0">
+                                                <img src={act.imageUrl} alt="Active" className="w-full h-full object-cover" />
                                             </div>
                                         )}
                                     </div>
@@ -648,6 +720,6 @@ export default function Dashboard() {
                 onClose={() => setIsDetailsModalOpen(false)}
                 event={selectedEvent}
             />
-        </div>
+        </div >
     );
 }

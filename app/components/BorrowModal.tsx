@@ -135,10 +135,19 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                     });
 
                     // Update Stats for Unique
-                    // Assumes it was available before (since we can borrow it)
                     await updateStatsOnStatusChange('available', 'borrowed');
                 }
             }
+
+            // 4. Log Activity with Signature
+            await logActivity({
+                action: 'borrow',
+                productName: product.name,
+                userName: user?.displayName || user?.email || "Unknown",
+                details: `Borrowed by ${user?.displayName || "User"}`,
+                imageUrl: product.imageUrl,
+                signatureUrl: signatureUrl
+            });
 
             toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
             onSuccess();

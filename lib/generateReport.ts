@@ -178,3 +178,144 @@ export const generateStockReport = async (
         doc.save(`RepairReport_${moment().format('YYYYMMDD_HHmm')}.pdf`);
     }
 };
+
+// --- 4. Inventory Log Report Function ---
+export const generateInventoryLogReport = async (
+    logs: any[], // Type ActivityLog[] but using any for simplicity to avoid import cycles if strictly defining types isn't easy here
+    action: 'download' | 'print' = 'download'
+) => {
+    const doc = new jsPDF();
+    const fontName = 'THSarabunIT9';
+
+    // A. โหลด Assets
+    await Promise.all([
+        addFontToDoc(doc, '/font/THSarabunIT9.ttf', fontName, 'normal'),
+        addFontToDoc(doc, '/font/THSarabunIT9 Bold.ttf', fontName, 'bold'),
+    ]);
+
+    const logoBase64 = await getImageBase64('/logo_2.png');
+    doc.setFont(fontName, 'normal');
+
+    // B. Header Helper
+    const drawHeader = (doc: jsPDF, pageNumber: number) => {
+        const width = doc.internal.pageSize.width;
+        if (logoBase64) doc.addImage(logoBase64, 'PNG', 15, 10, 20, 20);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(fontName, 'bold');
+        doc.setFontSize(22);
+        doc.text("โรงเรียนเทศบาล 6 นครเชียงราย", 40, 18);
+
+        doc.setFont(fontName, 'normal');
+        doc.setFontSize(16);
+        doc.text("รายงานประวัติการใช้งานวัสดุ (Inventory Log Report)", 40, 25);
+
+        doc.setFontSize(14);
+        doc.text(`วันที่พิมพ์: ${moment().add(543, 'years').format('D MMMM YYYY')}`, width - 15, 18, { align: 'right' });
+        doc.text(`พิมพ์โดย: Admin System`, width - 15, 25, { align: 'right' });
+
+        doc.setDrawColor(200, 200, 200);
+        doc.line(15, 35, width - 15, 35);
+    };
+
+    // C. Data Prep
+    const tableColumn = ["ว/ด/ป", "กิจกรรม", "รายการ", "ผู้ดำเนินการ", "รายละเอียด", "ลายเซ็น"];
+    const tableRows = await Promise.all(logs.map(async (log) => {
+        // Fetch signature if exists
+        let signatureImage = '';
+        if (log.signatureUrl) {
+            signatureImage = await getImageBase64(log.signatureUrl);
+        }
+
+        return [
+            log.timestamp?.toDate ? moment(log.timestamp.toDate()).add(543, 'years').format('DD/MM/YY HH:mm') : '-',
+            getThaiAction(log.action),
+            log.productName || '-',
+            log.userName || '-',
+            log.details || '-',
+            signatureImage // Pass base64 image or empty string
+        ];
+    }));
+
+    // D. Table
+    autoTable(doc, {
+        startY: 40,
+        head: [tableColumn],
+        body: tableRows,
+        styles: {
+            font: fontName,
+            fontStyle: 'normal',
+            fontSize: 12,
+            cellPadding: 2,
+            valign: 'middle',
+            lineColor: [200, 200, 200],
+            lineWidth: 0.1,
+        },
+        headStyles: {
+            font: fontName,
+            fontStyle: 'bold',
+            fillColor: [23, 37, 84],
+            textColor: [255, 255, 255],
+            halign: 'center',
+            valign: 'middle',
+            fontSize: 14
+        },
+        columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: 20 },
+            2: { cellWidth: 35 },
+            3: { cellWidth: 30 },
+            4: { cellWidth: 'auto' },
+            5: { cellWidth: 25, minCellHeight: 15, halign: 'center' }
+        },
+        didDrawCell: (data) => {
+            // Check if column 5 (signature) and if content is image string
+            if (data.column.index === 5 && data.cell.raw && typeof data.cell.raw === 'string' && data.cell.raw.startsWith('data:image')) {
+                const dim = data.cell.height - 4;
+                const textPos = data.cell.getTextPos();
+                // Draw image instead of text
+                doc.addImage(data.cell.raw, 'PNG', data.cell.x + 2, data.cell.y + 2, dim * 2, dim);
+            }
+        },
+        didParseCell: (data) => {
+            // Clean content for image cell to avoid printing text "data:image..."
+            if (data.column.index === 5 && typeof data.cell.raw === 'string' && data.cell.raw.startsWith('data:image')) {
+                data.cell.text = []; // Clear text
+            } else if (data.column.index === 5) {
+                data.cell.text = ['-'];
+            }
+        },
+        didDrawPage: (data) => {
+            drawHeader(doc, data.pageNumber);
+            const pageCount = doc.internal.getNumberOfPages(); // Update page count properly
+            doc.setFont(fontName, 'normal');
+            doc.setFontSize(10);
+            doc.text(`หน้า ${data.pageNumber}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
+        },
+        margin: { top: 40 }
+    });
+
+    // E. Final Action
+    if (action === 'print') {
+        doc.autoPrint();
+        const blob = doc.output('bloburl');
+        window.open(blob, '_blank');
+    } else {
+        doc.save(`InventoryLog_${moment().format('YYYYMMDD_HHmm')}.pdf`);
+    }
+};
+
+// Helper for Thai Action Log
+const getThaiAction = (action: string) => {
+    switch (action) {
+        case 'borrow': return 'ยืม';
+        case 'return': return 'คืน';
+        case 'requisition': return 'เบิก';
+        case 'repair': return 'แจ้งซ่อม';
+        case 'add': return 'เพิ่ม';
+        case 'create': return 'สร้าง';
+        case 'update': return 'แก้ไข';
+        case 'delete': return 'ลบ';
+        default: return action;
+    }
+};
