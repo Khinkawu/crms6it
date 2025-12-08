@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import React, { useState, useEffect, useRef } from "react";
+import { doc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage } from "../../lib/firebase";
 import { Product } from "../../types";
 import ConfirmationModal from "./ConfirmationModal";
 import toast from "react-hot-toast";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
+import { Box, Hash, Upload } from "lucide-react";
 
 interface EditProductModalProps {
     isOpen: boolean;
@@ -26,7 +28,24 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
         price: 0,
         warrantyInfo: "",
         imageUrl: "",
+        stockId: "",
     });
+
+    // Image Upload State
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Categories (Same as Add Product)
+    const categories = [
+        { id: 'IT', label: 'คอมพิวเตอร์ (IT)', prefix: 'COM' },
+        { id: 'AV', label: 'โสตทัศนูปกรณ์ (AV)', prefix: 'AV' },
+        { id: 'NET', label: 'เครือข่าย (Network)', prefix: 'NET' },
+        { id: 'OFF', label: 'อุปกรณ์สำนักงาน (Office)', prefix: 'OFF' },
+        { id: 'TOOL', label: 'เครื่องมือช่าง (Tools)', prefix: 'TOOL' },
+        { id: 'ACC', label: 'อุปกรณ์เสริม (Accessories)', prefix: 'ACC' },
+        { id: 'GEN', label: 'อื่นๆ (General)', prefix: 'GEN' },
+    ];
 
     // Stock Management
     const [stockMode, setStockMode] = useState<'set' | 'add'>('add');
@@ -50,8 +69,11 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
                 price: product.price || 0,
                 warrantyInfo: product.warrantyInfo || "",
                 imageUrl: product.imageUrl || "",
+                stockId: product.stockId || "",
             });
             setStockInput(0);
+            setImagePreview(product.imageUrl || null);
+            setImageFile(null);
         }
     }, [isOpen, product]);
 
@@ -61,6 +83,65 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
+
+    // --- Image Handling ---
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            const file = e.dataTransfer.files[0];
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+    };
+
+    const resizeImage = (file: File): Promise<Blob> => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+                const maxWidth = 800;
+
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                ctx?.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error("Canvas to Blob failed"));
+                        }
+                    },
+                    "image/webp",
+                    0.7
+                );
+            };
+            img.onerror = (err) => reject(err);
+        });
+    };
+    // ----------------------
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,6 +156,30 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
                 price: Number(formData.price),
                 updatedAt: serverTimestamp(),
             };
+
+            // Handle Image Upload
+            if (imageFile) {
+                // 1. Resize
+                const resizedImageBlob = await resizeImage(imageFile);
+
+                // 2. Upload New Image
+                const storageRef = ref(storage, `products/${Date.now()}_${imageFile.name.replace(/\.[^/.]+$/, "")}.webp`);
+                const snapshot = await uploadBytes(storageRef, resizedImageBlob);
+                const downloadURL = await getDownloadURL(snapshot.ref);
+
+                updates.imageUrl = downloadURL;
+
+                // 3. Delete Old Image (if exists and is a firebase storage url)
+                if (product.imageUrl && product.imageUrl.includes("firebasestorage")) {
+                    try {
+                        const oldImageRef = ref(storage, product.imageUrl);
+                        await deleteObject(oldImageRef);
+                    } catch (err) {
+                        console.warn("Failed to delete old image:", err);
+                        // Convert to non-fatal error
+                    }
+                }
+            }
 
             // Handle Stock Update for Bulk Items
             if (product.type === 'bulk') {
@@ -157,13 +262,12 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
     const handleDelete = async () => {
         setLoading(true);
         try {
-            const { deleteDoc, doc } = await import("firebase/firestore");
             await deleteDoc(doc(db, "products", product.id!));
 
             // Log Activity
             const { logActivity } = await import("@/utils/logger");
             await logActivity({
-                action: 'delete', // Changed from 'update' to 'delete'
+                action: 'delete',
                 productName: product.name,
                 userName: "Admin",
                 details: `Deleted product: ${product.name}`,
@@ -173,13 +277,9 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
             // Update Stats
             await decrementStats('total');
             if (product.type === 'bulk') {
-                // For bulk, if we delete the whole product, we lose all its quantity from "available" (assuming it was available)
-                // But wait, "available" count in Dashboard for bulk is: (quantity - borrowedCount) > 0 ? +1 : 0
-                // So if it was contributing +1 to available, we decrement it.
                 const isAvailable = (product.quantity || 0) - (product.borrowedCount || 0) > 0;
                 if (isAvailable) await decrementStats('available');
 
-                // If it was contributing to borrowed? (borrowedCount > 0)
                 if ((product.borrowedCount || 0) > 0) await decrementStats('borrowed');
             } else {
                 // Unique
@@ -242,10 +342,81 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
                                         <label className="label">สถานที่จัดเก็บ</label>
                                         <input name="location" value={formData.location} onChange={handleInputChange} className="input-field" required />
                                     </div>
-                                    <div>
-                                        <label className="label">หมวดหมู่</label>
-                                        <input name="category" value={formData.category} onChange={handleInputChange} className="input-field" />
-                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Image Upload Section */}
+                            <div className="space-y-2">
+                                <label className="label">รูปภาพสินค้า</label>
+                                <div
+                                    className={`relative w-full h-48 rounded-2xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden group
+                                    ${imagePreview ? 'border-primary/50 bg-primary/5' : 'border-gray-300 dark:border-white/20 hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                                    onDrop={handleDrop}
+                                    onDragOver={handleDragOver}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    {imagePreview ? (
+                                        <div className="relative w-full h-full">
+                                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-medium">
+                                                คลิกเพื่อเปลี่ยนรูป
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-4">
+                                            <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                                                <Upload className="w-6 h-6 text-gray-400 dark:text-white/70" />
+                                            </div>
+                                            <p className="text-gray-600 dark:text-white/60 font-medium">คลิกหรือลากรูปภาพมาวางที่นี่</p>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleImageSelect}
+                                        accept="image/*"
+                                        className="hidden"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Category & Stock ID */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-500/20">
+                                <div>
+                                    <label className="label flex items-center gap-2">
+                                        <Box className="w-4 h-4 text-blue-500" /> หมวดหมู่
+                                    </label>
+                                    <select
+                                        name="category"
+                                        value={categories.find(c => c.label === formData.category)?.id || ""}
+                                        onChange={(e) => {
+                                            const selectedLabel = categories.find(c => c.id === e.target.value)?.label || e.target.value;
+                                            setFormData(prev => ({ ...prev, category: selectedLabel }));
+                                        }}
+                                        className="input-field appearance-none font-prompt"
+                                    >
+                                        <option value="">-- เลือกหมวดหมู่ --</option>
+                                        {categories.map(cat => (
+                                            <option
+                                                key={cat.id}
+                                                value={cat.id}
+                                            >
+                                                {cat.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="label flex items-center gap-2">
+                                        <Hash className="w-4 h-4 text-emerald-500" /> Stock ID (แก้ไขได้)
+                                    </label>
+                                    <input
+                                        name="stockId"
+                                        value={formData.stockId}
+                                        onChange={handleInputChange}
+                                        className="input-field font-mono font-bold text-emerald-600"
+                                        placeholder="เช่น COM-001"
+                                    />
                                 </div>
                             </div>
 
@@ -261,10 +432,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
                                         <label className="label">ข้อมูลการรับประกัน</label>
                                         <input name="warrantyInfo" value={formData.warrantyInfo} onChange={handleInputChange} className="input-field" />
                                     </div>
-                                    <div className="md:col-span-2">
-                                        <label className="label">ลิงก์รูปภาพ (URL)</label>
-                                        <input name="imageUrl" value={formData.imageUrl} onChange={handleInputChange} className="input-field" placeholder="https://..." />
-                                    </div>
+
                                     <div className="md:col-span-2">
                                         <label className="label">รายละเอียด</label>
                                         <textarea name="description" value={formData.description} onChange={handleInputChange} className="input-field h-24 resize-none" />

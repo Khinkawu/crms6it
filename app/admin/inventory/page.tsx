@@ -349,7 +349,8 @@ function InventoryContent() {
         const matchesSearch =
             p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (p.serialNumber || "").toLowerCase().includes(searchQuery.toLowerCase());
+            (p.serialNumber || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (p.stockId || "").toLowerCase().includes(searchQuery.toLowerCase());
         return matchesFilter && matchesSearch;
     });
 

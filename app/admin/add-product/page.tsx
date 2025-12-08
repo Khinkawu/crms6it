@@ -29,7 +29,8 @@ const AddProductPage = () => {
         quantity: "1",
         serialNumber: "",
         category: "",
-        stockId: ""
+        stockId: "",
+        description: ""
     });
     const [isBulk, setIsBulk] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -47,6 +48,7 @@ const AddProductPage = () => {
         { id: 'NET', label: 'เครือข่าย (Network)', prefix: 'NET' },
         { id: 'OFF', label: 'อุปกรณ์สำนักงาน (Office)', prefix: 'OFF' },
         { id: 'TOOL', label: 'เครื่องมือช่าง (Tools)', prefix: 'TOOL' },
+        { id: 'ACC', label: 'อุปกรณ์เสริม (Accessories)', prefix: 'ACC' },
         { id: 'GEN', label: 'อื่นๆ (General)', prefix: 'GEN' },
     ];
 
@@ -56,7 +58,7 @@ const AddProductPage = () => {
         return null;
     }
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
@@ -218,6 +220,7 @@ const AddProductPage = () => {
                 type: isBulk ? 'bulk' : 'unique',
                 quantity: isBulk ? parseInt(formData.quantity) : 1,
                 borrowedCount: 0,
+                description: formData.description,
                 ...(isBulk ? {} : { serialNumber: formData.serialNumber }),
             };
 
@@ -242,7 +245,8 @@ const AddProductPage = () => {
                 quantity: "1",
                 serialNumber: "",
                 category: "",
-                stockId: ""
+                stockId: "",
+                description: ""
             });
             setIsBulk(false);
             setImageFile(null);
@@ -401,7 +405,7 @@ const AddProductPage = () => {
                                         value={formData.category}
                                         onChange={handleCategoryChange}
                                         required
-                                        className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer appearance-none"
+                                        className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer appearance-none font-prompt"
                                     >
                                         <option value="">-- กรุณาเลือกหมวดหมู่ --</option>
                                         {categories.map(cat => (
@@ -454,6 +458,17 @@ const AddProductPage = () => {
                                         required
                                         className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white dark:focus:bg-white/10 transition-all"
                                         placeholder="เช่น Apple / M1 Pro"
+                                    />
+                                </div>
+
+                                <div className="col-span-1 md:col-span-2 space-y-2">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-white/70">รายละเอียดเพิ่มเติม (Description)</label>
+                                    <textarea
+                                        name="description"
+                                        value={formData.description}
+                                        onChange={handleInputChange}
+                                        className="w-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:outline-none focus:border-primary/50 focus:bg-white dark:focus:bg-white/10 transition-all min-h-[100px]"
+                                        placeholder="รายละเอียดเพิ่มเติมของอุปกรณ์..."
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -521,9 +536,10 @@ const AddProductPage = () => {
                             </button>
                         </form>
                     </div>
-                )}
-            </div>
-        </div>
+                )
+                }
+            </div >
+        </div >
     );
 };
 

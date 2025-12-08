@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect } from "react";
 import { Product } from "../../types";
-import { X, Calendar, MapPin, Tag, Hash, Package, Clock, Download, Upload, RotateCcw, Edit, ExternalLink, Printer } from "lucide-react";
+import { X, Calendar, MapPin, Tag, Hash, Package, Clock, Download, Upload, RotateCcw, Edit, ExternalLink, Printer, Box } from "lucide-react";
 import Image from "next/image";
 import QRCode from "react-qr-code";
 
@@ -89,9 +89,10 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                                 {statusInfo.label}
                             </span>
                         </div>
-                        <h2 className="text-2xl font-bold truncate shadow-sm">{product.name}</h2>
                     </div>
+
                 </div>
+
 
                 {/* Content */}
                 <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar space-y-8">
@@ -121,6 +122,16 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
 
                         {/* Right: Details Grid */}
                         <div className="flex-1 space-y-6">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                                    {product.name}
+                                    {product.stockId && (
+                                        <span className="text-base font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">
+                                            #{product.stockId}
+                                        </span>
+                                    )}
+                                </h2>
+                            </div>
                             <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                                 <div className="space-y-1">
                                     <span className="text-xs text-gray-500 flex items-center gap-1"><Tag size={12} /> แบรนด์/ยี่ห้อ</span>
@@ -226,59 +237,74 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                     <hr className="border-gray-100" />
 
                     {/* Additional Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                <Clock size={16} className="text-blue-500" /> ประวัติและรายละเอียด
-                            </h3>
-                            <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-600 space-y-2">
-                                <p><span className="font-medium text-gray-700">วันที่เพิ่ม:</span> {product.createdAt?.toDate ? product.createdAt.toDate().toLocaleDateString('th-TH') : '-'}</p>
-                                <p><span className="font-medium text-gray-700">อัปเดตล่าสุด:</span> {product.updatedAt?.toDate ? product.updatedAt.toDate().toLocaleDateString('th-TH') : '-'}</p>
-                                {product.description && (
-                                    <div className="pt-2 border-t border-gray-200 mt-2">
-                                        <p className="text-gray-500 text-xs mb-1">รายละเอียดเพิ่มเติม:</p>
-                                        <p className="leading-relaxed">{product.description}</p>
-                                    </div>
-                                )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        {/* Left Column: History & Actions */}
+                        <div className="space-y-6">
+                            {/* History */}
+                            <div className="space-y-2">
+                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                    <Clock size={16} className="text-blue-500" /> ประวัติและรายละเอียด
+                                </h3>
+                                <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-600 space-y-2">
+                                    <p><span className="font-medium text-gray-700">วันที่เพิ่ม:</span> {product.createdAt?.toDate ? product.createdAt.toDate().toLocaleDateString('th-TH') : '-'}</p>
+                                    <p><span className="font-medium text-gray-700">อัปเดตล่าสุด:</span> {product.updatedAt?.toDate ? product.updatedAt.toDate().toLocaleDateString('th-TH') : '-'}</p>
+                                </div>
+                            </div>
+
+                            {/* Actions (Moved here) */}
+                            <div className="space-y-2">
+                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                    <Download size={16} className="text-purple-500" /> จัดการรายการ
+                                </h3>
+                                <div className="flex gap-2">
+                                    {isAvailable && (
+                                        <button
+                                            onClick={() => onAction('borrow', product)}
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-cyan-50 text-cyan-600 text-sm font-bold hover:bg-cyan-100 transition-all border border-cyan-100"
+                                        >
+                                            <Download size={16} /> ยืม
+                                        </button>
+                                    )}
+                                    {isAvailable && (
+                                        <button
+                                            onClick={() => onAction('requisition', product)}
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-purple-50 text-purple-600 text-sm font-bold hover:bg-purple-100 transition-all border border-purple-100"
+                                        >
+                                            <Upload size={16} /> เบิก
+                                        </button>
+                                    )}
+                                    {isBorrowed && (
+                                        <button
+                                            onClick={() => onAction('return', product)}
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-50 text-amber-600 text-sm font-bold hover:bg-amber-100 transition-all border border-amber-100"
+                                        >
+                                            <RotateCcw size={16} /> คืน
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => onAction('edit', product)}
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-gray-50 text-gray-600 text-sm font-bold hover:bg-gray-100 transition-all border border-gray-200"
+                                    >
+                                        <Edit size={16} /> แก้ไข
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Quick Actions Panel */}
+                        {/* Right Column: Description (Moved here) */}
                         <div className="space-y-2">
                             <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                <Download size={16} className="text-purple-500" /> จัดการรายการ
+                                <Tag size={16} className="text-emerald-500" /> รายละเอียดเพิ่มเติม
                             </h3>
-                            <div className="grid grid-cols-1 gap-2">
-                                {isAvailable && (
-                                    <button
-                                        onClick={() => onAction('borrow', product)}
-                                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-cyan-50 text-cyan-600 font-bold hover:bg-cyan-100 transition-all border border-cyan-100"
-                                    >
-                                        <Download size={18} /> ยืมอุปกรณ์นี้
-                                    </button>
+                            <div className="bg-gray-50 rounded-xl p-6 text-sm text-gray-600 min-h-[200px] border border-gray-100">
+                                {product.description ? (
+                                    <p className="leading-relaxed whitespace-pre-line text-gray-700">{product.description}</p>
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-50 space-y-2">
+                                        <Box size={32} />
+                                        <span>ไม่มีรายละเอียด</span>
+                                    </div>
                                 )}
-                                {isAvailable && (
-                                    <button
-                                        onClick={() => onAction('requisition', product)}
-                                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-purple-50 text-purple-600 font-bold hover:bg-purple-100 transition-all border border-purple-100"
-                                    >
-                                        <Upload size={18} /> เบิกใช้งาน
-                                    </button>
-                                )}
-                                {isBorrowed && (
-                                    <button
-                                        onClick={() => onAction('return', product)}
-                                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-amber-50 text-amber-600 font-bold hover:bg-amber-100 transition-all border border-amber-100"
-                                    >
-                                        <RotateCcw size={18} /> แจ้งคืนอุปกรณ์
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => onAction('edit', product)}
-                                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gray-50 text-gray-600 font-bold hover:bg-gray-100 transition-all border border-gray-200"
-                                >
-                                    <Edit size={18} /> แก้ไขข้อมูล
-                                </button>
                             </div>
                         </div>
                     </div>

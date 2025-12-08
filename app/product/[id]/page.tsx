@@ -206,7 +206,7 @@ const ProductDetailPage = () => {
                             <div className="w-full h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                                 <div
                                     className={`h-full rounded-full transition-all duration-500 ${stockPercentage > 50 ? 'bg-emerald-500' :
-                                            stockPercentage > 20 ? 'bg-amber-500' : 'bg-red-500'
+                                        stockPercentage > 20 ? 'bg-amber-500' : 'bg-red-500'
                                         }`}
                                     style={{ width: `${stockPercentage}%` }}
                                 />
@@ -258,6 +258,19 @@ const ProductDetailPage = () => {
                         </div>
                     </div>
 
+
+                    {/* Description Section */}
+                    {product.description && (
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                                <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+                                รายละเอียดเพิ่มเติม
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+                                {product.description}
+                            </p>
+                        </div>
+                    )}
                     {/* QR Code Section (Hidden but renderable) */}
                     <div className="hidden">
                         <QRCode
@@ -307,7 +320,7 @@ const ProductDetailPage = () => {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

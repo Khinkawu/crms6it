@@ -37,7 +37,7 @@ export default function BookingLiffPage() {
 
                 if (res.status === 404) {
                     // Not bound -> Go to Entry
-                    router.push("/liff/entry?returnUrl=/liff/booking");
+                    router.push(`/liff/entry?returnUrl=${encodeURIComponent("/liff/booking")}`);
                     return;
                 }
 
