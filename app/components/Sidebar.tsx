@@ -21,9 +21,10 @@ export default function Sidebar() {
     if (!user) return null;
 
     const allMenuItems = [
-        { name: "Dashboard", icon: <LayoutDashboard size={20} />, path: "/", roles: ['user', 'technician', 'admin', 'reporter'] },
+        { name: "Dashboard", icon: <LayoutDashboard size={20} />, path: "/", roles: ['user', 'technician', 'admin', 'moderator'] },
         { name: "ระบบจัดการอุปกรณ์", icon: <Package size={20} />, path: "/admin/inventory", roles: ['technician', 'admin'] },
-        { name: "ระบบงานซ่อม", icon: <Wrench size={20} />, path: "/admin/repairs", roles: ['technician', 'admin', 'reporter'] },
+        { name: "ระบบงานซ่อม", icon: <Wrench size={20} />, path: "/admin/repairs", roles: ['technician', 'admin', 'moderator'] },
+        { name: "จัดการการจอง", icon: <Calendar size={20} />, path: "/admin/bookings", roles: ['admin', 'moderator'] },
         { name: "จัดการผู้ใช้", icon: <Users size={20} />, path: "/admin/users", roles: ['admin'] },
     ];
 

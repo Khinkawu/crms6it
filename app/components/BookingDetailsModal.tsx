@@ -3,7 +3,8 @@
 import React from 'react';
 import {
     X, Calendar, Clock, User, MapPin, FileText,
-    Briefcase, Paperclip, GraduationCap, Box as BoxIcon, Link as LinkIcon, ExternalLink
+    Briefcase, Paperclip, GraduationCap, Box as BoxIcon, Link as LinkIcon, ExternalLink,
+    Users, Armchair
 } from 'lucide-react';
 import moment from 'moment';
 import 'moment/locale/th';
@@ -131,6 +132,40 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                                 </div>
                             )}
 
+                            {/* Attendees & Room Layout */}
+                            {(data.attendees || data.roomLayout) && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {data.attendees && (
+                                        <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800 rounded-xl p-4">
+                                            <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                                                <Users size={14} /> จำนวนผู้เข้าร่วม
+                                            </p>
+                                            <p className="font-bold text-lg text-gray-800 dark:text-gray-200">
+                                                {data.attendees} คน
+                                            </p>
+                                        </div>
+                                    )}
+                                    {data.roomLayout && (
+                                        <div className="bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800 rounded-xl p-4">
+                                            <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                                                <BoxIcon size={14} /> การจัดห้อง
+                                            </p>
+                                            <p className="font-bold text-lg text-gray-800 dark:text-gray-200">
+                                                {data.roomLayout === 'u_shape' && 'รูปแบบตัว U'}
+                                                {data.roomLayout === 'classroom' && 'แถวหน้ากระดาน'}
+                                                {data.roomLayout === 'empty' && 'ไม่ต้องการโต๊ะ - เก้าอี้'}
+                                                {data.roomLayout === 'other' && (
+                                                    <span>
+                                                        รูปแบบอื่น ๆ
+                                                        {data.roomLayoutDetails && <span className="font-normal text-base text-gray-600 dark:text-gray-400 ml-2">({data.roomLayoutDetails})</span>}
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Equipment */}
                             {(data.equipment?.length > 0 || data.ownEquipment) && (
                                 <div>
@@ -138,11 +173,15 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                                         <Briefcase size={16} /> อุปกรณ์
                                     </p>
                                     <div className="flex flex-wrap gap-2">
-                                        {data.equipment?.map((item: string, i: number) => (
-                                            <span key={i} className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 font-medium">
-                                                {item}
-                                            </span>
-                                        ))}
+                                        {data.equipment?.map((item: string, i: number) => {
+                                            const isMic = item.includes("ไมค์") || item.toLowerCase().includes("mic");
+                                            const micCountDisplay = isMic && data.micCount ? ` (${data.micCount} ตัว)` : '';
+                                            return (
+                                                <span key={i} className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 font-medium">
+                                                    {item}{micCountDisplay}
+                                                </span>
+                                            );
+                                        })}
                                     </div>
                                     {data.ownEquipment && (
                                         <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">

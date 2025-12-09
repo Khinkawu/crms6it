@@ -30,6 +30,7 @@ interface ActivityLog {
     imageUrl?: string;
     details?: string;
     zone?: string;
+    status?: string; // legacy or derived
     timestamp: any;
 }
 
@@ -187,19 +188,23 @@ export default function Dashboard() {
         // Listen for bookings
         const bookingQ = query(collection(db, "bookings"));
         const unsubBooking = onSnapshot(bookingQ, (snapshot) => {
-            const loadedEvents: BookingEvent[] = snapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    title: `${data.title} (${data.roomName})`,
-                    start: data.startTime.toDate(),
-                    end: data.endTime.toDate(),
-                    roomName: data.roomName,
-                    requesterName: data.requesterName,
-                    status: data.status,
-                    resource: data
-                };
-            });
+            // Filter only approved bookings
+            const loadedEvents: BookingEvent[] = snapshot.docs
+                .map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        title: `${data.title} (${data.roomName})`,
+                        start: data.startTime.toDate(),
+                        end: data.endTime.toDate(),
+                        roomName: data.roomName,
+                        requesterName: data.requesterName,
+                        status: data.status,
+                        resource: data
+                    };
+                })
+                .filter(event => event.status === 'approved'); // CLIENT-SIDE FILTERING
+
             setEvents(loadedEvents);
         });
 
@@ -219,29 +224,25 @@ export default function Dashboard() {
     }, [events, view, date]);
 
     const eventStyleGetter = (event: BookingEvent) => {
-        let backgroundColor = '#3b82f6'; // blue-500
-        // if (event.status === 'pending') backgroundColor = '#f59e0b'; // amber-500 (Disabled)
-        if (event.status === 'cancelled') backgroundColor = '#ef4444'; // red-500
-        if (event.status === 'approved') backgroundColor = '#3b82f6'; // Keep blue for approved too, or emerald. User said "cut function out", so maybe just one color for active?
-        // Let's use blue for standard active bookings to match theme.
+        let backgroundColor = '#f59e0b'; // amber-500
 
-        // Month/Week/Day view styles
+        // Month/Week/Day view styles - DOT STYLE
         if (view !== Views.AGENDA) {
             return {
                 style: {
-                    backgroundColor,
-                    borderRadius: '4px',
-                    opacity: 0.9,
-                    color: 'white',
-                    border: '0px',
+                    backgroundColor: backgroundColor,
+                    borderRadius: '50%',
+                    width: '12px',
+                    height: '12px',
+                    padding: '0px',
+                    border: '2px solid white',
+                    margin: '2px auto',
                     display: 'block',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                    fontSize: '0.75rem',
-                    padding: '1px 4px',
-                    lineHeight: '1.2',
+                    color: 'transparent',
                     overflow: 'hidden',
-                    whiteSpace: 'nowrap',
-                    textOverflow: 'ellipsis'
+                    fontSize: '0px',
+                    lineHeight: '0px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
                 }
             };
         }
@@ -271,10 +272,10 @@ export default function Dashboard() {
     if (loading || !user) return null;
 
     const quickActions = [
-        { name: "โปรไฟล์", icon: <User size={24} />, path: "/profile", role: ['admin', 'technician', 'user', 'reporter'] },
-        { name: "Wi-Fi Users", icon: <Globe size={24} />, path: "https://sites.google.com/tesaban6.ac.th/crms6wifiusers", role: ['admin', 'technician', 'user', 'reporter'], external: true },
-        { name: "แจ้งซ่อม", icon: <AlertTriangle size={24} />, path: "/repair", role: ['admin', 'technician', 'user', 'reporter'] },
-        { name: "จองห้องประชุม", icon: <CalendarIcon size={24} />, path: "/booking", role: ['admin', 'technician', 'user', 'reporter'] },
+        { name: "โปรไฟล์", icon: <User size={24} />, path: "/profile", role: ['admin', 'technician', 'user', 'moderator'] },
+        { name: "Wi-Fi Users", icon: <Globe size={24} />, path: "https://sites.google.com/tesaban6.ac.th/crms6wifiusers", role: ['admin', 'technician', 'user', 'moderator'], external: true },
+        { name: "แจ้งซ่อม", icon: <AlertTriangle size={24} />, path: "/repair", role: ['admin', 'technician', 'user', 'moderator'] },
+        { name: "จองห้องประชุม", icon: <CalendarIcon size={24} />, path: "/booking", role: ['admin', 'technician', 'user', 'moderator'] },
         { name: "เพิ่มอุปกรณ์", icon: <Plus size={24} />, path: "/admin/inventory", role: ['admin'] },
         { name: "รีเซ็ตค่าสถิติ", icon: <RefreshCw size={24} />, path: "/admin/init-stats", role: ['admin'] },
     ];

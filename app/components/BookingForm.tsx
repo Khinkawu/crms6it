@@ -25,12 +25,13 @@ const ROOMS = {
         { id: "sh_auditorium", name: "หอประชุม" },
         { id: "sh_king_science", name: "ห้องศาสตร์พระราชา" },
         { id: "sh_language_center", name: "ห้องศูนย์ภาษา" },
+        { id: "sh_admin_3", name: "ชั้น 3 อาคารอำนวยการ" },
     ]
 };
 
 const POSITIONS = ["ผู้บริหาร", "ครู", "ครู LS", "บุคลากร"];
 const DEPARTMENTS = ["วิชาการ", "กิจการนักเรียน", "บุคลากร", "บริการทั่วไป", "การเงิน", "หน่วยงานภายนอก"];
-const EQUIPMENT_OPTIONS = ["จอ LED", "ไมค์", "จอโปรเจ็คเตอร์", "จอ TV", "Projector", "Online Meeting"];
+const EQUIPMENT_OPTIONS = ["จอ LED", "ไมค์", "จอโปรเจ็คเตอร์", "จอ TV", "Projector", "Online Meeting", "Pointer"];
 
 // --- Custom Scrollable Select Component ---
 interface SelectOption {
@@ -174,6 +175,10 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
         endTime: "10:00",
         equipment: [] as string[],
         ownEquipment: "",
+        attendees: "",
+        roomLayout: "classroom", // Default to classroom
+        roomLayoutDetails: "",
+        micCount: "",
     });
 
     // Attachment State
@@ -301,6 +306,10 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                 endTime: Timestamp.fromDate(endDateTime),
                 equipment: formData.equipment,
                 ownEquipment: formData.ownEquipment,
+                attendees: formData.attendees,
+                roomLayout: formData.roomLayout,
+                roomLayoutDetails: formData.roomLayout === 'other' ? formData.roomLayoutDetails : '',
+                micCount: formData.equipment.includes("ไมค์") ? formData.micCount : "",
                 attachments: validLinks, // Save links instead of file URLs
                 status: 'pending', // Default to pending
                 createdAt: serverTimestamp(),
@@ -502,7 +511,24 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                     <span className="text-sm font-medium">{item}</span>
                                 </label>
                             ))}
+
                         </div>
+
+                        {formData.equipment.includes("ไมค์") && (
+                            <div className="mt-2 animate-fade-in">
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">จำนวนไมค์ที่ต้องการ</label>
+                                <input
+                                    type="number"
+                                    name="micCount"
+                                    value={formData.micCount}
+                                    onChange={handleInputChange}
+                                    placeholder="ระบุจำนวน"
+                                    min="1"
+                                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                        )}
+
                         <div className="mt-2">
                             <input
                                 type="text"
@@ -512,6 +538,70 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                 placeholder="อื่น ๆ (ถ้ามี) , หรืออุปกรณ์ที่นำมาเอง"
                                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                             />
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-100 dark:border-gray-800 pt-4"></div>
+
+                    {/* Attendees & Room Layout */}
+                    <div className="space-y-4">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">จำนวนผู้เข้าร่วม (คน)</label>
+                            <input
+                                type="number"
+                                name="attendees"
+                                value={formData.attendees}
+                                onChange={handleInputChange}
+                                placeholder="ระบุจำนวน"
+                                min="1"
+                                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="text-sm font-bold text-gray-900 dark:text-white">รูปแบบการจัดห้องประชุม</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {[
+                                    { id: 'u_shape', label: 'รูปแบบตัว U' },
+                                    { id: 'classroom', label: 'แถวหน้ากระดาน' },
+                                    { id: 'empty', label: 'ไม่ต้องการโต๊ะ - เก้าอี้' },
+                                    { id: 'other', label: 'รูปแบบอื่น ๆ' },
+                                ].map((layout) => (
+                                    <label key={layout.id} className={`
+                                        flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all
+                                        ${formData.roomLayout === layout.id
+                                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}
+                                    `}>
+                                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${formData.roomLayout === layout.id ? 'border-blue-500' : 'border-gray-300'}`}>
+                                            {formData.roomLayout === layout.id && <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />}
+                                        </div>
+                                        <input
+                                            type="radio"
+                                            name="roomLayout"
+                                            value={layout.id}
+                                            checked={formData.roomLayout === layout.id}
+                                            onChange={handleInputChange}
+                                            className="hidden"
+                                        />
+                                        <span className="text-sm font-medium">{layout.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+
+                            {formData.roomLayout === 'other' && (
+                                <div className="mt-2 animate-fade-in">
+                                    <input
+                                        type="text"
+                                        name="roomLayoutDetails"
+                                        value={formData.roomLayoutDetails}
+                                        onChange={handleInputChange}
+                                        placeholder="ระบุรายละเอียดรูปแบบห้องที่ต้องการ"
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        required
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -614,7 +704,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                     </div>
 
                 </form>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
