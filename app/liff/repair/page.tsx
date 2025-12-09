@@ -51,7 +51,8 @@ export default function RepairLiffPage() {
 
                 if (res.status === 404) {
                     // Not bound -> Go to Entry
-                    router.push(`/liff/entry?returnUrl=${encodeURIComponent("/liff/repair")}`);
+                    const currentLiffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || "";
+                    router.push(`/liff/entry?returnUrl=${encodeURIComponent("/liff/repair")}&liffId=${currentLiffId}`);
                     return;
                 }
 

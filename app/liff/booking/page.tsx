@@ -37,7 +37,8 @@ export default function BookingLiffPage() {
 
                 if (res.status === 404) {
                     // Not bound -> Go to Entry
-                    router.push(`/liff/entry?returnUrl=${encodeURIComponent("/liff/booking")}`);
+                    const currentLiffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID_BOOKING || "";
+                    router.push(`/liff/entry?returnUrl=${encodeURIComponent("/liff/booking")}&liffId=${currentLiffId}`);
                     return;
                 }
 

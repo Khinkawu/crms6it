@@ -18,7 +18,8 @@ export default function LIFFEntryPage() {
     useEffect(() => {
         const initializeLiff = async () => {
             try {
-                const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || process.env.NEXT_PUBLIC_LINE_LIFF_ID || "";
+                const params = new URLSearchParams(window.location.search);
+                const liffId = params.get('liffId') || process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || process.env.NEXT_PUBLIC_LINE_LIFF_ID || "";
 
                 if (!liffId) {
                     throw new Error("ไม่พบค่า LIFF ID ในการตั้งค่า");
@@ -27,7 +28,7 @@ export default function LIFFEntryPage() {
                 // Race liff.init with a 5s timeout
                 await Promise.race([
                     liff.init({ liffId }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("การเชื่อมต่อกับ LINE ใช้เวลานานเกินไป")), 5000))
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("การเชื่อมต่อกับ LINE ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง")), 5000))
                 ]);
 
                 if (!liff.isLoggedIn()) {
@@ -165,7 +166,7 @@ export default function LIFFEntryPage() {
 
                     <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-400">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                        Secure System by Antigravity
+                        Secure System by CRMS6 IT
                     </div>
                 </div>
             </div>
@@ -205,7 +206,7 @@ export default function LIFFEntryPage() {
 
             <div className="p-6 text-center relative z-10">
                 <p className="text-xs text-gray-300 font-light">
-                    &copy; 2024 CRMS System. All rights reserved.
+                    &copy; 2025 CRMS6 IT System. All rights reserved.
                 </p>
             </div>
         </div>
