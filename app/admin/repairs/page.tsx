@@ -46,7 +46,7 @@ export default function RepairDashboard() {
 
     useEffect(() => {
         if (!loading) {
-            if (!user || (role !== 'admin' && role !== 'technician' && role !== 'reporter')) {
+            if (!user || (role !== 'admin' && role !== 'technician' && role !== 'reporter' && role !== 'moderator')) {
                 router.push("/");
             }
         }
@@ -280,7 +280,7 @@ export default function RepairDashboard() {
         }
     };
 
-    if (loading || !user || (role !== 'admin' && role !== 'technician' && role !== 'reporter')) return null;
+    if (loading || !user || (role !== 'admin' && role !== 'technician' && role !== 'reporter' && role !== 'moderator')) return null;
 
     return (
         <div className="animate-fade-in pb-20">
@@ -434,12 +434,22 @@ export default function RepairDashboard() {
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={() => handleOpenModal(ticket)}
-                                    className="w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-bold transition-colors mt-auto"
-                                >
-                                    จัดการคำขอซ่อม
-                                </button>
+                                {role !== 'moderator' && (
+                                    <button
+                                        onClick={() => handleOpenModal(ticket)}
+                                        className="w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-bold transition-colors mt-auto"
+                                    >
+                                        จัดการคำขอซ่อม
+                                    </button>
+                                )}
+                                {role === 'moderator' && (
+                                    <button
+                                        onClick={() => handleOpenModal(ticket)}
+                                        className="w-full py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-bold transition-colors mt-auto"
+                                    >
+                                        ดูรายละเอียด
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -472,12 +482,21 @@ export default function RepairDashboard() {
                                             <td className="px-6 py-4 text-text max-w-xs truncate">{ticket.description}</td>
                                             <td className="px-6 py-4 text-text-secondary whitespace-nowrap">{ticket.requesterName}</td>
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
-                                                <button
-                                                    onClick={() => handleOpenModal(ticket)}
-                                                    className="text-cyan-600 hover:text-cyan-700 font-medium hover:underline"
-                                                >
-                                                    จัดการ
-                                                </button>
+                                                {role !== 'moderator' ? (
+                                                    <button
+                                                        onClick={() => handleOpenModal(ticket)}
+                                                        className="text-cyan-600 hover:text-cyan-700 font-medium hover:underline"
+                                                    >
+                                                        จัดการ
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleOpenModal(ticket)}
+                                                        className="text-slate-500 hover:text-slate-700 font-medium hover:underline"
+                                                    >
+                                                        ดูรายละเอียด
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -542,7 +561,7 @@ export default function RepairDashboard() {
                             )}
 
                             {/* Spare Parts / Requisition Section */}
-                            {role !== 'reporter' && (
+                            {role !== 'reporter' && role !== 'moderator' && (
                                 <div className="border-t border-border pt-4">
                                     <h3 className="text-sm font-bold text-text mb-2">เบิกใช้อะไหล่ (Spare Parts)</h3>
 
@@ -611,7 +630,7 @@ export default function RepairDashboard() {
                             )}
 
                             {/* Technician Actions */}
-                            {role !== 'reporter' && (
+                            {role !== 'reporter' && role !== 'moderator' && (
                                 <form onSubmit={handleUpdateTicket} className="space-y-4 border-t border-border pt-4">
                                     <div>
                                         <label className="block text-sm font-medium text-text-secondary mb-1">อัปเดตสถานะ</label>

@@ -42,7 +42,7 @@ export interface Transaction {
     userPosition?: string; // for requisition
 }
 
-export type UserRole = 'user' | 'technician' | 'admin' | 'moderator';
+export type UserRole = 'user' | 'technician' | 'admin' | 'moderator' | 'reporter';
 
 export interface UserProfile {
     uid: string;
