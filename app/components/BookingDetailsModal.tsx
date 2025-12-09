@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     X, Calendar, Clock, User, MapPin, FileText,
     Briefcase, Paperclip, GraduationCap, Box as BoxIcon, Link as LinkIcon, ExternalLink,
@@ -27,6 +27,15 @@ interface BookingDetailsModalProps {
 }
 
 export default function BookingDetailsModal({ isOpen, onClose, event }: BookingDetailsModalProps) {
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     if (!isOpen || !event) return null;
 
     const data = event.resource || {};
@@ -34,11 +43,11 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <div
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row max-h-[90vh] md:h-auto animate-zoom-in"
+                className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col md:flex-row max-h-[90vh] animate-zoom-in overscroll-contain overflow-y-auto md:overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Left Side: Header & Primary Info */}
-                <div className="w-full md:w-2/5 bg-gradient-to-br from-blue-600 to-cyan-600 p-8 text-white relative overflow-hidden flex flex-col justify-between shrink-0">
+                <div className="w-full md:w-2/5 bg-gradient-to-br from-blue-600 to-cyan-600 p-6 md:p-8 text-white relative overflow-hidden flex flex-col justify-between shrink-0">
 
                     {/* Decorative Elements */}
                     <div className="absolute top-0 left-0 w-64 h-64 bg-white/10 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
@@ -96,7 +105,7 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                         <X size={24} />
                     </button>
 
-                    <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                    <div className="flex-1 md:overflow-y-auto p-6 md:p-8 custom-scrollbar">
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
                             รายละเอียดการจอง
                         </h3>

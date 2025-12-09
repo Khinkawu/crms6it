@@ -31,9 +31,13 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (isOpen && sigPad.current) {
-            sigPad.current.clear();
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+            if (sigPad.current) sigPad.current.clear();
         }
+        return () => {
+            document.body.style.overflow = '';
+        };
     }, [isOpen]);
 
     if (!isOpen) return null;
@@ -169,8 +173,8 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
             ></div>
 
             {/* Modal Content - Clean SaaS Theme */}
-            <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-soft-lg overflow-hidden animate-fade-in-up">
-                <div className="p-6">
+            <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-soft-lg overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col overscroll-contain">
+                <div className="p-6 overflow-y-auto custom-scrollbar">
                     <h2 className="text-2xl font-bold text-text mb-1">ยืมวัสดุ อุปกรณ์</h2>
                     <p className="text-text-secondary text-sm mb-6">{product.name}</p>
 

@@ -34,9 +34,13 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
     const availableStock = isBulk ? (product.quantity || 0) - (product.borrowedCount || 0) : 1;
 
     useEffect(() => {
-        if (isOpen && sigPad.current) {
-            sigPad.current.clear();
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+            if (sigPad.current) sigPad.current.clear();
         }
+        return () => {
+            document.body.style.overflow = '';
+        };
     }, [isOpen]);
 
     if (!isOpen) return null;
@@ -170,8 +174,8 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
 
             {/* Modal Content - Clean SaaS Theme */}
-            <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-soft-lg overflow-hidden animate-fade-in-up">
-                <div className="p-6">
+            <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-soft-lg overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col overscroll-contain">
+                <div className="p-6 overflow-y-auto custom-scrollbar">
                     <h2 className="text-2xl font-bold text-text mb-1">เบิกอุปกรณ์</h2>
                     <p className="text-text-secondary text-sm mb-6">{product.name}</p>
 

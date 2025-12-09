@@ -44,6 +44,16 @@ export default function RepairDashboard() {
     const [isRequisitioning, setIsRequisitioning] = useState(false);
     const [isUsePartConfirmOpen, setIsUsePartConfirmOpen] = useState(false);
 
+    // Body scroll lock for modal
+    useEffect(() => {
+        if (isModalOpen) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isModalOpen]);
+
     useEffect(() => {
         if (!loading) {
             if (!user || (role !== 'admin' && role !== 'technician' && role !== 'moderator')) {
@@ -516,7 +526,7 @@ export default function RepairDashboard() {
             {/* Edit Modal */}
             {isModalOpen && selectedTicket && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                    <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl overscroll-contain">
                         <div className="p-6 space-y-6">
                             <div className="flex justify-between items-start">
                                 <h2 className="text-2xl font-bold text-text">จัดการใบแจ้งซ่อม</h2>

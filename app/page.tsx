@@ -180,7 +180,7 @@ export default function Dashboard() {
             // Filter for repair logs only
             const repairLogs = acts.filter(act =>
                 act.action === 'repair' || act.action === 'repair_update'
-            ).slice(0, 20);
+            ).slice(0, 10);
 
             setRecentActivity(repairLogs);
         });
@@ -318,7 +318,7 @@ export default function Dashboard() {
         switch (zone) {
             case 'junior_high': return '(ม.ต้น)';
             case 'senior_high': return '(ม.ปลาย)';
-            case 'common': return '(ส่วนกลาง)';
+
             default: return `(${zone})`;
         }
     };

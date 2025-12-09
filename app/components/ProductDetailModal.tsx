@@ -17,19 +17,22 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
     const modalRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-                onClose();
-            }
-        };
-
         if (isOpen) {
+            document.body.style.overflow = 'hidden';
+            // Add event listener for click outside
             document.addEventListener("mousedown", handleClickOutside);
         }
         return () => {
+            document.body.style.overflow = '';
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [isOpen, onClose]);
+    }, [isOpen]);
+
+    const handleClickOutside = (event: MouseEvent) => {
+        if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+            onClose();
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -56,7 +59,7 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <div
                 ref={modalRef}
-                className="bg-white dark:bg-card w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-in"
+                className="bg-white dark:bg-card w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-scale-in overscroll-contain overflow-y-auto md:overflow-hidden"
             >
                 {/* Header with Image Background Effect */}
                 <div className="relative h-48 bg-gray-100 overflow-hidden">
@@ -95,7 +98,7 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
 
 
                 {/* Content */}
-                <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar space-y-8">
+                <div className="p-6 md:p-8 md:overflow-y-auto custom-scrollbar space-y-8">
 
                     <div className="flex flex-col md:flex-row gap-8">
                         {/* Left: Main Image */}

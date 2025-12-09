@@ -30,9 +30,7 @@ export async function POST(req: Request) {
             // Common -> Notify everyone
             // Junior High -> Notify Junior + All
             // Senior High -> Notify Senior + All
-            if (zone === 'common') {
-                targetUserIds.push(lineId);
-            } else if (zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) {
+            if (zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) {
                 targetUserIds.push(lineId);
             } else if (zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all')) {
                 targetUserIds.push(lineId);

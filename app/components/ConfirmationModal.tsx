@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 
 interface ConfirmationModalProps {
     isOpen: boolean;
@@ -23,6 +23,15 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     cancelText = "ยกเลิก",
     isDangerous = false,
 }) => {
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     return (

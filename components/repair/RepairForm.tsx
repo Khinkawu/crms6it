@@ -241,7 +241,6 @@ export default function RepairForm() {
                                     {[
                                         { value: 'junior_high', label: 'ม.ต้น', icon: '' },
                                         { value: 'senior_high', label: 'ม.ปลาย', icon: '' },
-                                        { value: 'common', label: 'ส่วนกลาง', icon: '' }
                                     ].map((option) => (
                                         <label
                                             key={option.value}
