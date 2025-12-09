@@ -46,7 +46,7 @@ export default function RepairDashboard() {
 
     useEffect(() => {
         if (!loading) {
-            if (!user || (role !== 'admin' && role !== 'technician' && role !== 'reporter' && role !== 'moderator')) {
+            if (!user || (role !== 'admin' && role !== 'technician' && role !== 'moderator')) {
                 router.push("/");
             }
         }
@@ -280,7 +280,7 @@ export default function RepairDashboard() {
         }
     };
 
-    if (loading || !user || (role !== 'admin' && role !== 'technician' && role !== 'reporter' && role !== 'moderator')) return null;
+    if (loading || !user || (role !== 'admin' && role !== 'technician' && role !== 'moderator')) return null;
 
     return (
         <div className="animate-fade-in pb-20">
@@ -561,7 +561,7 @@ export default function RepairDashboard() {
                             )}
 
                             {/* Spare Parts / Requisition Section */}
-                            {role !== 'reporter' && role !== 'moderator' && (
+                            {role !== 'moderator' && (
                                 <div className="border-t border-border pt-4">
                                     <h3 className="text-sm font-bold text-text mb-2">เบิกใช้อะไหล่ (Spare Parts)</h3>
 
@@ -614,23 +614,9 @@ export default function RepairDashboard() {
                                 </div>
                             )}
 
-                            {/* Show Parts Used for Reporter (Read-only) */}
-                            {role === 'reporter' && selectedTicket?.partsUsed && selectedTicket.partsUsed.length > 0 && (
-                                <div className="border-t border-border pt-4">
-                                    <h3 className="text-sm font-bold text-text mb-2">อะไหล่ที่ใช้ (Spare Parts)</h3>
-                                    <div className="space-y-2">
-                                        {selectedTicket.partsUsed.map((part, idx) => (
-                                            <div key={idx} className="flex justify-between items-center bg-background px-3 py-2 rounded-lg text-sm">
-                                                <span className="text-text">{part.name}</span>
-                                                <span className="text-text-secondary">จำนวน: {part.quantity}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Technician Actions */}
-                            {role !== 'reporter' && role !== 'moderator' && (
+                            {role !== 'moderator' && (
                                 <form onSubmit={handleUpdateTicket} className="space-y-4 border-t border-border pt-4">
                                     <div>
                                         <label className="block text-sm font-medium text-text-secondary mb-1">อัปเดตสถานะ</label>

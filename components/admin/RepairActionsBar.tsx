@@ -47,7 +47,7 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
     const [startDate, setStartDate] = useState<string>("");
     const [endDate, setEndDate] = useState<string>("");
 
-    if (!role || !['admin', 'technician', 'reporter', 'moderator'].includes(role)) return null;
+    if (!role || !['admin', 'technician', 'moderator'].includes(role)) return null;
 
     const handleFilter = () => {
         if (startDate && endDate) {
