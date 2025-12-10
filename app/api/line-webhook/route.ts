@@ -318,7 +318,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                             action: {
                                 type: 'uri',
                                 label: 'ดูรายละเอียด',
-                                uri: `${process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app'}`
+                                uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}`
                             },
                             color: '#0ea5e9'
                         }
