@@ -11,23 +11,20 @@ import toast from "react-hot-toast";
 import { logActivity } from "../../utils/logger";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
 
-interface BorrowModalProps {
+interface ReturnModalProps {
     isOpen: boolean;
     onClose: () => void;
     product: Product;
     onSuccess: () => void;
 }
 
-const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onSuccess }) => {
+const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onSuccess }) => {
     const { user } = useAuth();
     const sigPad = useRef<SignatureCanvas>(null);
 
     const [formData, setFormData] = useState({
-        borrowerName: "",
-        room: "",
-        phone: "",
-        returnDate: "",
-        reason: "",
+        returnerName: "",
+        notes: "",
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -57,22 +54,13 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
         e.preventDefault();
         setError(null);
 
-        if (!formData.borrowerName || !formData.room || !formData.phone || !formData.returnDate || !formData.reason) {
-            setError("กรุณากรอกข้อมูลให้ครบถ้วน");
+        if (!formData.returnerName) {
+            setError("กรุณาระบุชื่อผู้คืน");
             return;
         }
 
         if (sigPad.current?.isEmpty()) {
             setError("กรุณาลงลายมือชื่อ");
-            return;
-        }
-
-        // Availability Check
-        const isBulk = product.type === 'bulk';
-        const availableStock = isBulk ? (product.quantity || 0) - (product.borrowedCount || 0) : (product.status === 'available' ? 1 : 0);
-
-        if (availableStock <= 0) {
-            setError("สินค้าไม่พร้อมให้ใช้งาน");
             return;
         }
 
@@ -89,79 +77,81 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
             const blob = await res.blob();
 
             // Upload to Storage
-            const filename = `signatures/borrow_${Date.now()}_${user?.uid}.png`;
+            const filename = `signatures/return_${Date.now()}_${user?.uid}.png`;
             const storageRef = ref(storage, filename);
             await uploadBytes(storageRef, blob);
             const signatureUrl = await getDownloadURL(storageRef);
 
-            // 2. Create Transaction
-            await addDoc(collection(db, "transactions"), {
-                type: "borrow",
-                productId: product.id,
-                productName: product.name,
-                borrowerEmail: user?.email,
-                borrowerName: formData.borrowerName, // Use manual name
-                recordedBy: user?.displayName || "Unknown", // Track who recorded it
-                userRoom: formData.room,
-                userPhone: formData.phone,
-                reason: formData.reason,
-                borrowDate: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                returnDate: new Date(formData.returnDate),
-                status: "active",
-                signatureUrl: signatureUrl,
-            });
-
-            // 3. Update Product Status
+            // 2. Update Product Status
             if (product.id) {
                 const productRef = doc(db, "products", product.id);
+                const isBulk = product.type === 'bulk';
+
                 if (isBulk) {
+                    // Bulk Item Logic
                     await updateDoc(productRef, {
-                        borrowedCount: increment(1)
+                        borrowedCount: increment(-1),
+                        updatedAt: serverTimestamp()
                     });
 
                     // Update Stats for Bulk
-                    const oldBorrowed = product.borrowedCount || 0;
+                    const currentBorrowed = product.borrowedCount || 0;
                     const totalQty = product.quantity || 0;
 
-                    // If first item borrowed, increment 'borrowed' stat (counting SKUs with borrowed items)
-                    if (oldBorrowed === 0) {
-                        await incrementStats('borrowed');
+                    // If borrowed count goes to 0, decrement 'borrowed' stat
+                    if (currentBorrowed === 1) {
+                        await decrementStats('borrowed');
                     }
 
-                    // If it becomes unavailable (stock runs out)
-                    const oldAvailable = totalQty - oldBorrowed > 0;
-                    const newAvailable = totalQty - (oldBorrowed + 1) > 0;
+                    // If it becomes available (was out of stock)
+                    const wasAvailable = totalQty - currentBorrowed > 0;
+                    const willBeAvailable = totalQty - (currentBorrowed - 1) > 0;
 
-                    if (oldAvailable && !newAvailable) {
-                        await decrementStats('available');
+                    if (!wasAvailable && willBeAvailable) {
+                        await incrementStats('available');
                     }
-
                 } else {
+                    // Unique Item Logic
                     await updateDoc(productRef, {
-                        status: "borrowed", // normalized from 'ไม่ว่าง'
+                        status: 'available',
+                        updatedAt: serverTimestamp()
                     });
 
-                    // Update Stats for Unique
-                    await updateStatsOnStatusChange('available', 'borrowed');
+                    // Update Stats
+                    // We assume it returns from 'borrowed' (or 'ไม่ว่าง') to 'available'
+                    await updateStatsOnStatusChange('borrowed', 'available');
                 }
             }
 
+            // 3. Create Transaction (Return Record)
+            await addDoc(collection(db, "transactions"), {
+                type: "return",
+                productId: product.id,
+                productName: product.name,
+                returnerName: formData.returnerName,
+                receiverEmail: user?.email,
+                receiverName: user?.displayName, // Admin receiving it
+                notes: formData.notes,
+                timestamp: serverTimestamp(),
+                signatureUrl: signatureUrl,
+                status: "completed"
+            });
+
             // 4. Log Activity with Signature
             await logActivity({
-                action: 'borrow',
+                action: 'return',
                 productName: product.name,
-                userName: formData.borrowerName, // Use borrower name for log
-                details: `Borrowed by ${formData.borrowerName}. Reason: ${formData.reason} (Recorded by ${user?.displayName})`,
+                userName: user?.displayName || "Admin", // Action performed by Admin
+                details: `Returned by ${formData.returnerName}. Receiver: ${user?.displayName}. Notes: ${formData.notes}`,
                 imageUrl: product.imageUrl,
                 signatureUrl: signatureUrl
             });
 
-            toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
+            toast.success("คืนวัสดุเรียบร้อยแล้ว");
             onSuccess();
             onClose();
         } catch (error) {
-            console.error("Error borrowing product:", error);
+            console.error("Error returning product:", error);
             setError("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
         } finally {
             setLoading(false);
@@ -179,7 +169,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
             {/* Modal Content - Clean SaaS Theme */}
             <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-soft-lg overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col overscroll-contain">
                 <div className="p-6 overflow-y-auto custom-scrollbar">
-                    <h2 className="text-2xl font-bold text-text mb-1">ยืมวัสดุ อุปกรณ์</h2>
+                    <h2 className="text-2xl font-bold text-text mb-1">คืนวัสดุ อุปกรณ์</h2>
                     <p className="text-text-secondary text-sm mb-6">{product.name}</p>
 
                     {error && (
@@ -189,86 +179,44 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Borrower Info */}
+                        {/* Receiver Info (Admin) */}
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">บัญชีผู้บันทึก</label>
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ผู้รับคืน (Admin)</label>
                             <div className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-text text-sm opacity-70">
                                 {user?.displayName || user?.email}
                             </div>
                         </div>
 
+                        {/* Returner Info */}
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ชื่อผู้ยืม</label>
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ชื่อผู้คืน</label>
                             <input
                                 type="text"
-                                name="borrowerName"
-                                value={formData.borrowerName}
+                                name="returnerName"
+                                value={formData.returnerName}
                                 onChange={handleInputChange}
                                 required
                                 className="input-field"
-                                placeholder="ระบุชื่อผู้ยืม"
+                                placeholder="ระบุชื่อผู้ที่นำของมาคืน"
                             />
                         </div>
 
-                        {/* Inputs Grid */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ห้อง / แผนก</label>
-                                <input
-                                    type="text"
-                                    name="room"
-                                    value={formData.room}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="input-field"
-                                    placeholder="เช่น 126 , ห้องลีลาวดี"
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">เบอร์โทรศัพท์</label>
-                                <input
-                                    type="tel"
-                                    name="phone"
-                                    value={formData.phone}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="input-field"
-                                    placeholder="08x-xxx-xxxx"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Return Date */}
+                        {/* Notes */}
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">วันที่คาดว่าจะคืน</label>
-                            <input
-                                type="date"
-                                name="returnDate"
-                                value={formData.returnDate}
-                                onChange={handleInputChange}
-                                min={new Date().toISOString().split('T')[0]}
-                                required
-                                className="input-field dark:[color-scheme:dark]"
-                            />
-                        </div>
-
-                        {/* Reason Field */}
-                        <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">เหตุผลในการยืม</label>
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">หมายเหตุ / สภาพของ</label>
                             <textarea
-                                name="reason"
-                                value={formData.reason}
+                                name="notes"
+                                value={formData.notes}
                                 onChange={handleInputChange}
-                                required
                                 className="input-field resize-none h-20"
-                                placeholder="ระบุเหตุผลในการยืม"
+                                placeholder="เช่น สภาพปกติ, มีรอยขีดข่วน..."
                             />
                         </div>
 
                         {/* Signature Pad */}
                         <div className="space-y-2">
                             <div className="flex justify-between items-end">
-                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ลายเซ็นต์</label>
+                                <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ลายเซ็นผู้คืน</label>
                                 <button
                                     type="button"
                                     onClick={handleClear}
@@ -301,9 +249,9 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50"
+                                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg hover:shadow-emerald-500/20 disabled:opacity-50"
                             >
-                                {loading ? "กำลังบันทึก..." : "ยืนยันการยืม"}
+                                {loading ? "กำลังบันทึก..." : "ยืนยันการคืน"}
                             </button>
                         </div>
                     </form>
@@ -313,4 +261,4 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
     );
 };
 
-export default BorrowModal;
+export default ReturnModal;

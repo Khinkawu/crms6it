@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { collection, addDoc, query, where, getDocs, Timestamp, serverTimestamp } from "firebase/firestore";
 import { db } from "../../lib/firebase";
@@ -29,9 +29,24 @@ const ROOMS = {
     ]
 };
 
+// Map roomId to available equipment
+const ROOM_EQUIPMENT: Record<string, string[]> = {
+    // Junior High
+    jh_phaya: ["จอ LED", "ไมค์ลอย", "Pointer"],
+    jh_gym: ["จอ Projector", "Projector", "ไมค์ลอย", "Pointer"],
+    jh_chamchuri: ["จอ TV", "ไมค์ลอย", "Pointer"],
+
+    // Senior High
+    sh_leelawadee: ["จอ LED", "จอ TV", "ไมค์ก้าน", "ไมค์ลอย", "Pointer"],
+    sh_auditorium: ["จอ LED", "ไมค์ลอย", "Pointer"],
+    sh_king_science: ["จอ TV", "ไมค์ลอย", "ไมค์ก้าน", "Pointer"],
+    sh_language_center: ["จอ TV", "ไมค์ลอย", "ไมค์ก้าน", "Pointer"],
+    sh_admin_3: ["จอ Projector", "Projector", "ไมค์สาย", "Pointer"],
+};
+
+
 const POSITIONS = ["ผู้บริหาร", "ครู", "ครู LS", "บุคลากร"];
 const DEPARTMENTS = ["วิชาการ", "กิจการนักเรียน", "บุคลากร", "บริการทั่วไป", "การเงิน", "หน่วยงานภายนอก"];
-const EQUIPMENT_OPTIONS = ["จอ LED", "ไมค์", "จอโปรเจ็คเตอร์", "จอ TV", "Projector", "Online Meeting", "Pointer"];
 
 // --- Custom Scrollable Select Component ---
 interface SelectOption {
@@ -176,7 +191,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
         equipment: [] as string[],
         ownEquipment: "",
         attendees: "",
-        roomLayout: "classroom", // Default to classroom
+        roomLayout: "u_shape", // Default to classroom
         roomLayoutDetails: "",
         micCount: "",
     });
@@ -185,6 +200,18 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
     const [hasAttachments, setHasAttachments] = useState(false);
     const [attachmentLinks, setAttachmentLinks] = useState<string[]>([""]);
 
+    // Dynamic Equipment Options State
+    const [availableEquipment, setAvailableEquipment] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (formData.roomId && ROOM_EQUIPMENT[formData.roomId]) {
+            setAvailableEquipment(ROOM_EQUIPMENT[formData.roomId]);
+        } else {
+            setAvailableEquipment([]);
+        }
+    }, [formData.roomId]);
+
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -192,7 +219,17 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
 
     // Helper for CustomSelect updates
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const updates: any = { [name]: value };
+
+            // If changing room, reset equipment and mic count
+            if (name === 'roomId') {
+                updates.equipment = [];
+                updates.micCount = "";
+            }
+
+            return { ...prev, ...updates };
+        });
     };
 
     const handleCheckboxChange = (option: string) => {
@@ -200,7 +237,12 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
             const newEquipment = prev.equipment.includes(option)
                 ? prev.equipment.filter(item => item !== option)
                 : [...prev.equipment, option];
-            return { ...prev, equipment: newEquipment };
+
+            // If removing all mics, clear mic count
+            const hasMic = newEquipment.some(e => e.includes('ไมค์'));
+            const micCount = hasMic ? prev.micCount : "";
+
+            return { ...prev, equipment: newEquipment, micCount };
         });
     };
 
@@ -309,7 +351,8 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                 attendees: formData.attendees,
                 roomLayout: formData.roomLayout,
                 roomLayoutDetails: formData.roomLayout === 'other' ? formData.roomLayoutDetails : '',
-                micCount: formData.equipment.includes("ไมค์") ? formData.micCount : "",
+                // Check if any mic type is selected
+                micCount: formData.equipment.some(e => e.includes("ไมค์")) ? formData.micCount : "",
                 attachments: validLinks, // Save links instead of file URLs
                 status: 'pending', // Default to pending
                 createdAt: serverTimestamp(),
@@ -491,30 +534,41 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                         <label className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                             <Briefcase size={18} className="text-blue-500" /> อุปกรณ์ที่ต้องการ
                         </label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {EQUIPMENT_OPTIONS.map(item => (
-                                <label key={item} className={`
-                                    flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all
-                                    ${formData.equipment.includes(item)
-                                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
-                                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}
-                                `}>
-                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.equipment.includes(item) ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`}>
-                                        {formData.equipment.includes(item) && <CheckSquare size={14} className="text-white" />}
-                                    </div>
-                                    <input
-                                        type="checkbox"
-                                        className="hidden"
-                                        checked={formData.equipment.includes(item)}
-                                        onChange={() => handleCheckboxChange(item)}
-                                    />
-                                    <span className="text-sm font-medium">{item}</span>
-                                </label>
-                            ))}
 
-                        </div>
+                        {!formData.roomId ? (
+                            <div className="text-gray-400 text-sm text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
+                                กรุณาเลือกห้องประชุมเพื่อดูรายการอุปกรณ์
+                            </div>
+                        ) : availableEquipment.length === 0 ? (
+                            <div className="text-gray-400 text-sm text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
+                                ไม่มีอุปกรณ์ให้เลือกสำหรับห้องนี้
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {availableEquipment.map(item => (
+                                    <label key={item} className={`
+                                        flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all
+                                        ${formData.equipment.includes(item)
+                                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}
+                                    `}>
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.equipment.includes(item) ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`}>
+                                            {formData.equipment.includes(item) && <CheckSquare size={14} className="text-white" />}
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            className="hidden"
+                                            checked={formData.equipment.includes(item)}
+                                            onChange={() => handleCheckboxChange(item)}
+                                        />
+                                        <span className="text-sm font-medium">{item}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
 
-                        {formData.equipment.includes("ไมค์") && (
+
+                        {formData.equipment.some(e => e.includes("ไมค์")) && (
                             <div className="mt-2 animate-fade-in">
                                 <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">จำนวนไมค์ที่ต้องการ</label>
                                 <input
@@ -637,7 +691,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700 space-y-3 animate-fade-in">
                                 <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg text-xs">
                                     <div className="mt-0.5"><LinkIcon size={14} /></div>
-                                    <p>หากมีไฟล์ที่ต้องใช้กรุณาแนบเป็น Link Google Drive (เปิดแชร์) หรือ Canva</p>
+                                    <p>หากมีไฟล์ที่ต้องการใช้กรุณาอัปโหลดไฟล์ลง Google Drive และแนบเป็น Link  (เปิดแชร์สาธารณะ) หรือ Canva</p>
                                 </div>
 
                                 {attachmentLinks.map((link, index) => (
@@ -650,6 +704,12 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                                 type="url"
                                                 value={link}
                                                 onChange={(e) => handleLinkChange(index, e.target.value)}
+                                                onBlur={(e) => {
+                                                    const val = e.target.value.trim();
+                                                    if (val && !/^https?:\/\//i.test(val)) {
+                                                        handleLinkChange(index, `https://${val}`);
+                                                    }
+                                                }}
                                                 placeholder="วางลิงก์ที่นี่ (https://...)"
                                                 className="w-full pl-10 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                             />

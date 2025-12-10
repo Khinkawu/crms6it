@@ -5,7 +5,7 @@ import { collection, doc, updateDoc, query, where, getDocs, Timestamp } from "fi
 import { db } from "../../lib/firebase";
 import toast from "react-hot-toast";
 import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Save } from "lucide-react";
-import { Booking } from "../../types"; // We might need to define Booking type or import it if compatible
+
 
 // Manually defining Booking interface here to avoid import issues for now if types file is separate
 interface BookingData {
@@ -52,9 +52,23 @@ const ROOMS = {
     ]
 };
 
+// Map roomId to available equipment
+const ROOM_EQUIPMENT: Record<string, string[]> = {
+    // Junior High
+    jh_phaya: ["จอ LED", "ไมค์ลอย", "Pointer"],
+    jh_gym: ["จอ Projector", "Projector", "ไมค์ลอย", "Pointer"],
+    jh_chamchuri: ["จอ TV", "ไมค์ลอย", "Pointer"],
+
+    // Senior High
+    sh_leelawadee: ["จอ LED", "จอ TV", "ไมค์ก้าน", "ไมค์ลอย", "Pointer"],
+    sh_auditorium: ["จอ LED", "ไมค์ลอย", "Pointer"],
+    sh_king_science: ["จอ TV", "ไมค์ลอย", "ไมค์ก้าน", "Pointer"],
+    sh_language_center: ["จอ TV", "ไมค์ลอย", "ไมค์ก้าน", "Pointer"],
+    sh_admin_3: ["จอ Projector", "Projector", "ไมค์สาย", "Pointer"],
+};
+
 const POSITIONS = ["ผู้บริหาร", "ครู", "ครู LS", "บุคลากร"];
 const DEPARTMENTS = ["วิชาการ", "กิจการนักเรียน", "บุคลากร", "บริการทั่วไป", "การเงิน", "หน่วยงานภายนอก"];
-const EQUIPMENT_OPTIONS = ["จอ LED", "ไมค์", "จอโปรเจ็คเตอร์", "จอ TV", "Projector", "Online Meeting", "Pointer"];
 
 // Reusing CustomSelect and TimeSelect components locally
 interface SelectOption {
@@ -93,6 +107,15 @@ const CustomSelect = ({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    React.useEffect(() => {
+        if (isOpen && containerRef.current) {
+            const selectedEl = containerRef.current.querySelector(`[data-value="${value}"]`);
+            if (selectedEl) {
+                selectedEl.scrollIntoView({ block: "center" });
+            }
+        }
+    }, [isOpen, value]);
+
     return (
         <div className="relative w-full" ref={containerRef}>
             <div
@@ -102,13 +125,14 @@ const CustomSelect = ({
                 {selectedLabel}
             </div>
             {isOpen && (
-                <div className="absolute top-full left-0 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50">
+                <div className="absolute top-full left-0 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 no-scrollbar">
                     {options.map((opt) => {
                         const optValue = getValue(opt);
                         const optLabel = getLabel(opt);
                         return (
                             <div
                                 key={optValue}
+                                data-value={optValue}
                                 onClick={() => {
                                     onChange(optValue);
                                     setIsOpen(false);
@@ -134,9 +158,19 @@ const TimeSelect = ({ label, value, onChange }: { label: string, value: string, 
         <div className="space-y-1">
             <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{label}</label>
             <div className="flex items-center gap-2">
-                <CustomSelect value={hour} options={hours} onChange={(val) => onChange(`${val}:${minute}`)} />
+                <div className="relative flex-1">
+                    <CustomSelect value={hour} options={hours} onChange={(val) => onChange(`${val}:${minute}`)} />
+                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-400 text-xs opacity-0">
+                        น.
+                    </div>
+                </div>
                 <span className="text-gray-400 font-bold">:</span>
-                <CustomSelect value={minute} options={minutes} onChange={(val) => onChange(`${hour}:${val}`)} />
+                <div className="relative flex-1">
+                    <CustomSelect value={minute} options={minutes} onChange={(val) => onChange(`${hour}:${val}`)} />
+                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-400 text-xs opacity-0">
+                        น.
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -167,6 +201,17 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
 
     const [hasAttachments, setHasAttachments] = useState(false);
     const [attachmentLinks, setAttachmentLinks] = useState<string[]>([""]);
+
+    // Dynamic Equipment Options State
+    const [availableEquipment, setAvailableEquipment] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (formData.roomId && ROOM_EQUIPMENT[formData.roomId]) {
+            setAvailableEquipment(ROOM_EQUIPMENT[formData.roomId]);
+        } else {
+            setAvailableEquipment([]);
+        }
+    }, [formData.roomId]);
 
     useEffect(() => {
         if (isOpen && booking) {
@@ -213,7 +258,17 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
     };
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const updates: any = { [name]: value };
+
+            // If changing room, reset equipment and mic count
+            if (name === 'roomId') {
+                updates.equipment = [];
+                updates.micCount = "";
+            }
+
+            return { ...prev, ...updates };
+        });
     };
 
     const handleCheckboxChange = (option: string) => {
@@ -221,7 +276,12 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
             const newEquipment = prev.equipment.includes(option)
                 ? prev.equipment.filter(item => item !== option)
                 : [...prev.equipment, option];
-            return { ...prev, equipment: newEquipment };
+
+            // If removing all mics, clear mic count
+            const hasMic = newEquipment.some(e => e.includes('ไมค์'));
+            const micCount = hasMic ? prev.micCount : "";
+
+            return { ...prev, equipment: newEquipment, micCount };
         });
     };
 
@@ -271,7 +331,7 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                 attendees: formData.attendees,
                 roomLayout: formData.roomLayout,
                 roomLayoutDetails: formData.roomLayout === 'other' ? formData.roomLayoutDetails : '',
-                micCount: formData.equipment.includes("ไมค์") ? formData.micCount : "",
+                micCount: formData.equipment.some(e => e.includes("ไมค์")) ? formData.micCount : "",
                 attachments: validLinks,
                 updatedAt: Timestamp.now()
             });
@@ -381,18 +441,30 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                         {/* Equipment */}
                         <div className="space-y-3">
                             <label className="text-sm font-bold flex items-center gap-2"><Briefcase size={18} className="text-blue-500" /> อุปกรณ์</label>
-                            <div className="grid grid-cols-2 gap-3">
-                                {EQUIPMENT_OPTIONS.map(item => (
-                                    <label key={item} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${formData.equipment.includes(item) ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-600'}`}>
-                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${formData.equipment.includes(item) ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`}>
-                                            {formData.equipment.includes(item) && <CheckSquare size={12} className="text-white" />}
-                                        </div>
-                                        <input type="checkbox" className="hidden" checked={formData.equipment.includes(item)} onChange={() => handleCheckboxChange(item)} />
-                                        <span className="text-sm">{item}</span>
-                                    </label>
-                                ))}
-                            </div>
-                            {formData.equipment.includes("ไมค์") && (
+
+                            {!formData.roomId ? (
+                                <div className="text-gray-400 text-sm text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
+                                    กรุณาเลือกห้องประชุมเพื่อดูรายการอุปกรณ์
+                                </div>
+                            ) : availableEquipment.length === 0 ? (
+                                <div className="text-gray-400 text-sm text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
+                                    ไม่มีอุปกรณ์ให้เลือกสำหรับห้องนี้
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {availableEquipment.map(item => (
+                                        <label key={item} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${formData.equipment.includes(item) ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-600'}`}>
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${formData.equipment.includes(item) ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`}>
+                                                {formData.equipment.includes(item) && <CheckSquare size={12} className="text-white" />}
+                                            </div>
+                                            <input type="checkbox" className="hidden" checked={formData.equipment.includes(item)} onChange={() => handleCheckboxChange(item)} />
+                                            <span className="text-sm">{item}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+
+                            {formData.equipment.some(e => e.includes("ไมค์")) && (
                                 <input type="number" name="micCount" value={formData.micCount} onChange={handleInputChange} placeholder="จำนวนไมค์" className="w-full p-2 mt-2 rounded-lg border border-gray-200 text-sm" />
                             )}
                         </div>
@@ -409,7 +481,19 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200 space-y-2">
                                     {attachmentLinks.map((link, index) => (
                                         <div key={index} className="flex gap-2">
-                                            <input type="url" value={link} onChange={(e) => handleLinkChange(index, e.target.value)} placeholder="Link URL" className="flex-1 p-2 rounded-lg border border-gray-200 text-sm" />
+                                            <input
+                                                type="url"
+                                                value={link}
+                                                onChange={(e) => handleLinkChange(index, e.target.value)}
+                                                onBlur={(e) => {
+                                                    const val = e.target.value.trim();
+                                                    if (val && !/^https?:\/\//i.test(val)) {
+                                                        handleLinkChange(index, `https://${val}`);
+                                                    }
+                                                }}
+                                                placeholder="Link URL"
+                                                className="flex-1 p-2 rounded-lg border border-gray-200 text-sm"
+                                            />
                                             {attachmentLinks.length > 1 && <button type="button" onClick={() => handleLinkChange(index, "")} className="text-red-500"><X size={16} /></button>}
                                         </div>
                                     ))}

@@ -117,84 +117,81 @@ async function handleTrackStatus(replyToken: string, userId: string) {
             const data = doc.data();
             const statusColor = getStatusColor(data.status);
             const statusText = getStatusThai(data.status);
-            const dateStr = data.createdAt ? data.createdAt.toDate().toLocaleDateString('th-TH') : '-';
+            const dateStr = data.createdAt
+                ? data.createdAt.toDate().toLocaleDateString('th-TH', {
+                    day: 'numeric', month: 'short', year: '2-digit',
+                    hour: '2-digit', minute: '2-digit'
+                })
+                : '-';
+
+            // Resolve Image
+            const imageUrl = data.images?.[0] || data.imageUrl || data.imageOneUrl || null;
 
             bubbles.push({
                 type: 'bubble',
                 size: 'mega',
+                hero: imageUrl ? {
+                    type: 'image',
+                    url: imageUrl,
+                    size: 'full',
+                    aspectRatio: '20:13',
+                    aspectMode: 'cover',
+                    action: {
+                        type: 'uri',
+                        uri: imageUrl
+                    }
+                } : undefined,
                 header: {
                     type: 'box',
                     layout: 'vertical',
                     backgroundColor: statusColor,
-                    paddingAll: '10px', // ✅ แก้ไข 1: ลด Padding จาก 20px เหลือ 10px (เล็กลงครึ่งนึง)
+                    paddingAll: '15px',
                     contents: [
                         {
-                            type: 'text',
-                            text: statusText,
-                            weight: 'bold',
-                            size: 'md', // ✅ แก้ไข 2: ลดขนาดตัวอักษรจาก lg เป็น md ให้พอดีกับกรอบ
-                            color: '#ffffff',
-                            align: 'center'
+                            type: 'box',
+                            layout: 'horizontal',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: statusText,
+                                    weight: 'bold',
+                                    size: 'lg',
+                                    color: '#ffffff',
+                                    flex: 1
+                                },
+                                {
+                                    type: 'text',
+                                    text: `#${doc.id.slice(0, 5)}`,
+                                    weight: 'bold',
+                                    size: 'xs',
+                                    color: '#ffffffcc',
+                                    align: 'end',
+                                    gravity: 'center'
+                                }
+                            ]
                         }
                     ]
                 },
                 body: {
                     type: 'box',
                     layout: 'vertical',
-                    paddingAll: '10px',
+                    paddingAll: '20px',
+                    backgroundColor: '#ffffff',
                     contents: [
                         {
                             type: 'text',
                             text: data.description || 'ไม่ได้ระบุรายละเอียด',
                             weight: 'bold',
-                            size: 'md',
-                            color: '#333333',
-                            wrap: true
-                        },
-                        // Technician Note
-                        ...(data.technicianNote ? [
-                            { type: 'separator', margin: 'md', color: '#eeeeee' },
-                            {
-                                type: 'text',
-                                text: `📝 หมายเหตุจากช่าง: ${data.technicianNote}`,
-                                size: 'sm',
-                                color: '#16a34a', // Green-600
-                                wrap: true,
-                                margin: 'md',
-                                weight: 'bold'
-                            }
-                        ] : []),
-                        // Parts Used
-                        ...(data.partsUsed && data.partsUsed.length > 0 ? [
-                            { type: 'separator', margin: 'md', color: '#eeeeee' },
-                            {
-                                type: 'text',
-                                text: '🛠️ อะไหล่ที่ใช้:',
-                                size: 'sm',
-                                weight: 'bold',
-                                color: '#333333',
-                                margin: 'md'
-                            },
-                            ...data.partsUsed.map((p: any) => ({
-                                type: 'text',
-                                text: `- ${p.name} (${p.quantity})`,
-                                size: 'xs',
-                                color: '#666666',
-                                wrap: true,
-                                margin: 'sm',
-                                offsetStart: 'lg'
-                            }))
-                        ] : []),
-                        {
-                            type: 'separator',
-                            margin: 'lg',
-                            color: '#eeeeee'
+                            size: 'lg',
+                            color: '#1e293b',
+                            wrap: true,
+                            maxLines: 3
                         },
                         {
                             type: 'box',
                             layout: 'vertical',
                             margin: 'lg',
-                            spacing: 'sm',
+                            spacing: 'md',
                             contents: [
                                 {
                                     type: 'box',
@@ -203,18 +200,18 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                                     contents: [
                                         {
                                             type: 'text',
-                                            text: '📍 สถานที่',
-                                            color: '#aaaaaa',
+                                            text: '📍',
                                             size: 'sm',
-                                            flex: 2
+                                            flex: 1,
+                                            color: '#64748b'
                                         },
                                         {
                                             type: 'text',
-                                            text: data.room || 'Unknown',
-                                            wrap: true,
-                                            color: '#666666',
+                                            text: data.room || 'ไม่ระบุ',
+                                            color: '#334155',
                                             size: 'sm',
-                                            flex: 4
+                                            flex: 9,
+                                            wrap: true
                                         }
                                     ]
                                 },
@@ -225,25 +222,113 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                                     contents: [
                                         {
                                             type: 'text',
-                                            text: '📅 วันที่',
-                                            color: '#aaaaaa',
+                                            text: '📅',
                                             size: 'sm',
-                                            flex: 2
+                                            flex: 1,
+                                            color: '#64748b'
                                         },
                                         {
                                             type: 'text',
                                             text: dateStr,
-                                            wrap: true,
-                                            color: '#666666',
+                                            color: '#334155',
                                             size: 'sm',
-                                            flex: 4
+                                            flex: 9
                                         }
                                     ]
                                 }
                             ]
+                        },
+                        // Technician Note Section
+                        ...(data.technicianNote ? [
+                            { type: 'separator', margin: 'lg', color: '#f1f5f9' },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                margin: 'lg',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: '📝 ข้อความจากช่าง:',
+                                        size: 'xs',
+                                        color: '#64748b',
+                                        weight: 'bold'
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: data.technicianNote,
+                                        size: 'sm',
+                                        color: '#059669', // Emerald 600
+                                        wrap: true,
+                                        margin: 'sm'
+                                    }
+                                ]
+                            }
+                        ] : []),
+                        // Parts Used Section
+                        ...(data.partsUsed && data.partsUsed.length > 0 ? [
+                            { type: 'separator', margin: 'lg', color: '#f1f5f9' },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                margin: 'lg',
+                                spacing: 'xs',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: '🛠️ อะไหล่ที่ใช้:',
+                                        size: 'xs',
+                                        color: '#64748b',
+                                        weight: 'bold'
+                                    },
+                                    ...data.partsUsed.map((p: any) => ({
+                                        type: 'box',
+                                        layout: 'horizontal',
+                                        contents: [
+                                            {
+                                                type: 'text',
+                                                text: `- ${p.name}`,
+                                                size: 'xs',
+                                                color: '#334155',
+                                                flex: 7
+                                            },
+                                            {
+                                                type: 'text',
+                                                text: `x${p.quantity}`,
+                                                size: 'xs',
+                                                color: '#64748b',
+                                                align: 'end',
+                                                flex: 3
+                                            }
+                                        ]
+                                    }))
+                                ]
+                            }
+                        ] : [])
+                    ]
+                },
+                footer: {
+                    type: 'box',
+                    layout: 'vertical',
+                    paddingAll: '15px',
+                    contents: [
+                        {
+                            type: 'button',
+                            style: 'primary',
+                            height: 'sm',
+                            action: {
+                                type: 'uri',
+                                label: 'ดูรายละเอียด',
+                                uri: `${process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app'}`
+                            },
+                            color: '#0ea5e9'
                         }
                     ]
                 },
+                styles: {
+                    footer: {
+                        separator: true
+                    }
+                }
             });
         });
 

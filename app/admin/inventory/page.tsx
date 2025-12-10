@@ -11,7 +11,7 @@ import { logActivity } from "../../../utils/logger";
 import toast from "react-hot-toast";
 import Image from "next/image";
 import LogTable from "../../components/LogTable";
-import ConfirmationModal from "../../components/ConfirmationModal";
+import ReturnModal from "../../components/ReturnModal";
 import BorrowModal from "../../components/BorrowModal";
 import RequisitionModal from "../../components/RequisitionModal";
 import EditProductModal from "../../components/EditProductModal";
@@ -21,8 +21,17 @@ import {
     Download, Upload, RotateCcw, Edit, Package,
     LayoutGrid, List, Check, Search, History, Printer, Plus
 } from "lucide-react";
-
 import { Suspense } from 'react';
+
+// ... existing imports ...
+
+// ... inside component ...
+
+// REMOVED handleReturnConfirm as logic is now in ReturnModal
+
+// ...
+
+
 
 function InventoryContent() {
     const { user, role, loading } = useAuth();
@@ -105,64 +114,7 @@ function InventoryContent() {
         }
     };
 
-    const handleReturnConfirm = async () => {
-        if (!selectedProduct?.id) return;
 
-        try {
-            const productRef = doc(db, "products", selectedProduct.id);
-            const isBulk = selectedProduct.type === 'bulk';
-
-            if (isBulk) {
-                // Bulk Item Logic
-                await updateDoc(productRef, {
-                    borrowedCount: increment(-1),
-                    updatedAt: serverTimestamp()
-                });
-
-                // Update Stats for Bulk
-                const currentBorrowed = selectedProduct.borrowedCount || 0;
-                const totalQty = selectedProduct.quantity || 0;
-
-                // If borrowed count goes to 0, decrement 'borrowed' stat
-                if (currentBorrowed === 1) {
-                    await decrementStats('borrowed');
-                }
-
-                // If it becomes available (was out of stock)
-                const wasAvailable = totalQty - currentBorrowed > 0;
-                const willBeAvailable = totalQty - (currentBorrowed - 1) > 0;
-
-                if (!wasAvailable && willBeAvailable) {
-                    await incrementStats('available');
-                }
-
-            } else {
-                // Unique Item Logic
-                await updateDoc(productRef, {
-                    status: 'available',
-                    updatedAt: serverTimestamp()
-                });
-
-                // Update Stats
-                await updateStatsOnStatusChange('borrowed', 'available');
-            }
-
-            // Log activity
-            await logActivity({
-                action: 'return',
-                productName: selectedProduct.name,
-                userName: user?.displayName || "Admin",
-                details: `Returned item: ${selectedProduct.name}`,
-                imageUrl: selectedProduct.imageUrl
-            });
-
-            toast.success("คืนวัสดุเรียบร้อยแล้ว");
-            setActiveModal(null);
-        } catch (error) {
-            console.error("Error returning product:", error);
-            toast.error("เกิดข้อผิดพลาดในการคืนวัสดุ");
-        }
-    };
 
     const [isLogLoading, setIsLogLoading] = useState(false);
 
@@ -344,8 +296,28 @@ function InventoryContent() {
     };
 
     // Filter Logic
+    // Filter Logic
     const filteredProducts = products.filter(p => {
-        const matchesFilter = filter === 'all' || p.status === filter;
+        let matchesFilter = false;
+
+        if (filter === 'all') {
+            matchesFilter = true;
+        } else if (filter === 'available') {
+            // Unique: status 'available'. Bulk: quantity > borrowedCount
+            const isBulkAvailable = p.type === 'bulk' && (p.quantity || 0) > (p.borrowedCount || 0);
+            matchesFilter = p.status === 'available' || isBulkAvailable;
+        } else if (filter === 'borrowed') {
+            // Unique: status 'borrowed' OR 'ไม่ว่าง'. Bulk: borrowedCount > 0
+            const isBulkBorrowed = p.type === 'bulk' && (p.borrowedCount || 0) > 0;
+            matchesFilter = p.status === 'borrowed' || p.status === 'ไม่ว่าง' || isBulkBorrowed;
+        } else if (filter === 'maintenance') {
+            matchesFilter = p.status === 'maintenance';
+        } else if (filter === 'requisitioned') {
+            // Matches 'requisitioned', 'เบิกแล้ว', 'unavailable', 'out_of_stock'
+            const reqStatuses = ['requisitioned', 'เบิกแล้ว', 'unavailable', 'out_of_stock'];
+            matchesFilter = reqStatuses.includes(p.status || '');
+        }
+
         const matchesSearch =
             p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -513,12 +485,12 @@ function InventoryContent() {
                                         {/* Status Badge */}
                                         <div className="absolute top-2 right-2">
                                             <span className={`px-2 py-1 rounded-full text-xs font-bold shadow-sm ${product.status === 'available' ? 'bg-emerald-100 text-emerald-700' :
-                                                product.status === 'borrowed' ? 'bg-amber-100 text-amber-700' :
+                                                product.status === 'borrowed' || product.status === 'ไม่ว่าง' ? 'bg-amber-100 text-amber-700' :
                                                     product.status === 'maintenance' ? 'bg-red-100 text-red-700' :
                                                         'bg-gray-100 text-gray-700'
                                                 }`}>
                                                 {product.status === 'available' ? 'พร้อมใช้' :
-                                                    product.status === 'borrowed' ? 'ถูกยืม' :
+                                                    product.status === 'borrowed' || product.status === 'ไม่ว่าง' ? 'ถูกยืม' :
                                                         product.status === 'maintenance' ? 'ส่งซ่อม' : 'เบิกแล้ว'}
                                             </span>
                                         </div>
@@ -580,7 +552,7 @@ function InventoryContent() {
                                                 </>
                                             )}
 
-                                            {(product.status === 'borrowed' || (product.type === 'bulk' && (product.borrowedCount || 0) > 0)) && (
+                                            {(product.status === 'borrowed' || product.status === 'ไม่ว่าง' || (product.type === 'bulk' && (product.borrowedCount || 0) > 0)) && (
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -690,7 +662,7 @@ function InventoryContent() {
                                                                 </button>
                                                             </>
                                                         )}
-                                                        {(product.status === 'borrowed' || (product.type === 'bulk' && (product.borrowedCount || 0) > 0)) && (
+                                                        {(product.status === 'borrowed' || product.status === 'ไม่ว่าง' || (product.type === 'bulk' && (product.borrowedCount || 0) > 0)) && (
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -757,15 +729,16 @@ function InventoryContent() {
                     )
                 }
 
-                <ConfirmationModal
-                    isOpen={activeModal === 'return'}
-                    onClose={handleCloseModal}
-                    onConfirm={handleReturnConfirm}
-                    title="ยืนยันการคืน"
-                    message={`คุณต้องการบันทึกการคืน "${selectedProduct?.name}" ใช่หรือไม่?`}
-                    confirmText="ยืนยันการคืน"
-                    isDangerous={false}
-                />
+                {
+                    activeModal === 'return' && selectedProduct && (
+                        <ReturnModal
+                            isOpen={true}
+                            onClose={handleCloseModal}
+                            product={selectedProduct}
+                            onSuccess={handleCloseModal}
+                        />
+                    )
+                }
 
                 {/* Product Detail Modal */}
                 {
@@ -778,6 +751,8 @@ function InventoryContent() {
                         />
                     )
                 }
+
+
 
                 {/* Log Modal */}
                 {
