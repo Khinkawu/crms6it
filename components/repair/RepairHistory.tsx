@@ -9,11 +9,15 @@ import { Loader2, Wrench, Calendar, MapPin, CheckCircle, Clock, AlertCircle, Che
 export default function RepairHistory() {
     const { user } = useAuth();
     const [tickets, setTickets] = useState<any[]>([]);
+    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!user?.email) return;
+        if (!user?.email) {
+            setLoading(false);
+            return;
+        }
 
         const q = query(
             collection(db, "repair_tickets"),
@@ -28,6 +32,14 @@ export default function RepairHistory() {
                 ...doc.data()
             }));
             setTickets(data);
+            setLoading(false);
+        }, (err) => {
+            console.error("Firestore Error:", err);
+            if (err.message.includes("index")) {
+                setError("System requires an index update. Please contact admin.");
+            } else {
+                setError("Failed to load history: " + err.message);
+            }
             setLoading(false);
         });
 
@@ -49,6 +61,15 @@ export default function RepairHistory() {
     };
 
     if (loading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-blue-500" /></div>;
+
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 text-red-500 text-center">
+                <AlertCircle className="w-8 h-8 mb-2" />
+                <p className="text-sm">{error}</p>
+            </div>
+        );
+    }
 
     if (tickets.length === 0) {
         return (
