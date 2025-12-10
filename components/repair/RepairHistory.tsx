@@ -35,8 +35,11 @@ export default function RepairHistory() {
             setLoading(false);
         }, (err) => {
             console.error("Firestore Error:", err);
-            // Always show the full message so user can get the link
-            setError(err.message);
+            if (err.message.includes("index")) {
+                setError("System requires an index update. (Check Console or Admin)");
+            } else {
+                setError("Failed to load history: " + err.message);
+            }
             setLoading(false);
         });
 
