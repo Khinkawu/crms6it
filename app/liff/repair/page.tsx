@@ -8,6 +8,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { signInWithCustomToken } from "firebase/auth";
 import { db, auth } from "../../../lib/firebase";
 import RepairForm from "../../../components/repair/RepairForm";
+import RepairHistory from "../../../components/repair/RepairHistory";
 
 export default function RepairLiffPage() {
     const { profile, isLoggedIn, error } = useLiff(process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || "");
@@ -82,6 +83,18 @@ export default function RepairLiffPage() {
         checkBindingAndLogin();
     }, [isLoggedIn, profile, router]);
 
+    // State for Tabs
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const initialTab = searchParams?.get('mode') === 'history' ? 'history' : 'new';
+    const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
+
+    // Sync tab with initial load
+    useEffect(() => {
+        if (initialTab === 'history') {
+            setActiveTab('history');
+        }
+    }, [initialTab]);
+
     if (error) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-red-50 text-red-600 font-mono text-sm max-w-sm text-center">
@@ -94,9 +107,33 @@ export default function RepairLiffPage() {
 
     if (isReady) {
         return (
-            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-start p-0">
-                {/* Render Form Directly! */}
-                <RepairForm />
+            <div className="min-h-screen bg-gray-50 flex flex-col">
+                {/* Tab Navigation */}
+                <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-gray-100 flex">
+                    <button
+                        onClick={() => setActiveTab('new')}
+                        className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${activeTab === 'new' ? 'text-blue-600' : 'text-gray-400'}`}
+                    >
+                        แจ้งซ่อม
+                        {activeTab === 'new' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('history')}
+                        className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-400'}`}
+                    >
+                        ประวัติ (${process.env.NEXT_PUBLIC_APP_NAME || 'History'})
+                        {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
+                    </button>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 overflow-y-auto">
+                    {activeTab === 'new' ? (
+                        <RepairForm />
+                    ) : (
+                        <RepairHistory />
+                    )}
+                </div>
             </div>
         );
     }

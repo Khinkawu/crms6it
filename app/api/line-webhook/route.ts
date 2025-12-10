@@ -318,7 +318,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                             action: {
                                 type: 'uri',
                                 label: 'ดูรายละเอียด',
-                                uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}`
+                                uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}?mode=history`
                             },
                             color: '#0ea5e9'
                         }
