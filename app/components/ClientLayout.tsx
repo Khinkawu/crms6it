@@ -7,7 +7,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const pathname = usePathname();
 
     // Define routes that should NOT have the sidebar/layout wrapper
-    const isFullScreenPage = pathname === "/login";
+    const isFullScreenPage = pathname === "/login" || pathname?.startsWith("/liff");
 
     if (isFullScreenPage) {
         return <>{children}</>;

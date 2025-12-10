@@ -63,14 +63,19 @@ export default function RepairLiffPage() {
 
                 const { token } = await res.json();
 
-                // Sign In to Firebase (Silent)
-                await signInWithCustomToken(auth, token);
+                // Sign In to Firebase (Silent) - With Timeout
+                const signInPromise = signInWithCustomToken(auth, token);
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error("Login Timeout")), 10000)
+                );
+
+                await Promise.race([signInPromise, timeoutPromise]);
 
                 setIsReady(true);
 
-            } catch (err) {
-                console.error(err);
-                setStatus("เกิดข้อผิดพลาด: " + (err as any).message);
+            } catch (err: any) {
+                console.error("LIFF Login Error:", err);
+                setStatus("เกิดข้อผิดพลาด: " + (err.message || "Login Failed"));
             }
         };
 
