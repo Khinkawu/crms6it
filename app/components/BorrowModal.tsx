@@ -23,9 +23,11 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
     const sigPad = useRef<SignatureCanvas>(null);
 
     const [formData, setFormData] = useState({
+        borrowerName: "",
         room: "",
         phone: "",
         returnDate: "",
+        reason: "",
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -46,7 +48,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
         sigPad.current?.clear();
     };
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
@@ -55,7 +57,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
         e.preventDefault();
         setError(null);
 
-        if (!formData.room || !formData.phone || !formData.returnDate) {
+        if (!formData.borrowerName || !formData.room || !formData.phone || !formData.returnDate || !formData.reason) {
             setError("กรุณากรอกข้อมูลให้ครบถ้วน");
             return;
         }
@@ -98,9 +100,11 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                 productId: product.id,
                 productName: product.name,
                 borrowerEmail: user?.email,
-                borrowerName: user?.displayName || "Unknown",
+                borrowerName: formData.borrowerName, // Use manual name
+                recordedBy: user?.displayName || "Unknown", // Track who recorded it
                 userRoom: formData.room,
                 userPhone: formData.phone,
+                reason: formData.reason,
                 borrowDate: serverTimestamp(),
                 updatedAt: serverTimestamp(),
                 returnDate: new Date(formData.returnDate),
@@ -147,8 +151,8 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
             await logActivity({
                 action: 'borrow',
                 productName: product.name,
-                userName: user?.displayName || user?.email || "Unknown",
-                details: `Borrowed by ${user?.displayName || "User"}`,
+                userName: formData.borrowerName, // Use borrower name for log
+                details: `Borrowed by ${formData.borrowerName}. Reason: ${formData.reason} (Recorded by ${user?.displayName})`,
                 imageUrl: product.imageUrl,
                 signatureUrl: signatureUrl
             });
@@ -187,10 +191,23 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {/* Borrower Info */}
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ชื่อผู้ยืม</label>
-                            <div className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-text">
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">บัญชีผู้บันทึก</label>
+                            <div className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-text text-sm opacity-70">
                                 {user?.displayName || user?.email}
                             </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ชื่อผู้ยืม</label>
+                            <input
+                                type="text"
+                                name="borrowerName"
+                                value={formData.borrowerName}
+                                onChange={handleInputChange}
+                                required
+                                className="input-field"
+                                placeholder="ระบุชื่อผู้ยืม"
+                            />
                         </div>
 
                         {/* Inputs Grid */}
@@ -232,6 +249,19 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                                 min={new Date().toISOString().split('T')[0]}
                                 required
                                 className="input-field dark:[color-scheme:dark]"
+                            />
+                        </div>
+
+                        {/* Reason Field */}
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">เหตุผลในการยืม</label>
+                            <textarea
+                                name="reason"
+                                value={formData.reason}
+                                onChange={handleInputChange}
+                                required
+                                className="input-field resize-none h-20"
+                                placeholder="ระบุเหตุผลในการยืม"
                             />
                         </div>
 

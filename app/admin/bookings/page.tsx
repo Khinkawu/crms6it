@@ -8,9 +8,10 @@ import { db } from "../../../lib/firebase";
 import { toast } from "react-hot-toast";
 import {
     Calendar, CheckCircle, XCircle, Clock, Trash2,
-    Search, MapPin, User, Phone, FileText, ChevronRight
+    Search, MapPin, User, Phone, FileText, ChevronRight, Edit
 } from "lucide-react";
 import ConfirmationModal from "../../components/ConfirmationModal";
+import EditBookingModal from "../../components/EditBookingModal";
 
 interface Booking {
     id: string;
@@ -31,6 +32,7 @@ interface Booking {
     roomLayoutDetails?: string;
     micCount?: string;
     attachments?: string[];
+    ownEquipment?: string;
     createdAt: Timestamp;
 }
 
@@ -41,6 +43,10 @@ export default function BookingManagement() {
     const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
     const [searchTerm, setSearchTerm] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+
+    // Edit Modal State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
 
     // Confirmation Modal State
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -92,6 +98,11 @@ export default function BookingManagement() {
             isDangerous: true
         });
         setIsConfirmOpen(true);
+    };
+
+    const handleEdit = (booking: Booking) => {
+        setEditingBooking(booking);
+        setIsEditModalOpen(true);
     };
 
     const executeConfirmAction = async () => {
@@ -292,6 +303,13 @@ export default function BookingManagement() {
                                 )}
 
                                 <button
+                                    onClick={() => handleEdit(booking)}
+                                    className="flex-1 lg:w-full py-2 px-4 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 font-medium flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    <Edit size={18} /> แก้ไข
+                                </button>
+
+                                <button
                                     onClick={() => handleDelete(booking.id)}
                                     className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors lg:mt-auto ml-auto lg:ml-0"
                                     title="ลบรายการ"
@@ -314,6 +332,17 @@ export default function BookingManagement() {
                 confirmText={confirmMessage.confirmText}
                 isDangerous={confirmMessage.isDangerous}
             />
+
+            {editingBooking && (
+                <EditBookingModal
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    booking={editingBooking}
+                    onUpdate={() => {
+                        // Refresh logic if needed, usually onSnapshot handles it, but good to close modal
+                    }}
+                />
+            )}
         </div >
     );
 }

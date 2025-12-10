@@ -23,6 +23,7 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
 
     const [quantity, setQuantity] = useState(1);
     const [formData, setFormData] = useState({
+        requesterName: "",
         room: "",
         position: "ครู", // Default
         reason: "",
@@ -59,6 +60,11 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
         setError(null);
 
         // Validation
+        if (!formData.requesterName) {
+            setError("กรุณาระบุชื่อผู้เบิก");
+            return;
+        }
+
         if (!formData.room) {
             setError("กรุณาระบุห้อง/สถานที่");
             return;
@@ -114,7 +120,8 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                 productId: product.id,
                 productName: product.name,
                 requesterEmail: user?.email,
-                requesterName: user?.displayName || "Unknown",
+                requesterName: formData.requesterName, // Manual name
+                recordedBy: user?.displayName || "Unknown", // Recorder info
                 position: formData.position,
                 room: formData.room,
                 reason: formData.reason,
@@ -128,8 +135,8 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
             await logActivity({
                 action: 'requisition',
                 productName: product.name,
-                userName: user?.displayName || user?.email || "Unknown",
-                details: `${isBulk ? `Qty: ${quantity}` : ''} Reason: ${formData.reason}`,
+                userName: formData.requesterName,
+                details: `${isBulk ? `Qty: ${quantity}` : ''} Reason: ${formData.reason} (Recorded by ${user?.displayName})`,
                 imageUrl: product.imageUrl,
                 signatureUrl: signatureUrl
             });
@@ -146,16 +153,11 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                 if (availableBefore > 0 && availableAfter <= 0) {
                     await decrementStats('available');
                 }
-                // Note: Requisition doesn't affect 'borrowed' count directly unless we return borrowed items? 
-                // But here we are requisitioning from stock.
             } else {
                 // Unique Logic
-                // If it was available, now it's requisitioned (not available)
                 if (product.status === 'available') {
                     await decrementStats('available');
                 }
-                // If it was borrowed? RequisitionModal usually assumes available items?
-                // The modal check `availableStock` at top.
             }
 
             onSuccess();
@@ -187,12 +189,26 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
 
                     <form onSubmit={handleSubmit} className="space-y-4">
 
-                        {/* Requester Info (Read Only) */}
+                        {/* Recorder Info (Read Only) */}
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ผู้เบิก</label>
-                            <div className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-text">
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">บัญชีผู้บันทึก</label>
+                            <div className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-text text-sm opacity-70">
                                 {user?.displayName || user?.email}
                             </div>
+                        </div>
+
+                        {/* Requester Name Input */}
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">ชื่อผู้เบิก</label>
+                            <input
+                                type="text"
+                                name="requesterName"
+                                value={formData.requesterName}
+                                onChange={handleInputChange}
+                                required
+                                className="input-field"
+                                placeholder="ระบุชื่อผู้เบิก"
+                            />
                         </div>
 
                         {/* Position & Room Grid */}
