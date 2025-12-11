@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import { useSessionTimeout } from "../../hooks/useSessionTimeout";
+import ErrorBoundary from "./ErrorBoundary";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -17,18 +18,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const isFullScreenPage = pathname === "/login" || pathname?.startsWith("/liff");
 
     if (isFullScreenPage) {
-        return <>{children}</>;
+        return <ErrorBoundary>{children}</ErrorBoundary>;
     }
 
     return (
-        <>
+        <ErrorBoundary>
             <Sidebar />
             <main className="relative min-h-screen md:ml-64 p-4 md:p-8 transition-all duration-300">
                 <div className="max-w-7xl mx-auto pt-16 md:pt-0">
                     {children}
                 </div>
             </main>
-        </>
+        </ErrorBoundary>
     );
 }
-
