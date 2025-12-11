@@ -205,7 +205,7 @@ export async function POST(request: Request) {
                                         type: "uri",
                                         label: "เปิดดูประวัติการซ่อม",
                                         // อย่าลืมใส่ LIFF ID ที่ถูกต้องใน .env
-                                        uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID_REPAIR}`
+                                        uri: `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}?mode=history`
                                     }
                                 }
                             ]
