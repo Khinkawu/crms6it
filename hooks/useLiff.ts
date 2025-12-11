@@ -13,12 +13,14 @@ export interface LiffProfile {
 interface UseLiffReturn {
     profile: LiffProfile | null;
     isLoggedIn: boolean;
+    isLoading: boolean;
     error: string | null;
 }
 
 export function useLiff(liffId: string): UseLiffReturn {
     const [profile, setProfile] = useState<LiffProfile | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -27,7 +29,15 @@ export function useLiff(liffId: string): UseLiffReturn {
 
         const initializeLiff = async () => {
             try {
-                await liff.init({ liffId });
+                setIsLoading(true);
+
+                // Race liff.init with a 10s timeout
+                await Promise.race([
+                    liff.init({ liffId }),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error("LIFF initialization timeout")), 10000)
+                    )
+                ]);
 
                 if (!liff.isLoggedIn()) {
                     liff.login();
@@ -41,6 +51,8 @@ export function useLiff(liffId: string): UseLiffReturn {
             } catch (err: any) {
                 console.error("LIFF Initialization Error:", err);
                 setError(err.message || "Failed to initialize LIFF");
+            } finally {
+                setIsLoading(false);
             }
         };
 
@@ -48,9 +60,10 @@ export function useLiff(liffId: string): UseLiffReturn {
             initializeLiff();
         } else {
             setError("LIFF ID is invalid or missing");
+            setIsLoading(false);
         }
 
     }, [liffId]);
 
-    return { profile, isLoggedIn, error };
+    return { profile, isLoggedIn, isLoading, error };
 }
