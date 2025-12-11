@@ -149,7 +149,7 @@ export default function Sidebar() {
                                     <p className="text-sm font-bold text-text truncate">
                                         {user.displayName || "User"}
                                     </p>
-                                    <p className="text-xs text-text-secondary truncate">
+                                    <p className="text-xs text-text-secondary truncate capitalize">
                                         {role || "Member"}
                                     </p>
                                 </div>

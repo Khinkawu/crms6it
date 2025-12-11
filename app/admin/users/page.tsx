@@ -8,6 +8,7 @@ import { db } from "../../../lib/firebase";
 import { UserProfile, UserRole } from "../../../types";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toast from "react-hot-toast";
+import { Search, Shield, User, Wrench, GraduationCap, ChevronDown, LayoutGrid, List } from "lucide-react";
 
 export default function UsersPage() {
     const { user, role, loading } = useAuth();
@@ -119,118 +120,214 @@ export default function UsersPage() {
         (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const getRoleIcon = (role: string) => {
+        switch (role) {
+            case 'admin': return <Shield className="w-4 h-4" />;
+            case 'technician': return <Wrench className="w-4 h-4" />;
+            case 'moderator': return <GraduationCap className="w-4 h-4" />;
+            default: return <User className="w-4 h-4" />;
+        }
+    };
+
+    const getRoleBadgeColor = (role: string) => {
+        switch (role) {
+            case 'admin': return 'bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-500/20';
+            case 'technician': return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 border-cyan-500/20';
+            case 'moderator': return 'bg-orange-500/10 text-orange-600 dark:text-orange-300 border-orange-500/20';
+            default: return 'bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/20';
+        }
+    };
+
     if (loading || !user || role !== 'admin') return null;
 
     return (
-        <div className="animate-fade-in">
-            <div className="max-w-6xl mx-auto space-y-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold text-text mb-2">User Management</h1>
-                        <p className="text-text-secondary">Manage user roles and access permissions.</p>
-                    </div>
-                    <div className="relative w-full md:w-96">
+        <div className="animate-fade-in pb-20">
+            <div className="max-w-7xl mx-auto space-y-6">
+
+                {/* Header */}
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-3xl font-bold text-text">User Management</h1>
+                    <p className="text-text-secondary">Manage user roles and permissions</p>
+                </div>
+
+                {/* Controls */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
                         <input
                             type="text"
-                            placeholder="Search users..."
+                            placeholder="Search users by name or email..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-6 py-3 rounded-xl bg-card border border-border text-text placeholder:text-text-secondary/50 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-card border border-border text-text placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 transition-all shadow-sm"
                         />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary">🔍</div>
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary w-5 h-5" />
                     </div>
                 </div>
 
-                <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-border bg-background/50">
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">User</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Email</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Role</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Responsibility</th>
-                                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {isLoadingUsers ? (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-text-secondary">Loading users...</td>
-                                    </tr>
-                                ) : filteredUsers.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-8 text-center text-text-secondary">No users found.</td>
-                                    </tr>
-                                ) : (
-                                    filteredUsers.map((u) => (
-                                        <tr key={u.uid} className="hover:bg-border/30 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold overflow-hidden">
-                                                        {u.photoURL ? (
-                                                            <img src={u.photoURL} alt={u.displayName || "User"} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            (u.displayName || "U").charAt(0).toUpperCase()
-                                                        )}
-                                                    </div>
-                                                    <span className="text-text font-medium">{u.displayName}</span>
+                {/* Content */}
+                <div className="bg-transparent space-y-4">
+
+                    {isLoadingUsers ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {[1, 2, 3, 4, 5, 6].map((i) => (
+                                <div key={i} className="h-40 bg-card rounded-2xl animate-pulse border border-border"></div>
+                            ))}
+                        </div>
+                    ) : filteredUsers.length === 0 ? (
+                        <div className="text-center py-20 bg-card rounded-2xl border border-border">
+                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                                <Search className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-lg font-medium text-text">No users found</h3>
+                            <p className="text-text-secondary">Try adjusting your search terms</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Mobile Grid View */}
+                            <div className="grid grid-cols-1 gap-3 md:hidden">
+                                {filteredUsers.map((u) => (
+                                    <div key={u.uid} className="bg-card border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-all">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg overflow-hidden shadow-sm">
+                                                    {u.photoURL ? (
+                                                        <img src={u.photoURL} alt={u.displayName || "User"} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        (u.displayName || "U").charAt(0).toUpperCase()
+                                                    )}
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-text-secondary">{u.email || "No Email"}</td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${u.role === 'admin'
-                                                    ? 'bg-purple-500/10 text-purple-600 dark:text-purple-200 border-purple-500/20'
-                                                    : u.role === 'technician'
-                                                        ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-200 border-cyan-500/20'
-                                                        : u.role === 'moderator'
-                                                            ? 'bg-orange-500/10 text-orange-600 dark:text-orange-200 border-orange-500/20'
-                                                            : 'bg-slate-500/10 text-slate-600 dark:text-slate-200 border-slate-500/20'
-                                                    }`}>
-                                                    {(u.role || "USER").toUpperCase()}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {u.role === 'technician' && (
-                                                    <div className="relative inline-block w-40">
+                                                <div>
+                                                    <h3 className="font-bold text-text">{u.displayName}</h3>
+                                                    <p className="text-xs text-text-secondary">{u.email}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${getRoleBadgeColor(u.role || 'user')}`}>
+                                                {getRoleIcon(u.role || 'user')}
+                                                <span className="capitalize">{u.role || 'user'}</span>
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-3 pt-3 border-t border-border">
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="text-xs text-text-secondary uppercase font-bold block mb-1.5">Role</label>
+                                                    <div className="relative">
                                                         <select
-                                                            value={u.responsibility || "all"}
-                                                            onChange={(e) => handleResponsibilityChange(u.uid, e.target.value as any)}
-                                                            disabled={updatingUserId === u.uid}
-                                                            className="w-full px-3 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+                                                            value={u.role || "user"}
+                                                            onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
+                                                            disabled={u.uid === user.uid || updatingUserId === u.uid}
+                                                            className="w-full pl-2 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 appearance-none capitalize"
                                                         >
-                                                            <option value="all" className="bg-card text-text">All Zones</option>
-                                                            <option value="junior_high" className="bg-card text-text">Junior High (ม.ต้น)</option>
-                                                            <option value="senior_high" className="bg-card text-text">Senior High (ม.ปลาย)</option>
+                                                            <option value="user">User</option>
+                                                            <option value="moderator">Moderator</option>
+                                                            <option value="technician">Technician</option>
+                                                            <option value="admin">Admin</option>
                                                         </select>
-                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary text-xs">▼</div>
+                                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                                                    </div>
+                                                </div>
+
+                                                {u.role === 'technician' && (
+                                                    <div>
+                                                        <label className="text-xs text-text-secondary uppercase font-bold block mb-1.5">Zone</label>
+                                                        <div className="relative">
+                                                            <select
+                                                                value={u.responsibility || "all"}
+                                                                onChange={(e) => handleResponsibilityChange(u.uid, e.target.value as any)}
+                                                                disabled={updatingUserId === u.uid}
+                                                                className="w-full pl-2 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 appearance-none"
+                                                            >
+                                                                <option value="all">All</option>
+                                                                <option value="junior_high">M.3</option>
+                                                                <option value="senior_high">M.6</option>
+                                                            </select>
+                                                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                                                        </div>
                                                     </div>
                                                 )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="relative inline-block w-40">
-                                                    <select
-                                                        value={u.role || "user"}
-                                                        onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
-                                                        disabled={u.uid === user.uid || updatingUserId === u.uid}
-                                                        className="w-full px-3 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
-                                                    >
-                                                        <option value="user" className="bg-card text-text">User</option>
-                                                        <option value="moderator" className="bg-card text-text">Moderator</option>
-                                                        <option value="technician" className="bg-card text-text">Technician</option>
-                                                        <option value="admin" className="bg-card text-text">Admin</option>
-                                                    </select>
-                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary text-xs">▼</div>
-                                                </div>
-                                            </td>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-border bg-background/50">
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">User</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Email</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Current Role</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-text-secondary uppercase tracking-wider">Settings</th>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {filteredUsers.map((u) => (
+                                            <tr key={u.uid} className="hover:bg-background/50 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
+                                                            {u.photoURL ? (
+                                                                <img src={u.photoURL} alt={u.displayName || "User"} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                (u.displayName || "U").charAt(0).toUpperCase()
+                                                            )}
+                                                        </div>
+                                                        <span className="text-text font-bold">{u.displayName}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-text-secondary text-sm">{u.email}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${getRoleBadgeColor(u.role || 'user')}`}>
+                                                        {getRoleIcon(u.role || 'user')}
+                                                        <span className="capitalize">{u.role || 'user'}</span>
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="relative w-40">
+                                                            <select
+                                                                value={u.role || "user"}
+                                                                onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
+                                                                disabled={u.uid === user.uid || updatingUserId === u.uid}
+                                                                className="w-full pl-3 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 disabled:opacity-50 cursor-pointer appearance-none capitalize transition-colors hover:border-cyan-500/30"
+                                                            >
+                                                                <option value="user">User</option>
+                                                                <option value="moderator">Moderator</option>
+                                                                <option value="technician">Technician</option>
+                                                                <option value="admin">Admin</option>
+                                                            </select>
+                                                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                                                        </div>
+
+                                                        {u.role === 'technician' && (
+                                                            <div className="relative w-40 animate-fade-in-right">
+                                                                <select
+                                                                    value={u.responsibility || "all"}
+                                                                    onChange={(e) => handleResponsibilityChange(u.uid, e.target.value as any)}
+                                                                    disabled={updatingUserId === u.uid}
+                                                                    className="w-full pl-3 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 disabled:opacity-50 cursor-pointer appearance-none transition-colors hover:border-cyan-500/30"
+                                                                >
+                                                                    <option value="all">All Zones</option>
+                                                                    <option value="junior_high">Junior High</option>
+                                                                    <option value="senior_high">Senior High</option>
+                                                                </select>
+                                                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
+
             <ConfirmationModal
                 isOpen={isRoleConfirmOpen}
                 onClose={() => setIsRoleConfirmOpen(false)}
