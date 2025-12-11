@@ -2,9 +2,16 @@
 
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
+import { useSessionTimeout } from "../../hooks/useSessionTimeout";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+
+    // Session timeout - auto logout after 60 minutes of inactivity
+    useSessionTimeout({
+        timeoutMinutes: 60,
+        warningMinutes: 5
+    });
 
     // Define routes that should NOT have the sidebar/layout wrapper
     const isFullScreenPage = pathname === "/login" || pathname?.startsWith("/liff");
@@ -24,3 +31,4 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </>
     );
 }
+

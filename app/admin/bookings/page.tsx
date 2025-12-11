@@ -211,113 +211,139 @@ export default function BookingManagement() {
                     </div>
                 ) : (
                     filteredBookings.map(booking => (
-                        <div key={booking.id} className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col lg:flex-row gap-6 group hover:border-blue-200 dark:hover:border-blue-800 transition-all">
+                        <div
+                            key={booking.id}
+                            className={`
+                                relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl p-0 shadow-sm border border-gray-100 dark:border-gray-700 
+                                group hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-300
+                                ${booking.status === 'pending' ? 'border-l-4 border-l-yellow-400' :
+                                    booking.status === 'approved' ? 'border-l-4 border-l-emerald-500' :
+                                        'border-l-4 border-l-red-500'}
+                            `}
+                        >
+                            <div className="p-5 flex flex-col lg:flex-row gap-6">
 
-                            {/* Time & Room */}
-                            <div className="lg:w-1/4 space-y-2">
-                                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold">
-                                    <MapPin size={18} />
-                                    <span>{booking.roomName}</span>
-                                </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
-                                    <div className="font-semibold mb-1">เริ่ม: {formatDate(booking.startTime)}</div>
-                                    <div className="font-semibold text-gray-500">ถึง: {formatDate(booking.endTime)}</div>
-                                </div>
-                            </div>
-
-                            {/* Details */}
-                            <div className="flex-1 space-y-3">
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                                        {booking.title}
-                                    </h3>
-                                    <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2">
-                                        {booking.description || "-"}
-                                    </p>
-                                </div>
-
-                                <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
-                                    <div className="flex items-center gap-2">
-                                        <User size={16} />
-                                        <span>{booking.requesterName} ({booking.position}) - {booking.department}</span>
+                                {/* Time & Room */}
+                                <div className="lg:w-1/4 space-y-3">
+                                    <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                                        <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                                            <MapPin size={20} />
+                                        </div>
+                                        <span className="font-bold text-lg">{booking.roomName}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <Phone size={16} />
-                                        <span>{booking.phoneNumber}</span>
+                                    <div className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700 space-y-1">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">เริ่ม:</span>
+                                            <span className="font-semibold text-gray-700 dark:text-gray-200">{formatDate(booking.startTime)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">ถึง:</span>
+                                            <span className="font-semibold text-gray-700 dark:text-gray-200">{formatDate(booking.endTime)}</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Equipment & Layout Chips */}
-                                <div className="flex flex-wrap gap-2 text-xs">
-                                    {booking.attendees && (
-                                        <span className="px-2 py-1 rounded-md bg-purple-50 text-purple-600 border border-purple-100">
-                                            {booking.attendees} คน
-                                        </span>
-                                    )}
-                                    {booking.roomLayout && (
-                                        <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-100">
-                                            {booking.roomLayout === 'u_shape' ? 'ตัว U' :
-                                                booking.roomLayout === 'classroom' ? 'Classroom' :
-                                                    booking.roomLayout === 'empty' ? 'โล่ง' : 'อื่นๆ'}
-                                        </span>
-                                    )}
-                                    {booking.equipment.map((eq, i) => (
-                                        <span key={i} className="px-2 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100">
-                                            {eq}
-                                        </span>
-                                    ))}
-                                    {booking.micCount && (
-                                        <span className="px-2 py-1 rounded-md bg-amber-50 text-amber-600 border border-amber-100">
-                                            ไมค์ {booking.micCount} ตัว
-                                        </span>
-                                    )}
+                                {/* Details */}
+                                <div className="flex-1 space-y-4">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 leading-tight group-hover:text-blue-600 transition-colors">
+                                            {booking.title}
+                                        </h3>
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-2 leading-relaxed">
+                                            {booking.description || "-"}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
+                                        <div className="flex items-center gap-2">
+                                            <User size={16} className="text-gray-400" />
+                                            <span className="font-medium">{booking.requesterName}</span>
+                                            <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full">{booking.position}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Phone size={16} className="text-gray-400" />
+                                            <span>{booking.phoneNumber}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Equipment & Layout Chips */}
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {booking.attendees && (
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                                                👥 {booking.attendees} คน
+                                            </span>
+                                        )}
+                                        {booking.roomLayout && (
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                🪑 {booking.roomLayout === 'u_shape' ? 'ตัว U' :
+                                                    booking.roomLayout === 'classroom' ? 'แถวหน้ากระดาน' :
+                                                        booking.roomLayout === 'empty' ? 'โล่ง' : 'อื่นๆ'}
+                                            </span>
+                                        )}
+                                        {booking.equipment.filter(eq => !eq.includes('ไมค์')).map((eq, i) => (
+                                            <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                                                🔹 {eq}
+                                            </span>
+                                        ))}
+                                        {/* Handle Mic specially to combine with count */}
+                                        {(() => {
+                                            const micItem = booking.equipment.find(eq => eq.includes('ไมค์'));
+                                            if (micItem || booking.micCount) {
+                                                return (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
+                                                        🎤 {micItem || 'ไมค์'} {booking.micCount ? `${booking.micCount} ตัว` : ''}
+                                                    </span>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Actions */}
-                            <div className="lg:w-48 flex flex-row lg:flex-col gap-2 justify-center lg:border-l lg:border-gray-100 lg:dark:border-gray-700 lg:pl-6">
-                                {booking.status === 'pending' && (
-                                    <>
-                                        <button
-                                            onClick={() => handleUpdateStatus(booking.id, 'approved')}
-                                            className="flex-1 lg:w-full py-2 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium flex items-center justify-center gap-2 transition-colors shadow-sm shadow-emerald-200 dark:shadow-none"
-                                        >
-                                            <CheckCircle size={18} /> อนุมัติ
-                                        </button>
-                                        <button
-                                            onClick={() => handleUpdateStatus(booking.id, 'rejected')}
-                                            className="flex-1 lg:w-full py-2 px-4 rounded-lg bg-white border border-red-200 text-red-600 hover:bg-red-50 font-medium flex items-center justify-center gap-2 transition-colors"
-                                        >
-                                            <XCircle size={18} /> ไม่อนุมัติ
-                                        </button>
-                                    </>
-                                )}
+                                {/* Actions */}
+                                <div className="lg:w-48 flex flex-wrap lg:flex-col gap-2 lg:gap-3 justify-start lg:justify-center border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-gray-700 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0">
+                                    {booking.status === 'pending' && (
+                                        <>
+                                            <button
+                                                onClick={() => handleUpdateStatus(booking.id, 'approved')}
+                                                className="shrink-0 py-2 px-3 lg:py-2.5 lg:px-4 lg:w-full rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold flex items-center justify-center gap-2 text-sm lg:text-base transition-all shadow-sm shadow-emerald-200 dark:shadow-none hover:shadow-md hover:scale-[1.02] active:scale-95"
+                                            >
+                                                <CheckCircle size={16} className="lg:w-[18px] lg:h-[18px]" /> อนุมัติ
+                                            </button>
+                                            <button
+                                                onClick={() => handleUpdateStatus(booking.id, 'rejected')}
+                                                className="shrink-0 py-2 px-3 lg:py-2.5 lg:px-4 lg:w-full rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-semibold flex items-center justify-center gap-2 text-sm lg:text-base transition-all hover:shadow-sm active:scale-95"
+                                            >
+                                                <XCircle size={16} className="lg:w-[18px] lg:h-[18px]" /> ไม่อนุมัติ
+                                            </button>
+                                        </>
+                                    )}
 
-                                {booking.status === 'approved' && (
+                                    {booking.status === 'approved' && (
+                                        <button
+                                            onClick={() => handleUpdateStatus(booking.id, 'pending')}
+                                            className="shrink-0 py-2 px-3 lg:py-2.5 lg:px-4 lg:w-full rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium flex items-center justify-center gap-2 text-sm lg:text-base transition-colors active:scale-95"
+                                        >
+                                            <Clock size={16} className="lg:w-[18px] lg:h-[18px]" /> รอพิจารณา
+                                        </button>
+                                    )}
+
                                     <button
-                                        onClick={() => handleUpdateStatus(booking.id, 'pending')}
-                                        className="flex-1 lg:w-full py-2 px-4 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium flex items-center justify-center gap-2 transition-colors"
+                                        onClick={() => handleEdit(booking)}
+                                        className="shrink-0 py-2 px-3 lg:py-2.5 lg:px-4 lg:w-full rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 font-medium flex items-center justify-center gap-2 text-sm lg:text-base transition-colors active:scale-95"
                                     >
-                                        <Clock size={18} /> รอพิจารณา
+                                        <Edit size={16} className="lg:w-[18px] lg:h-[18px]" /> แก้ไข
                                     </button>
-                                )}
 
-                                <button
-                                    onClick={() => handleEdit(booking)}
-                                    className="flex-1 lg:w-full py-2 px-4 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 font-medium flex items-center justify-center gap-2 transition-colors"
-                                >
-                                    <Edit size={18} /> แก้ไข
-                                </button>
-
-                                <button
-                                    onClick={() => handleDelete(booking.id)}
-                                    className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors lg:mt-auto ml-auto lg:ml-0"
-                                    title="ลบรายการ"
-                                >
-                                    <Trash2 size={20} />
-                                </button>
+                                    <button
+                                        onClick={() => handleDelete(booking.id)}
+                                        className="shrink-0 p-2 lg:p-2.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors lg:mt-auto"
+                                        title="ลบรายการ"
+                                    >
+                                        <Trash2 size={18} className="lg:w-5 lg:h-5" />
+                                    </button>
+                                </div>
                             </div>
-
                         </div>
                     ))
                 )}

@@ -42,7 +42,7 @@ export default function Sidebar() {
             {/* Mobile Hamburger */}
             <button
                 onClick={() => setIsMobileOpen(!isMobileOpen)}
-                className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-border text-text shadow-sm"
+                className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-border text-text shadow-sm tap-scale"
             >
                 {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -122,7 +122,7 @@ export default function Sidebar() {
                         {/* Theme Toggle */}
                         <button
                             onClick={toggleTheme}
-                            className="w-full flex items-center justify-between px-4 py-2 rounded-xl text-text-secondary hover:bg-background hover:text-text transition-colors"
+                            className="w-full flex items-center justify-between px-4 py-2 rounded-xl text-text-secondary hover:bg-background hover:text-text transition-colors tap-scale"
                         >
                             <span className="text-sm font-medium">Theme</span>
                             <span className="text-lg">
@@ -156,7 +156,7 @@ export default function Sidebar() {
                             </Link>
                             <button
                                 onClick={signOut}
-                                className="p-2 rounded-lg text-text-secondary hover:text-red-500 hover:bg-card transition-all"
+                                className="p-2 rounded-lg text-text-secondary hover:text-red-500 hover:bg-card transition-all tap-scale"
                                 title="Log Out"
                             >
                                 <LogOut size={20} />

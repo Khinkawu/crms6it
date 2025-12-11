@@ -10,18 +10,29 @@ import { Product, ProductStatus, ActivityLog } from "../../../types";
 import { logActivity } from "../../../utils/logger";
 import toast from "react-hot-toast";
 import Image from "next/image";
-import LogTable from "../../components/LogTable";
-import ReturnModal from "../../components/ReturnModal";
-import BorrowModal from "../../components/BorrowModal";
-import RequisitionModal from "../../components/RequisitionModal";
-import EditProductModal from "../../components/EditProductModal";
-import ProductDetailModal from "../../components/ProductDetailModal";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../../utils/aggregation";
 import {
     Download, Upload, RotateCcw, Edit, Package,
     LayoutGrid, List, Check, Search, History, Printer, Plus
 } from "lucide-react";
 import { Suspense } from 'react';
+
+// Performance: Lazy-loaded modals
+import {
+    LazyBorrowModal,
+    LazyEditProductModal,
+    LazyRequisitionModal,
+    LazyReturnModal,
+    LazyLogTable
+} from "../../components/LazyComponents";
+import dynamic from "next/dynamic";
+const ProductDetailModal = dynamic(() => import("../../components/ProductDetailModal"), { ssr: false });
+
+// Performance: Pagination, Empty State, Skeleton
+import { usePagination } from "../../../hooks/usePagination";
+import Pagination from "../../components/ui/Pagination";
+import { EmptyInventory, EmptySearchResults } from "../../components/ui/EmptyState";
+import { PageSkeleton, CardSkeleton } from "../../components/ui/Skeleton";
 
 // ... existing imports ...
 
@@ -328,7 +339,20 @@ function InventoryContent() {
 
 
 
-    if (loading || !user || role !== 'admin') return null;
+    // Pagination for filtered products
+    const {
+        paginatedData: paginatedProducts,
+        currentPage,
+        totalPages,
+        goToPage,
+        startIndex,
+        endIndex,
+        totalItems
+    } = usePagination({ data: filteredProducts, itemsPerPage: 12 });
+
+    if (loading || !user || role !== 'admin') {
+        return <PageSkeleton />;
+    }
 
     return (
         <div className="animate-fade-in pb-20">
@@ -450,10 +474,10 @@ function InventoryContent() {
                 <div className="max-w-7xl mx-auto">
                     {viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {filteredProducts.map((product) => (
+                            {paginatedProducts.map((product) => (
                                 <div
                                     key={product.id}
-                                    className={`bg-card border rounded-xl overflow-hidden hover:shadow-md transition-all group flex flex-col h-full cursor-pointer ${selectedProductIds.has(product.id!) ? 'border-cyan-500 ring-1 ring-cyan-500 bg-cyan-50/30' : 'border-border'
+                                    className={`stagger-item hover-lift bg-card border rounded-xl overflow-hidden hover:shadow-md transition-all group flex flex-col h-full cursor-pointer ${selectedProductIds.has(product.id!) ? 'border-cyan-500 ring-1 ring-cyan-500 bg-cyan-50/30' : 'border-border'
                                         }`}
                                     onClick={() => handleAction('detail', product)}
                                 >
@@ -536,7 +560,7 @@ function InventoryContent() {
                                                             e.stopPropagation();
                                                             handleAction('borrow', product);
                                                         }}
-                                                        className="px-3 py-1.5 bg-cyan-50 text-cyan-600 hover:bg-cyan-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
+                                                        className="tap-scale px-3 py-1.5 bg-cyan-50 text-cyan-600 hover:bg-cyan-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                                     >
                                                         <Download size={16} /> ยืม
                                                     </button>
@@ -545,7 +569,7 @@ function InventoryContent() {
                                                             e.stopPropagation();
                                                             handleAction('requisition', product);
                                                         }}
-                                                        className="px-3 py-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
+                                                        className="tap-scale px-3 py-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                                     >
                                                         <Upload size={16} /> เบิก
                                                     </button>
@@ -593,7 +617,7 @@ function InventoryContent() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border">
-                                        {filteredProducts.map((product) => (
+                                        {paginatedProducts.map((product) => (
                                             <tr
                                                 key={product.id}
                                                 className="hover:bg-gray-50/50 transition-colors cursor-pointer"
@@ -693,12 +717,35 @@ function InventoryContent() {
                             </div>
                         </div>
                     )}
-                </div >
 
-                {/* Modals */}
+                    {/* Empty State */}
+                    {filteredProducts.length === 0 && (
+                        searchQuery ? (
+                            <EmptySearchResults query={searchQuery} />
+                        ) : (
+                            <EmptyInventory onAdd={() => router.push('/admin/add-product')} />
+                        )
+                    )}
+                </div>
+
+                {/* Pagination */}
+                {filteredProducts.length > 0 && (
+                    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                        <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={goToPage}
+                            totalItems={totalItems}
+                            startIndex={startIndex}
+                            endIndex={endIndex}
+                        />
+                    </div>
+                )}
+
+                {/* Modals - Lazy Loaded */}
                 {
                     activeModal === 'borrow' && selectedProduct && (
-                        <BorrowModal
+                        <LazyBorrowModal
                             isOpen={true}
                             onClose={handleCloseModal}
                             product={selectedProduct}
@@ -709,7 +756,7 @@ function InventoryContent() {
 
                 {
                     activeModal === 'requisition' && selectedProduct && (
-                        <RequisitionModal
+                        <LazyRequisitionModal
                             isOpen={true}
                             onClose={handleCloseModal}
                             product={selectedProduct}
@@ -720,7 +767,7 @@ function InventoryContent() {
 
                 {
                     activeModal === 'edit' && selectedProduct && (
-                        <EditProductModal
+                        <LazyEditProductModal
                             isOpen={true}
                             onClose={handleCloseModal}
                             product={selectedProduct}
@@ -731,7 +778,7 @@ function InventoryContent() {
 
                 {
                     activeModal === 'return' && selectedProduct && (
-                        <ReturnModal
+                        <LazyReturnModal
                             isOpen={true}
                             onClose={handleCloseModal}
                             product={selectedProduct}
@@ -754,10 +801,10 @@ function InventoryContent() {
 
 
 
-                {/* Log Modal */}
+                {/* Log Modal - Lazy Loaded */}
                 {
                     isLogModalOpen && (
-                        <LogTable
+                        <LazyLogTable
                             logs={activityLogs}
                             title={logType === 'stock' ? 'รายงานวัสดุคงคลัง' : 'ประวัติการใช้งาน'}
                             onClose={() => setIsLogModalOpen(false)}

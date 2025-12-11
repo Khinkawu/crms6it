@@ -30,8 +30,26 @@ export default function RootLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    // Inline script to prevent theme flash before React hydrates
+    const themeScript = `
+        (function() {
+            try {
+                const saved = localStorage.getItem('theme');
+                const theme = saved || 'light';
+                let resolved = theme;
+                if (theme === 'system') {
+                    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                document.documentElement.classList.add(resolved);
+            } catch (e) {}
+        })();
+    `;
+
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
+            <head>
+                <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+            </head>
             <body className={`${prompt.variable} font-sans antialiased`}>
                 <ThemeProvider>
                     <AuthProvider>
