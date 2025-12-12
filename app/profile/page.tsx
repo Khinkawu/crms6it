@@ -7,7 +7,22 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import ConfirmationModal from "../components/ConfirmationModal";
+import UserHistoryModal from "../components/UserHistoryModal";
 import toast from "react-hot-toast";
+import {
+    Wrench,
+    Calendar,
+    Package,
+    ClipboardList,
+    ChevronRight,
+    User,
+    Mail,
+    Bell,
+    LinkIcon,
+    ExternalLink
+} from "lucide-react";
+
+type HistoryType = "repair" | "booking" | "borrow" | "requisition";
 
 function ProfileContent() {
     const { user, role, loading } = useAuth();
@@ -18,6 +33,8 @@ function ProfileContent() {
     const [linkingStatus, setLinkingStatus] = useState<'idle' | 'linking' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState("");
     const [isDisconnectConfirmOpen, setIsDisconnectConfirmOpen] = useState(false);
+    const [historyModalOpen, setHistoryModalOpen] = useState(false);
+    const [historyType, setHistoryType] = useState<HistoryType>("repair");
 
     useEffect(() => {
         if (!loading && !user) {
@@ -46,7 +63,7 @@ function ProfileContent() {
 
         if (error) {
             setLinkingStatus('error');
-            setErrorMessage("Failed to link LINE account. Please try again.");
+            setErrorMessage("ไม่สามารถเชื่อมต่อบัญชี LINE ได้ กรุณาลองใหม่อีกครั้ง");
         }
 
         if (action === 'link_line' && newLineUserId && user) {
@@ -63,7 +80,7 @@ function ProfileContent() {
                 } catch (err) {
                     console.error("Error linking account:", err);
                     setLinkingStatus('error');
-                    setErrorMessage("Failed to save LINE account to your profile.");
+                    setErrorMessage("ไม่สามารถบันทึกข้อมูล LINE ได้");
                 }
             };
             linkAccount();
@@ -75,163 +92,212 @@ function ProfileContent() {
         window.location.href = `/api/line/login?userId=${user.uid}`;
     };
 
+    const openHistoryModal = (type: HistoryType) => {
+        setHistoryType(type);
+        setHistoryModalOpen(true);
+    };
+
+    const getRoleBadge = (role: string | null) => {
+        const roleLabels: Record<string, { label: string; style: string }> = {
+            admin: { label: "ผู้ดูแลระบบ", style: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800" },
+            technician: { label: "ช่างเทคนิค", style: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800" },
+            moderator: { label: "ผู้ตรวจสอบ", style: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800" },
+            user: { label: "ผู้ใช้งาน", style: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800" }
+        };
+        const config = roleLabels[role || 'user'] || roleLabels.user;
+        return (
+            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${config.style}`}>
+                {config.label}
+            </span>
+        );
+    };
+
     if (loading || !user) return null;
 
-    return (
-        <div className="min-h-[80vh] flex items-center justify-center animate-fade-in">
-            <div className="max-w-2xl w-full">
-                <div className="card overflow-hidden">
+    const historyButtons = [
+        { type: "repair" as HistoryType, label: "ประวัติการแจ้งซ่อม", icon: Wrench },
+        { type: "booking" as HistoryType, label: "ประวัติการจองห้องประชุม", icon: Calendar },
+        { type: "borrow" as HistoryType, label: "ประวัติการยืม/คืน", icon: Package },
+        { type: "requisition" as HistoryType, label: "ประวัติการเบิก", icon: ClipboardList }
+    ];
 
-                    {/* Header Banner */}
-                    <div className="h-32 bg-brand-gradient relative">
-                        <div className="absolute -bottom-12 left-8">
-                            <div className="w-24 h-24 rounded-full bg-card p-1 shadow-soft-md">
-                                <div className="w-full h-full rounded-full overflow-hidden bg-input-bg">
+    return (
+        <div className="min-h-[80vh] flex items-start justify-center animate-fade-in py-6 px-4">
+            <div className="w-full max-w-2xl space-y-6">
+
+                {/* Profile Card */}
+                <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    {/* Header with Avatar */}
+                    <div className="relative h-28 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600">
+                        <div className="absolute -bottom-10 left-6">
+                            <div className="w-20 h-20 rounded-2xl bg-white dark:bg-gray-800 p-1 shadow-lg">
+                                <div className="w-full h-full rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700">
                                     {user.photoURL ? (
                                         <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-3xl">👤</div>
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <User className="w-8 h-8 text-gray-400" />
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="pt-16 px-8 pb-8">
-                        <div className="flex justify-between items-start mb-6">
+                    {/* User Info */}
+                    <div className="pt-14 px-6 pb-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div>
-                                <h1 className="text-2xl font-bold text-text">{user.displayName || "User"}</h1>
-                                <p className="text-text-secondary">{user.email}</p>
+                                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                                    {user.displayName || "ผู้ใช้งาน"}
+                                </h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1.5 mt-1">
+                                    <Mail size={14} />
+                                    {user.email}
+                                </p>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${role === 'admin' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' :
-                                role === 'technician' ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800' :
-                                    'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800'
-                                }`}>
-                                <span className="capitalize">{role || 'USER'}</span>
-                            </span>
+                            {getRoleBadge(role)}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Activity History Section */}
+                <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white">ประวัติกิจกรรม</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">ดูประวัติรายการต่างๆ ของคุณ</p>
+                    </div>
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {historyButtons.map((btn) => {
+                            const Icon = btn.icon;
+                            return (
+                                <button
+                                    key={btn.type}
+                                    onClick={() => openHistoryModal(btn.type)}
+                                    className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all group"
+                                >
+                                    <div className="p-2.5 rounded-xl bg-white dark:bg-gray-800 shadow-sm text-gray-500 dark:text-gray-400">
+                                        <Icon size={20} />
+                                    </div>
+                                    <span className="flex-1 text-left text-sm font-medium text-gray-700 dark:text-gray-200">
+                                        {btn.label}
+                                    </span>
+                                    <ChevronRight size={18} className="text-gray-400 group-hover:translate-x-0.5 transition-transform" />
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* LINE Notification Section */}
+                <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-2">
+                            <Bell size={18} className="text-gray-500" />
+                            <h2 className="text-base font-semibold text-gray-900 dark:text-white">การแจ้งเตือน</h2>
+                        </div>
+                    </div>
+                    <div className="p-4">
+                        {linkingStatus === 'linking' && (
+                            <div className="text-blue-600 animate-pulse mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-sm">
+                                กำลังเชื่อมต่อบัญชี LINE...
+                            </div>
+                        )}
+
+                        {linkingStatus === 'success' && (
+                            <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-xl text-emerald-600 dark:text-emerald-400 text-sm">
+                                ✅ เชื่อมต่อบัญชี LINE เรียบร้อยแล้ว!
+                            </div>
+                        )}
+
+                        {linkingStatus === 'error' && (
+                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
+                                ⚠️ {errorMessage}
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm">
+                                    <img src="/line_icon.png" alt="LINE" className="w-full h-full object-cover" />
+                                </div>
+                                <div>
+                                    <h3 className="font-medium text-gray-900 dark:text-white text-sm">LINE</h3>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {lineUserId ? "เชื่อมต่อแล้ว • รับการแจ้งเตือน" : "ยังไม่ได้เชื่อมต่อ"}
+                                    </p>
+                                </div>
+                            </div>
+                            {lineUserId ? (
+                                <span className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-medium">
+                                    เชื่อมต่อแล้ว
+                                </span>
+                            ) : (
+                                <span className="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-full text-xs font-medium">
+                                    ยังไม่เชื่อมต่อ
+                                </span>
+                            )}
                         </div>
 
-                        <div className="space-y-8">
-                            {/* Personal Info */}
-                            <div>
-                                <h2 className="text-lg font-semibold text-text mb-4 border-b border-border pb-2">Personal Information</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs text-text-secondary uppercase tracking-wider block mb-1">Full Name</label>
-                                        <div className="p-3 bg-input-bg rounded-lg text-text border border-border">
-                                            {user.displayName || "Not set"}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-text-secondary uppercase tracking-wider block mb-1">Email Address</label>
-                                        <div className="p-3 bg-input-bg rounded-lg text-text border border-border">
-                                            {user.email}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-text-secondary uppercase tracking-wider block mb-1">User ID</label>
-                                        <div className="p-3 bg-input-bg rounded-lg text-text-secondary border border-border font-mono text-sm">
-                                            {user.uid}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Notification Settings */}
-                            <div>
-                                <h2 className="text-lg font-semibold text-text mb-4 border-b border-border pb-2">Notification Settings</h2>
-
-                                {linkingStatus === 'linking' && (
-                                    <div className="text-primary-start animate-pulse mb-4">Linking LINE Account...</div>
-                                )}
-
-                                {linkingStatus === 'success' && (
-                                    <div className="mb-4 p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-sm">
-                                        ✅ LINE Account Linked Successfully!
-                                    </div>
-                                )}
-
-                                {linkingStatus === 'error' && (
-                                    <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm">
-                                        ⚠️ {errorMessage}
-                                    </div>
-                                )}
-
-                                <div className="bg-input-bg rounded-xl p-4 border border-border">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-[#06C755] rounded-lg flex items-center justify-center text-white">
-                                                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                                                    <path d="M20.3 10.5c0-4.6-4.6-8.4-10.3-8.4S-.3 5.9-.3 10.5c0 4.2 3.7 7.7 9.1 8.3v4.2l5.5-3c3.7-1 5.7-3.8 5.7-6.5z" />
-                                                </svg>
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-text">LINE Notifications</h3>
-                                                <p className="text-xs text-text-secondary">Receive updates about repairs and inventory.</p>
-                                            </div>
-                                        </div>
-                                        {lineUserId ? (
-                                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200">
-                                                Connected
-                                            </span>
-                                        ) : (
-                                            <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold border border-gray-200">
-                                                Not Connected
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {lineUserId ? (
-                                        <div className="flex gap-3">
-                                            <a
-                                                href={`https://line.me/R/ti/p/${process.env.NEXT_PUBLIC_LINE_BOT_BASIC_ID}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex-1 py-2 rounded-lg border-2 border-[#06C755] text-[#06C755] hover:bg-[#06C755]/10 font-bold transition-all text-center text-sm"
-                                            >
-                                                Open Chat
-                                            </a>
-                                            <button
-                                                onClick={() => setIsDisconnectConfirmOpen(true)}
-                                                className="px-4 py-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 font-medium text-sm"
-                                            >
-                                                Disconnect
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={handleConnectLine}
-                                            className="w-full py-2 rounded-lg bg-[#06C755] hover:bg-[#05b34c] text-white font-bold shadow-sm transition-all text-sm"
-                                        >
-                                            Connect LINE Account
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
+                        <div className="mt-4 flex gap-3">
+                            {lineUserId ? (
+                                <>
+                                    <a
+                                        href={`https://line.me/R/ti/p/${process.env.NEXT_PUBLIC_LINE_BOT_BASIC_ID}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 py-2.5 rounded-xl border-2 border-[#06C755] text-[#06C755] hover:bg-[#06C755]/10 font-medium transition-all text-center text-sm flex items-center justify-center gap-2"
+                                    >
+                                        <ExternalLink size={16} />
+                                        เปิดแชท
+                                    </a>
+                                    <button
+                                        onClick={() => setIsDisconnectConfirmOpen(true)}
+                                        className="px-4 py-2.5 rounded-xl border border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium text-sm transition-all"
+                                    >
+                                        ยกเลิกการเชื่อมต่อ
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={handleConnectLine}
+                                    className="w-full py-2.5 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-medium shadow-sm transition-all text-sm flex items-center justify-center gap-2"
+                                >
+                                    <LinkIcon size={16} />
+                                    เชื่อมต่อบัญชี LINE
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
+            {/* History Modal */}
+            <UserHistoryModal
+                isOpen={historyModalOpen}
+                onClose={() => setHistoryModalOpen(false)}
+                historyType={historyType}
+            />
+
             <ConfirmationModal
                 isOpen={isDisconnectConfirmOpen}
                 onClose={() => setIsDisconnectConfirmOpen(false)}
                 onConfirm={async () => {
-                    // TODO: Implement actual disconnect logic here when API is ready
-                    // For now just show toast as per previous alert
-                    toast("Disconnect feature coming soon", {
-                        icon: '🚧',
-                        style: {
-                            borderRadius: '10px',
-                            background: '#333',
-                            color: '#fff',
-                        },
-                    });
-                    setIsDisconnectConfirmOpen(false);
+                    try {
+                        await updateDoc(doc(db, "users", user.uid), {
+                            lineUserId: null
+                        });
+                        setLineUserId(null);
+                        setIsDisconnectConfirmOpen(false);
+                        toast.success("ยกเลิกการเชื่อมต่อ LINE เรียบร้อยแล้ว");
+                    } catch (err) {
+                        console.error("Error disconnecting LINE:", err);
+                        toast.error("ไม่สามารถยกเลิกการเชื่อมต่อได้");
+                    }
                 }}
-                title="Disconnect LINE Account"
-                message="Are you sure you want to disconnect your LINE account? You will stop receiving notifications."
-                confirmText="Disconnect"
+                title="ยกเลิกการเชื่อมต่อ LINE"
+                message="คุณแน่ใจหรือไม่ที่จะยกเลิกการเชื่อมต่อบัญชี LINE? คุณจะไม่ได้รับการแจ้งเตือนผ่าน LINE อีกต่อไป"
+                confirmText="ยกเลิกการเชื่อมต่อ"
                 isDangerous={true}
             />
         </div>
@@ -240,7 +306,7 @@ function ProfileContent() {
 
 export default function ProfilePage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-text">Loading...</div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-text">กำลังโหลด...</div>}>
             <ProfileContent />
         </Suspense>
     );
