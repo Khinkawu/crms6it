@@ -17,7 +17,7 @@ export const metadata: Metadata = {
         template: "CRMS6 IT - %s",
         default: "CRMS6 IT",
     },
-    description: "Audio Visual Department Management System",
+    description: "ระบบสารสนเทศเพื่อการบริหารจัดการงานโสตทัศนศึกษา by CRMS6 IT",
     appleWebApp: {
         capable: true,
         statusBarStyle: "default",

@@ -2,6 +2,7 @@
 /.next
 /out
 /build
+/docs
 .DS_Store
 *.log
 .env
