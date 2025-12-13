@@ -25,7 +25,7 @@ export default function RepairPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="min-h-screen py-8 px-4 animate-fade-in">
             <RepairForm />
         </div>
     );
