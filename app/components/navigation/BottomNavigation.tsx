@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
 import { useState } from "react";
 import {
-    Home, Wrench, Calendar, Settings, User,
-    Plus, X, Package, Users, ClipboardList
+    Home, Wrench, Calendar, User,
+    Plus, Package, ClipboardList, MoreHorizontal,
+    Settings, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -14,29 +15,46 @@ export default function BottomNavigation() {
     const { user, role } = useAuth();
     const pathname = usePathname();
     const [fabOpen, setFabOpen] = useState(false);
+    const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
     if (!user) return null;
 
     const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician';
+    const isModerator = role === 'admin' || role === 'moderator';
 
+    // Main nav items - change last item based on role
     const navItems = [
         { name: "หน้าหลัก", icon: Home, path: "/" },
         { name: "แจ้งซ่อม", icon: Wrench, path: "/repair" },
         { name: "action", icon: Plus, path: null }, // FAB placeholder
         { name: "จองห้อง", icon: Calendar, path: "/booking" },
-        { name: "โปรไฟล์", icon: User, path: "/profile" },
+        // Show "เพิ่มเติม" for admin users, "โปรไฟล์" for regular users
+        isAdmin
+            ? { name: "เพิ่มเติม", icon: MoreHorizontal, path: "more" }
+            : { name: "โปรไฟล์", icon: User, path: "/profile" },
     ];
 
+    // FAB quick actions
     const fabActions = [
         { name: "แจ้งซ่อม", icon: Wrench, path: "/repair", color: "from-orange-500 to-red-500" },
         { name: "จองห้อง", icon: Calendar, path: "/booking", color: "from-blue-500 to-cyan-500" },
-        ...(isAdmin ? [
-            { name: "จัดการซ่อม", icon: ClipboardList, path: "/admin/repairs", color: "from-violet-500 to-purple-500" },
-            { name: "อุปกรณ์", icon: Package, path: "/admin/inventory", color: "from-emerald-500 to-teal-500" },
-        ] : []),
     ];
 
-    const isActive = (path: string | null) => path && pathname === path;
+    // More menu items for admin
+    const moreMenuItems = [
+        { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician"] },
+        { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
+        { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["admin", "moderator"] },
+        { name: "จัดการอุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"] },
+        { name: "จัดการผู้ใช้", icon: Settings, path: "/admin/users", roles: ["admin"] },
+    ].filter(item => role && item.roles.includes(role));
+
+    const isActive = (path: string | null) => {
+        if (path === "more") return moreMenuOpen;
+        return path && pathname === path;
+    };
+
+    const isAdminPage = pathname?.startsWith('/admin');
 
     return (
         <>
@@ -49,6 +67,19 @@ export default function BottomNavigation() {
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
                         onClick={() => setFabOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* More Menu Overlay */}
+            <AnimatePresence>
+                {moreMenuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
+                        onClick={() => setMoreMenuOpen(false)}
                     />
                 )}
             </AnimatePresence>
@@ -83,6 +114,37 @@ export default function BottomNavigation() {
                 )}
             </AnimatePresence>
 
+            {/* More Menu (Admin Menu) */}
+            <AnimatePresence>
+                {moreMenuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        className="fixed bottom-20 right-4 z-50 md:hidden"
+                    >
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden min-w-[200px]">
+                            <div className="p-2">
+                                {moreMenuItems.map((item, index) => (
+                                    <Link
+                                        key={item.path}
+                                        href={item.path}
+                                        onClick={() => setMoreMenuOpen(false)}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === item.path
+                                                ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                                : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                            }`}
+                                    >
+                                        <item.icon size={20} />
+                                        <span className="font-medium text-sm">{item.name}</span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Bottom Navigation Bar */}
             <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
                 {/* Glass background */}
@@ -96,7 +158,10 @@ export default function BottomNavigation() {
                             return (
                                 <button
                                     key="fab"
-                                    onClick={() => setFabOpen(!fabOpen)}
+                                    onClick={() => {
+                                        setFabOpen(!fabOpen);
+                                        setMoreMenuOpen(false);
+                                    }}
                                     className="relative -mt-6"
                                 >
                                     <motion.div
@@ -109,11 +174,52 @@ export default function BottomNavigation() {
                             );
                         }
 
+                        // More menu button
+                        if (item.path === "more") {
+                            return (
+                                <button
+                                    key="more"
+                                    onClick={() => {
+                                        setMoreMenuOpen(!moreMenuOpen);
+                                        setFabOpen(false);
+                                    }}
+                                    className="flex flex-col items-center gap-0.5 px-3 py-2 group"
+                                >
+                                    <div className="relative">
+                                        <item.icon
+                                            size={22}
+                                            className={`transition-all duration-200 ${moreMenuOpen || isAdminPage
+                                                    ? "text-blue-600 dark:text-blue-400 scale-110"
+                                                    : "text-gray-500 dark:text-gray-400 group-active:scale-90"
+                                                }`}
+                                            strokeWidth={moreMenuOpen || isAdminPage ? 2.5 : 2}
+                                        />
+                                        {(moreMenuOpen || isAdminPage) && (
+                                            <motion.div
+                                                layoutId="bottomNavIndicator"
+                                                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-500 rounded-full"
+                                            />
+                                        )}
+                                    </div>
+                                    <span className={`text-[10px] font-medium transition-colors ${moreMenuOpen || isAdminPage
+                                            ? "text-blue-600 dark:text-blue-400"
+                                            : "text-gray-500 dark:text-gray-400"
+                                        }`}>
+                                        {item.name}
+                                    </span>
+                                </button>
+                            );
+                        }
+
                         const active = isActive(item.path);
                         return (
                             <Link
                                 key={item.path}
                                 href={item.path}
+                                onClick={() => {
+                                    setFabOpen(false);
+                                    setMoreMenuOpen(false);
+                                }}
                                 className="flex flex-col items-center gap-0.5 px-3 py-2 group"
                             >
                                 <div className="relative">

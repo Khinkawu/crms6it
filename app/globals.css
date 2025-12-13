@@ -377,6 +377,7 @@ a,
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -417,6 +418,7 @@ a,
 }
 
 @media (max-width: 768px) {
+
   .widget-xs,
   .widget-sm,
   .widget-md,
@@ -451,18 +453,17 @@ a,
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--card) 25%,
-    var(--border) 50%,
-    var(--card) 75%
-  );
+  background: linear-gradient(90deg,
+      var(--card) 25%,
+      var(--border) 50%,
+      var(--card) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -482,6 +483,7 @@ a,
   padding: 1px;
   background: linear-gradient(135deg, #3b82f6, #06b6d4);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
@@ -489,9 +491,12 @@ a,
 
 /* Floating animation */
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-10px);
   }
@@ -516,14 +521,14 @@ a,
 
 /* Mesh gradient background */
 .mesh-gradient {
-  background: 
+  background:
     radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
     radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
     radial-gradient(circle at 40% 40%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
 }
 
 .dark .mesh-gradient {
-  background: 
+  background:
     radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
     radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.1) 0%, transparent 50%),
     radial-gradient(circle at 40% 40%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
