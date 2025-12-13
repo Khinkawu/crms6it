@@ -3,20 +3,142 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { Lightbulb, Sparkles, TrendingUp, Calendar as CalendarIcon } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+    Sparkles, TrendingUp, Calendar as CalendarIcon,
+    Wrench, Package, ChevronRight, Clock,
+    AlertCircle, CheckCircle2, Timer, User
+} from "lucide-react";
 
 // Custom Hooks
 import { useBookings, BookingEvent } from "../hooks/useBookings";
 import { useActivityLogs } from "../hooks/useActivityLogs";
 
-// Lazy-loaded Components for better performance
+// Components
 import {
     LazyCalendarSection,
-    LazyActivityFeed,
     LazyBookingDetailsModal
 } from "./components/LazyComponents";
-import QuickActions from "./components/dashboard/QuickActions";
 import { PageSkeleton } from "./components/ui/Skeleton";
+import Link from "next/link";
+
+// Widget Component
+interface WidgetProps {
+    children: React.ReactNode;
+    className?: string;
+    title?: string;
+    icon?: React.ElementType;
+    action?: {
+        label: string;
+        href: string;
+    };
+    gradient?: string;
+}
+
+function Widget({ children, className = "", title, icon: Icon, action, gradient }: WidgetProps) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`relative overflow-hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg shadow-gray-200/20 dark:shadow-none ${className}`}
+        >
+            {gradient && (
+                <div className={`absolute inset-0 opacity-5 ${gradient}`} />
+            )}
+            <div className="relative z-10 h-full flex flex-col">
+                {(title || action) && (
+                    <div className="flex items-center justify-between p-5 pb-3">
+                        <div className="flex items-center gap-2">
+                            {Icon && (
+                                <div className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700/50">
+                                    <Icon size={18} className="text-gray-600 dark:text-gray-300" />
+                                </div>
+                            )}
+                            {title && (
+                                <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+                            )}
+                        </div>
+                        {action && (
+                            <Link
+                                href={action.href}
+                                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 tap-scale"
+                            >
+                                {action.label}
+                                <ChevronRight size={14} />
+                            </Link>
+                        )}
+                    </div>
+                )}
+                <div className="flex-1 px-5 pb-5">
+                    {children}
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+// Quick Action Card
+interface QuickActionProps {
+    icon: React.ElementType;
+    title: string;
+    description: string;
+    href: string;
+    gradient: string;
+    delay: number;
+}
+
+function QuickAction({ icon: Icon, title, description, href, gradient, delay }: QuickActionProps) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay }}
+        >
+            <Link
+                href={href}
+                className="group block p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all tap-scale"
+            >
+                <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg mb-3`}>
+                    <Icon size={22} className="text-white" />
+                </div>
+                <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {title}
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {description}
+                </p>
+            </Link>
+        </motion.div>
+    );
+}
+
+// Stats Mini Card
+interface StatCardProps {
+    label: string;
+    value: number | string;
+    icon: React.ElementType;
+    color: string;
+    trend?: string;
+}
+
+function StatCard({ label, value, icon: Icon, color, trend }: StatCardProps) {
+    return (
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-gray-700/30">
+            <div className={`p-2.5 rounded-xl ${color}`}>
+                <Icon size={18} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
+            </div>
+            {trend && (
+                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                    {trend}
+                </span>
+            )}
+        </div>
+    );
+}
 
 export default function Dashboard() {
     const { user, role, loading } = useAuth();
@@ -45,7 +167,6 @@ export default function Dashboard() {
         }
     }, [user, loading, router]);
 
-    // Show skeleton while auth is loading
     if (loading || !user) {
         return <PageSkeleton />;
     }
@@ -62,8 +183,9 @@ export default function Dashboard() {
         setIsDetailsModalOpen(true);
     };
 
-    // Stats for the hero section
+    // Stats calculations
     const pendingBookings = visibleEvents.filter(e => e.status === 'pending').length;
+    const approvedBookings = visibleEvents.filter(e => e.status === 'approved').length;
     const todayActivities = activities.filter(a => {
         const actDate = a.timestamp?.toDate?.();
         if (!actDate) return false;
@@ -71,104 +193,176 @@ export default function Dashboard() {
         return actDate.toDateString() === today.toDateString();
     }).length;
 
+    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician';
+
     return (
-        <div className="space-y-6 animate-fade-in pb-20">
-            {/* Hero Section - Premium Glassmorphism */}
-            <div className="relative overflow-hidden rounded-3xl">
-                {/* Background gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400"></div>
+        <div className="space-y-6 animate-fade-in">
+            {/* Hero Section - Compact */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative overflow-hidden rounded-3xl"
+            >
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400" />
+                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-300/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
 
-                {/* Decorative elements */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-300/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4"></div>
-                <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
-
-                {/* Content */}
-                <div className="relative z-10 p-6 md:p-8">
-                    <div className="flex flex-col lg:flex-row justify-between gap-6">
-                        {/* Left: Greeting */}
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-white/80 text-sm font-medium">
-                                <Sparkles size={16} />
+                <div className="relative z-10 p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2 text-white/70 text-sm mb-1">
+                                <Sparkles size={14} />
                                 <span>{today}</span>
                             </div>
-                            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
+                            <h1 className="text-2xl md:text-3xl font-bold text-white">
                                 {getGreeting()}, {user.displayName?.split(' ')[0] || "User"}! 👋
                             </h1>
-                            <p className="text-white/80 text-sm md:text-base max-w-md">
-                                ยินดีต้อนรับกลับมา ระบบพร้อมให้บริการแล้วครับ
-                            </p>
                         </div>
 
-                        {/* Right: Quick Stats */}
-                        <div className="flex gap-3 flex-wrap">
-                            <div className="bg-white/15 backdrop-blur-xl rounded-2xl px-5 py-4 border border-white/20 min-w-[140px]">
-                                <div className="flex items-center gap-2 text-white/70 text-xs font-medium mb-1">
-                                    <CalendarIcon size={14} />
-                                    รอการอนุมัติ
-                                </div>
-                                <p className="text-2xl font-bold text-white">{pendingBookings}</p>
+                        {/* Quick Stats Pills */}
+                        <div className="flex gap-2 flex-wrap">
+                            <div className="bg-white/15 backdrop-blur-xl rounded-full px-4 py-2 border border-white/20 flex items-center gap-2">
+                                <Timer size={14} className="text-white/70" />
+                                <span className="text-sm font-medium text-white">{pendingBookings} รอการอนุมัติ</span>
                             </div>
-                            <div className="bg-white/15 backdrop-blur-xl rounded-2xl px-5 py-4 border border-white/20 min-w-[140px]">
-                                <div className="flex items-center gap-2 text-white/70 text-xs font-medium mb-1">
-                                    <TrendingUp size={14} />
-                                    กิจกรรมวันนี้
-                                </div>
-                                <p className="text-2xl font-bold text-white">{todayActivities}</p>
+                            <div className="bg-white/15 backdrop-blur-xl rounded-full px-4 py-2 border border-white/20 flex items-center gap-2">
+                                <TrendingUp size={14} className="text-white/70" />
+                                <span className="text-sm font-medium text-white">{todayActivities} กิจกรรมวันนี้</span>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* Main Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column: Calendar (Takes 2 cols) - Lazy Loaded */}
-                <LazyCalendarSection
-                    events={visibleEvents}
-                    view={view}
-                    setView={setView}
-                    date={date}
-                    setDate={setDate}
-                    onSelectEvent={handleSelectEvent}
-                />
+            {/* Bento Grid Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4">
 
-                {/* Right Column: Quick Actions & Tips */}
-                <div className="space-y-6">
-                    {/* Quick Actions */}
-                    <QuickActions role={role} />
+                {/* Quick Actions Widget (4 cols) */}
+                <Widget
+                    className="lg:col-span-4"
+                    title="เริ่มต้นใช้งาน"
+                    icon={Sparkles}
+                >
+                    <div className="grid grid-cols-2 gap-3">
+                        <QuickAction
+                            icon={Wrench}
+                            title="แจ้งซ่อม"
+                            description="แจ้งปัญหาอุปกรณ์"
+                            href="/repair"
+                            gradient="from-orange-500 to-red-500"
+                            delay={0.1}
+                        />
+                        <QuickAction
+                            icon={CalendarIcon}
+                            title="จองห้อง"
+                            description="จองห้องประชุม"
+                            href="/booking"
+                            gradient="from-blue-500 to-cyan-500"
+                            delay={0.15}
+                        />
+                        {isAdmin && (
+                            <>
+                                <QuickAction
+                                    icon={Package}
+                                    title="อุปกรณ์"
+                                    description="จัดการอุปกรณ์"
+                                    href="/admin/inventory"
+                                    gradient="from-violet-500 to-purple-500"
+                                    delay={0.2}
+                                />
+                                <QuickAction
+                                    icon={User}
+                                    title="ผู้ใช้"
+                                    description="จัดการผู้ใช้"
+                                    href="/admin/users"
+                                    gradient="from-emerald-500 to-teal-500"
+                                    delay={0.25}
+                                />
+                            </>
+                        )}
+                    </div>
+                </Widget>
 
-                    {/* Tips Card - Premium Design */}
-                    <div className="relative overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 rounded-3xl p-5 text-white shadow-xl shadow-purple-500/20">
-                        {/* Decorative */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
-                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full blur-xl translate-y-1/2 -translate-x-1/2"></div>
+                {/* Stats Widget (4 cols) */}
+                <Widget
+                    className="lg:col-span-4"
+                    title="สถิติ"
+                    icon={TrendingUp}
+                >
+                    <div className="space-y-3">
+                        <StatCard
+                            label="รอการอนุมัติ"
+                            value={pendingBookings}
+                            icon={AlertCircle}
+                            color="bg-amber-500"
+                        />
+                        <StatCard
+                            label="การจองที่อนุมัติแล้ว"
+                            value={approvedBookings}
+                            icon={CheckCircle2}
+                            color="bg-emerald-500"
+                        />
+                        <StatCard
+                            label="กิจกรรมวันนี้"
+                            value={todayActivities}
+                            icon={Clock}
+                            color="bg-blue-500"
+                        />
+                    </div>
+                </Widget>
 
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                                    <Lightbulb size={18} />
-                                </div>
-                                <h3 className="font-bold">เคล็ดลับ</h3>
-                            </div>
-                            <p className="text-white/90 text-sm leading-relaxed">
-                                เชื่อมต่อบัญชี LINE ที่หน้าโปรไฟล์ เพื่อรับการแจ้งเตือนอัตโนมัติเมื่อมีการอัปเดตสถานะงานซ่อม
-                            </p>
-                            <button
-                                onClick={() => router.push('/profile')}
-                                className="mt-4 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl text-sm font-medium transition-colors tap-scale"
+                {/* Recent Activity Widget (4 cols) */}
+                <Widget
+                    className="lg:col-span-4"
+                    title="กิจกรรมล่าสุด"
+                    icon={Clock}
+                    action={{ label: "ดูทั้งหมด", href: "/admin/repairs" }}
+                >
+                    <div className="space-y-2">
+                        {activities.slice(0, 4).map((activity, index) => (
+                            <motion.div
+                                key={activity.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.1 }}
+                                className="flex items-start gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                             >
-                                ไปที่โปรไฟล์ →
-                            </button>
-                        </div>
+                                <div className="w-2 h-2 mt-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm text-gray-700 dark:text-gray-200 truncate">
+                                        {activity.description || activity.action}
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                        {activity.timestamp?.toDate?.()?.toLocaleTimeString('th-TH', {
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </p>
+                                </div>
+                            </motion.div>
+                        ))}
+                        {activities.length === 0 && (
+                            <p className="text-sm text-gray-400 text-center py-4">
+                                ยังไม่มีกิจกรรม
+                            </p>
+                        )}
                     </div>
+                </Widget>
+
+                {/* Calendar Widget (Full width) */}
+                <div className="lg:col-span-12">
+                    <LazyCalendarSection
+                        events={visibleEvents}
+                        view={view}
+                        setView={setView}
+                        date={date}
+                        setDate={setDate}
+                        onSelectEvent={handleSelectEvent}
+                    />
                 </div>
             </div>
 
-            {/* Recent Activity (Full Width) - Lazy Loaded */}
-            <LazyActivityFeed activities={activities} />
-
-            {/* Booking Details Modal - Lazy Loaded */}
+            {/* Booking Details Modal */}
             {isDetailsModalOpen && (
                 <LazyBookingDetailsModal
                     isOpen={isDetailsModalOpen}
