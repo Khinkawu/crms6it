@@ -2,21 +2,19 @@
 
 import React, { useRef } from "react";
 import { RepairTicket, RepairStatus, Product } from "../../../types";
-import { X } from "lucide-react";
+import { X, User, MapPin, Phone, Calendar, FileText, Package, Wrench, Camera, Save } from "lucide-react";
 import { getThaiStatus, getStatusColor } from "../../../hooks/useRepairAdmin";
 
 interface RepairModalProps {
     isOpen: boolean;
     ticket: RepairTicket | null;
     onClose: () => void;
-    // Form state
     status: RepairStatus;
     setStatus: (s: RepairStatus) => void;
     technicianNote: string;
     setTechnicianNote: (n: string) => void;
     completionImage: File | null;
     setCompletionImage: (f: File | null) => void;
-    // Spare parts
     inventory: Product[];
     selectedPartId: string;
     setSelectedPartId: (id: string) => void;
@@ -24,10 +22,8 @@ interface RepairModalProps {
     setUseQuantity: (q: number) => void;
     onUsePart: () => void;
     isRequisitioning: boolean;
-    // Actions
     onSubmit: (e: React.FormEvent) => void;
     isUpdating: boolean;
-    // Role
     isReadOnly?: boolean;
 }
 
@@ -56,64 +52,107 @@ export default function RepairModal({
 
     if (!isOpen || !ticket) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl overscroll-contain">
-                <div className="p-6 space-y-6">
-                    {/* Header */}
-                    <div className="flex justify-between items-start">
-                        <h2 className="text-2xl font-bold text-text">จัดการใบแจ้งซ่อม</h2>
-                        <button onClick={onClose} className="text-text-secondary hover:text-text">
-                            <X size={24} />
-                        </button>
-                    </div>
+    const statusOptions = [
+        { value: 'pending', label: 'รอดำเนินการ', color: 'from-amber-500 to-orange-500' },
+        { value: 'in_progress', label: 'กำลังดำเนินการ', color: 'from-blue-500 to-cyan-500' },
+        { value: 'waiting_parts', label: 'รออะไหล่', color: 'from-purple-500 to-indigo-500' },
+        { value: 'completed', label: 'เสร็จสิ้น', color: 'from-emerald-500 to-teal-500' },
+        { value: 'cancelled', label: 'ยกเลิกงาน', color: 'from-gray-500 to-slate-500' },
+    ];
 
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl overscroll-contain">
+
+                {/* Header */}
+                <div className="sticky top-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-700 px-6 py-4 flex justify-between items-center z-10">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30">
+                            <Wrench size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">จัดการใบแจ้งซ่อม</h2>
+                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${getStatusColor(ticket.status)}`}>
+                                {getThaiStatus(ticket.status)}
+                            </span>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-5">
                     {/* Ticket Info */}
-                    <div className="grid grid-cols-2 gap-4 text-sm text-text-secondary bg-background p-4 rounded-xl">
-                        <div>
-                            <p className="text-text-secondary/70">ผู้แจ้ง</p>
-                            <p className="text-text">{ticket.requesterName}</p>
+                    <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 dark:bg-gray-700/30 p-4 rounded-2xl">
+                        <div className="flex items-start gap-2">
+                            <User size={14} className="text-gray-400 mt-0.5" />
+                            <div>
+                                <p className="text-[10px] font-medium text-gray-400 uppercase">ผู้แจ้ง</p>
+                                <p className="text-gray-900 dark:text-white font-medium">{ticket.requesterName}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-text-secondary/70">ห้อง/สถานที่</p>
-                            <p className="text-text">{ticket.room}</p>
+                        <div className="flex items-start gap-2">
+                            <MapPin size={14} className="text-gray-400 mt-0.5" />
+                            <div>
+                                <p className="text-[10px] font-medium text-gray-400 uppercase">ห้อง/สถานที่</p>
+                                <p className="text-gray-900 dark:text-white font-medium">{ticket.room}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-text-secondary/70">เบอร์โทร</p>
-                            <p className="text-text">{ticket.phone}</p>
+                        <div className="flex items-start gap-2">
+                            <Phone size={14} className="text-gray-400 mt-0.5" />
+                            <div>
+                                <p className="text-[10px] font-medium text-gray-400 uppercase">เบอร์โทร</p>
+                                <p className="text-gray-900 dark:text-white font-medium">{ticket.phone}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-text-secondary/70">วันที่แจ้ง</p>
-                            <p className="text-text">{ticket.createdAt?.toDate().toLocaleString('th-TH')}</p>
+                        <div className="flex items-start gap-2">
+                            <Calendar size={14} className="text-gray-400 mt-0.5" />
+                            <div>
+                                <p className="text-[10px] font-medium text-gray-400 uppercase">วันที่แจ้ง</p>
+                                <p className="text-gray-900 dark:text-white font-medium">{ticket.createdAt?.toDate().toLocaleString('th-TH')}</p>
+                            </div>
                         </div>
-                        <div className="col-span-2">
-                            <p className="text-text-secondary/70">อาการเสีย</p>
-                            <p className="text-text">{ticket.description}</p>
+                        <div className="col-span-2 flex items-start gap-2">
+                            <FileText size={14} className="text-gray-400 mt-0.5" />
+                            <div>
+                                <p className="text-[10px] font-medium text-gray-400 uppercase">อาการเสีย</p>
+                                <p className="text-gray-900 dark:text-white">{ticket.description}</p>
+                            </div>
                         </div>
                     </div>
 
                     {/* Images */}
                     {ticket.images && ticket.images.length > 0 && (
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                            {ticket.images.map((img, idx) => (
-                                <a key={idx} href={img} target="_blank" rel="noreferrer" className="flex-shrink-0 w-32 h-32 rounded-lg overflow-hidden border border-border">
-                                    <img src={img} alt={`Evidence ${idx}`} className="w-full h-full object-cover" />
-                                </a>
-                            ))}
+                        <div>
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">รูปภาพประกอบ</p>
+                            <div className="flex gap-2 overflow-x-auto pb-2">
+                                {ticket.images.map((img, idx) => (
+                                    <a key={idx} href={img} target="_blank" rel="noreferrer" className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 transition-colors">
+                                        <img src={img} alt={`Evidence ${idx}`} className="w-full h-full object-cover" />
+                                    </a>
+                                ))}
+                            </div>
                         </div>
                     )}
 
                     {/* Spare Parts Section */}
                     {!isReadOnly && (
-                        <div className="border-t border-border pt-4">
-                            <h3 className="text-sm font-bold text-text mb-2">เบิกใช้อะไหล่</h3>
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-4 border border-emerald-100 dark:border-emerald-800">
+                            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-semibold text-sm mb-3">
+                                <Package size={16} />
+                                เบิกใช้อะไหล่
+                            </div>
 
                             {ticket.partsUsed && ticket.partsUsed.length > 0 && (
-                                <div className="mb-4 space-y-2">
+                                <div className="mb-3 space-y-2">
                                     {ticket.partsUsed.map((part, idx) => (
-                                        <div key={idx} className="flex justify-between items-center bg-background px-3 py-2 rounded-lg text-sm">
-                                            <span className="text-text">{part.name}</span>
-                                            <span className="text-text-secondary">จำนวน: {part.quantity}</span>
+                                        <div key={idx} className="flex justify-between items-center bg-white dark:bg-gray-800 px-3 py-2 rounded-xl text-sm border border-emerald-100 dark:border-emerald-800">
+                                            <span className="text-gray-900 dark:text-white font-medium">{part.name}</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">x{part.quantity}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -121,37 +160,35 @@ export default function RepairModal({
 
                             <div className="flex gap-2 items-end">
                                 <div className="flex-1">
-                                    <label className="text-xs text-text-secondary mb-1 block">เลือกอะไหล่</label>
                                     <select
                                         value={selectedPartId}
                                         onChange={(e) => setSelectedPartId(e.target.value)}
-                                        className="w-full px-4 py-2 rounded-xl bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50"
+                                        className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                                     >
-                                        <option value="" className="bg-card">เลือกรายการ...</option>
+                                        <option value="">เลือกอะไหล่...</option>
                                         {inventory.map(item => (
-                                            <option key={item.id} value={item.id} className="bg-card">
+                                            <option key={item.id} value={item.id}>
                                                 {item.name} (คงเหลือ: {item.quantity})
                                             </option>
                                         ))}
                                     </select>
                                 </div>
-                                <div className="w-24">
-                                    <label className="text-xs text-text-secondary mb-1 block">จำนวน</label>
+                                <div className="w-20">
                                     <input
                                         type="number"
                                         min="1"
                                         value={useQuantity}
                                         onChange={(e) => setUseQuantity(parseInt(e.target.value))}
-                                        className="w-full px-4 py-2 rounded-xl bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50"
+                                        className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-center"
                                     />
                                 </div>
                                 <button
                                     type="button"
                                     onClick={onUsePart}
                                     disabled={!selectedPartId || isRequisitioning}
-                                    className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-200 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all text-sm font-medium disabled:opacity-50 h-[38px]"
+                                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium text-sm shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-all hover:shadow-xl tap-scale"
                                 >
-                                    {isRequisitioning ? "..." : "เบิกของ"}
+                                    {isRequisitioning ? "..." : "เบิก"}
                                 </button>
                             </div>
                         </div>
@@ -159,24 +196,28 @@ export default function RepairModal({
 
                     {/* Technician Actions */}
                     {!isReadOnly && (
-                        <form onSubmit={onSubmit} className="space-y-4 border-t border-border pt-4">
+                        <form onSubmit={onSubmit} className="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-5">
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">อัปเดตสถานะ</label>
-                                <select
-                                    value={status}
-                                    onChange={(e) => setStatus(e.target.value as RepairStatus)}
-                                    className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50"
-                                >
-                                    <option value="pending" className="bg-card">รอดำเนินการ</option>
-                                    <option value="in_progress" className="bg-card">กำลังดำเนินการ</option>
-                                    <option value="waiting_parts" className="bg-card">รออะไหล่</option>
-                                    <option value="completed" className="bg-card">เสร็จสิ้น</option>
-                                    <option value="cancelled" className="bg-card">ยกเลิกงาน</option>
-                                </select>
+                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">อัปเดตสถานะ</label>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    {statusOptions.map(opt => (
+                                        <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => setStatus(opt.value as RepairStatus)}
+                                            className={`py-2.5 px-3 rounded-xl text-xs font-medium transition-all tap-scale ${status === opt.value
+                                                    ? `bg-gradient-to-r ${opt.color} text-white shadow-lg`
+                                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-text-secondary mb-1">
+                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
                                     หมายเหตุช่าง {status === 'completed' && <span className="text-red-400">*</span>}
                                 </label>
                                 <textarea
@@ -184,36 +225,39 @@ export default function RepairModal({
                                     onChange={(e) => setTechnicianNote(e.target.value)}
                                     rows={3}
                                     placeholder="รายละเอียดการซ่อม..."
-                                    className="w-full px-4 py-3 rounded-xl bg-background border border-border text-text focus:outline-none focus:border-cyan-500/50 resize-none"
+                                    className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none text-sm"
                                     required={status === 'completed'}
                                 />
                             </div>
 
                             {status === 'completed' && !ticket.completionImage && (
                                 <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
                                         รูปภาพหลังซ่อมเสร็จ <span className="text-red-400">*</span>
                                     </label>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={(e) => setCompletionImage(e.target.files?.[0] || null)}
-                                        accept="image/*"
-                                        className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-500/10 file:text-cyan-600 dark:file:text-cyan-400 hover:file:bg-cyan-500/20"
-                                        required={!ticket.completionImage}
-                                    />
+                                    <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-colors cursor-pointer">
+                                        <Camera size={18} />
+                                        <span className="text-sm font-medium">{completionImage ? completionImage.name : 'เลือกรูปภาพ'}</span>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            onChange={(e) => setCompletionImage(e.target.files?.[0] || null)}
+                                            accept="image/*"
+                                            className="hidden"
+                                            required={!ticket.completionImage}
+                                        />
+                                    </label>
                                 </div>
                             )}
 
-                            <div className="pt-2">
-                                <button
-                                    type="submit"
-                                    disabled={isUpdating}
-                                    className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold shadow-lg hover:shadow-cyan-500/20 disabled:opacity-50"
-                                >
-                                    {isUpdating ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
-                                </button>
-                            </div>
+                            <button
+                                type="submit"
+                                disabled={isUpdating}
+                                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold shadow-xl shadow-blue-500/20 hover:shadow-blue-500/30 disabled:opacity-50 flex items-center justify-center gap-2 tap-scale"
+                            >
+                                <Save size={18} />
+                                {isUpdating ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+                            </button>
                         </form>
                     )}
                 </div>

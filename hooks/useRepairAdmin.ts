@@ -17,7 +17,9 @@ interface RepairStats {
     total: number;
     pending: number;
     inProgress: number;
+    waitingParts: number;
     completed: number;
+    cancelled: number;
 }
 
 interface UseRepairAdminReturn {
@@ -143,8 +145,10 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
     const stats: RepairStats = {
         total: tickets.length,
         pending: tickets.filter(t => t.status === 'pending').length,
-        inProgress: tickets.filter(t => t.status === 'in_progress' || t.status === 'waiting_parts').length,
-        completed: tickets.filter(t => t.status === 'completed').length
+        inProgress: tickets.filter(t => t.status === 'in_progress').length,
+        waitingParts: tickets.filter(t => t.status === 'waiting_parts').length,
+        completed: tickets.filter(t => t.status === 'completed').length,
+        cancelled: tickets.filter(t => t.status === 'cancelled').length
     };
 
     // Modal handlers
@@ -198,7 +202,8 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
                 userName: userName || "Technician",
                 details: technicianNote,
                 status: status,
-                imageUrl: completionImageUrl || selectedTicket.images?.[0]
+                imageUrl: completionImageUrl || selectedTicket.images?.[0],
+                zone: selectedTicket.zone
             });
 
             // Send LINE notification if completed

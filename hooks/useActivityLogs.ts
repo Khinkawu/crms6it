@@ -33,7 +33,7 @@ interface UseActivityLogsReturn {
  * @returns Activity logs and loading state
  */
 export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivityLogsReturn {
-    const { limitCount = 50, filterRepairOnly = true } = options;
+    const { limitCount = 15, filterRepairOnly = true } = options;
 
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);

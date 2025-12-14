@@ -67,6 +67,16 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
     const config = historyConfig[historyType];
     const IconComponent = config.icon;
 
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     useEffect(() => {
         if (!isOpen || !user?.email) return;
 
@@ -89,7 +99,7 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
                     case "booking":
                         q = query(
                             collection(db, "bookings"),
-                            where("requesterEmail", "==", user.email),
+                            where("requesterId", "==", user.uid),
                             orderBy("createdAt", "desc"),
                             limit(50)
                         );
@@ -98,8 +108,8 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
                         q = query(
                             collection(db, "transactions"),
                             where("type", "==", "borrow"),
-                            where("userName", "==", user.displayName),
-                            orderBy("transactionDate", "desc"),
+                            where("borrowerEmail", "==", user.email),
+                            orderBy("borrowDate", "desc"),
                             limit(50)
                         );
                         break;
@@ -107,8 +117,8 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
                         q = query(
                             collection(db, "transactions"),
                             where("type", "==", "requisition"),
-                            where("userName", "==", user.displayName),
-                            orderBy("transactionDate", "desc"),
+                            where("requesterEmail", "==", user.email),
+                            orderBy("timestamp", "desc"),
                             limit(50)
                         );
                         break;
@@ -176,10 +186,12 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
             }
         }
 
-        if (type === "borrow" || type === "requisition") {
+        if (type === "borrow") {
             switch (status) {
                 case "active":
                     return <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">ยังไม่คืน</span>;
+                case "overdue":
+                    return <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">เกินกำหนด</span>;
                 case "completed":
                     return <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">คืนแล้ว</span>;
                 default:
@@ -187,7 +199,26 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
             }
         }
 
+        if (type === "requisition") {
+            return <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">เสร็จสิ้น</span>;
+        }
+
         return <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">{status}</span>;
+    };
+
+    // Helper to check if item is overdue
+    const isOverdue = (item: any): boolean => {
+        if (item.status === "completed") return false;
+        if (!item.returnDate) return false;
+        const returnDate = item.returnDate.toDate ? item.returnDate.toDate() : new Date(item.returnDate);
+        return new Date() > returnDate;
+    };
+
+    // Get dynamic status for borrow items (checking overdue)
+    const getBorrowStatus = (item: any): string => {
+        if (item.status === "completed") return "completed";
+        if (isOverdue(item)) return "overdue";
+        return "active";
     };
 
     const renderItem = (item: any) => {
@@ -233,7 +264,6 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
                 );
 
             case "borrow":
-            case "requisition":
                 return (
                     <div key={item.id} className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 hover:shadow-sm transition-all">
                         <div className="flex items-start justify-between gap-3">
@@ -244,14 +274,34 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
                                     <span>{item.userRoom}</span>
                                 </div>
                             </div>
+                            {getStatusBadge(getBorrowStatus(item), historyType)}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-400">
+                            <Clock size={12} />
+                            <span>{formatDate(item.borrowDate)}</span>
+                            {item.returnDate && (
+                                <span className="ml-2">• กำหนดคืน: {formatDate(item.returnDate)}</span>
+                            )}
+                        </div>
+                    </div>
+                );
+
+            case "requisition":
+                return (
+                    <div key={item.id} className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 hover:shadow-sm transition-all">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 dark:text-white truncate">{item.productName || "รายการ"}</p>
+                                <div className="flex items-center gap-2 mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+                                    <User size={14} />
+                                    <span>{item.room || item.userRoom}</span>
+                                </div>
+                            </div>
                             {getStatusBadge(item.status, historyType)}
                         </div>
                         <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-400">
                             <Clock size={12} />
-                            <span>{formatDate(item.transactionDate)}</span>
-                            {item.returnDate && historyType === "borrow" && (
-                                <span className="ml-2">• กำหนดคืน: {formatDate(item.returnDate)}</span>
-                            )}
+                            <span>{formatDate(item.timestamp)}</span>
                         </div>
                     </div>
                 );
@@ -264,7 +314,7 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center overflow-hidden touch-none">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -272,7 +322,7 @@ export default function UserHistoryModal({ isOpen, onClose, historyType }: UserH
             />
 
             {/* Modal */}
-            <div className="relative w-full sm:max-w-lg max-h-[85vh] bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col animate-slide-up overflow-hidden">
+            <div className="relative w-full sm:max-w-lg max-h-[85vh] bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col animate-slide-up overscroll-contain">
                 {/* Header */}
                 <div className={`flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 ${config.bgColor}`}>
                     <div className="flex items-center gap-3">

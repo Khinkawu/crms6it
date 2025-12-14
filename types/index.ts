@@ -52,6 +52,8 @@ export interface UserProfile {
     role: UserRole;
     responsibility?: 'junior_high' | 'senior_high' | 'all'; // For technicians
     createdAt?: Timestamp;
+    isPhotographer?: boolean;
+    lineUserId?: string; // LINE User ID
 }
 
 export type RepairStatus = 'pending' | 'in_progress' | 'waiting_parts' | 'completed' | 'cancelled';
@@ -92,4 +94,21 @@ export interface ActivityLog {
     status?: string; // Added status for specific updates
     signatureUrl?: string; // Added for borrow signature
     timestamp: Timestamp;
+}
+
+export interface PhotographyJob {
+    id?: string;
+    title: string;
+    description?: string;
+    location: string;
+    startTime: Timestamp;
+    endTime: Timestamp;
+    assigneeId: string; // Photographer UID
+    assigneeName?: string;
+    requesterId: string;
+    requestName?: string;
+    status: 'assigned' | 'completed' | 'cancelled';
+    driveLink?: string;
+    coverImage?: string; // Optional
+    createdAt: Timestamp;
 }

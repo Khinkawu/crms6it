@@ -2,12 +2,11 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Calendar, momentLocalizer, Views, View, ToolbarProps } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "moment/locale/th";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BookingEvent } from "../../../hooks/useBookings";
 
 moment.locale('th');
@@ -28,7 +27,7 @@ const AgendaEvent = ({ event }: { event: BookingEvent }) => (
     </div>
 );
 
-// Custom Toolbar Component
+// Custom Toolbar Component - Modern Design
 const CustomToolbar = (toolbar: ToolbarProps<BookingEvent, object>) => {
     const goToBack = () => {
         const newDate = moment(toolbar.date).subtract(1, 'days').startOf('day').toDate();
@@ -48,48 +47,48 @@ const CustomToolbar = (toolbar: ToolbarProps<BookingEvent, object>) => {
     const label = () => {
         const date = moment(toolbar.date);
         return (
-            <span className="text-xl font-bold text-gray-800 dark:text-white capitalize">
+            <span className="text-lg font-bold text-gray-900 dark:text-white capitalize">
                 {date.format('D MMMM YYYY')}
             </span>
         );
     };
 
     return (
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 px-2">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
             {/* Left: Navigation */}
-            <div className="flex items-center gap-2">
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shadow-sm">
+            <div className="flex items-center gap-3">
+                <div className="flex bg-gray-100 dark:bg-gray-700/50 rounded-xl p-1">
                     <button
                         onClick={goToBack}
-                        className="p-1.5 hover:bg-white dark:hover:bg-gray-600 rounded-md transition-all text-gray-600 dark:text-gray-300"
+                        className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-all text-gray-600 dark:text-gray-300"
                     >
-                        <ChevronLeft size={20} />
+                        <ChevronLeft size={18} />
                     </button>
                     <button
                         onClick={goToCurrent}
-                        className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-600 rounded-md transition-all"
+                        className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-all"
                     >
-                        {moment(toolbar.date).isSame(moment(), 'day') ? "วันนี้" : "วันที่"}
+                        วันนี้
                     </button>
                     <button
                         onClick={goToNext}
-                        className="p-1.5 hover:bg-white dark:hover:bg-gray-600 rounded-md transition-all text-gray-600 dark:text-gray-300"
+                        className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-all text-gray-600 dark:text-gray-300"
                     >
-                        <ChevronRight size={20} />
+                        <ChevronRight size={18} />
                     </button>
                 </div>
-                <div className="ml-2 hidden md:block">
+                <div className="hidden md:block">
                     {label()}
                 </div>
             </div>
 
             {/* Center: Label (Mobile Only) */}
-            <div className="md:hidden">
+            <div className="md:hidden text-center">
                 {label()}
             </div>
 
             {/* Right: View Switcher */}
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shadow-sm">
+            <div className="flex bg-gray-100 dark:bg-gray-700/50 rounded-xl p-1">
                 {[
                     { id: Views.MONTH, label: 'เดือน' },
                     { id: Views.WEEK, label: 'สัปดาห์' },
@@ -100,7 +99,7 @@ const CustomToolbar = (toolbar: ToolbarProps<BookingEvent, object>) => {
                         key={view.id}
                         onClick={() => toolbar.onView(view.id)}
                         className={`
-                            px-4 py-1.5 text-sm font-medium rounded-md transition-all
+                            px-3 py-1.5 text-xs font-medium rounded-lg transition-all
                             ${toolbar.view === view.id
                                 ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
                                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}
@@ -133,36 +132,40 @@ export default function CalendarSection({
 }: CalendarSectionProps) {
     const router = useRouter();
 
-    const eventStyleGetter = (event: BookingEvent) => {
-        let backgroundColor = '#f59e0b'; // amber-500
-
-        // Month/Week/Day view styles - DOT STYLE
-        if (view !== Views.AGENDA) {
+    const eventStyleGetter = () => {
+        // Month view: Red dot style (hide text)
+        if (view === Views.MONTH) {
             return {
                 style: {
-                    backgroundColor: backgroundColor,
+                    backgroundColor: '#ef4444 !important' as any, // red-500
                     borderRadius: '50%',
-                    width: '12px',
-                    height: '12px',
-                    padding: '0px',
-                    border: '2px solid white',
-                    margin: '2px auto',
-                    display: 'block',
+                    width: '8px',
+                    height: '8px',
+                    minHeight: '8px',
+                    padding: '0',
+                    border: 'none',
                     color: 'transparent',
-                    overflow: 'hidden',
-                    fontSize: '0px',
-                    lineHeight: '0px',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                    fontSize: '0',
+                    lineHeight: '0',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    display: 'inline-block',
+                    margin: '1px',
+                    pointerEvents: 'none' as const,
+                    cursor: 'default',
                 }
             };
         }
 
-        // Agenda view styles
+        // Agenda/Week/Day view: No background color, just text
         return {
-            className: 'rbc-agenda-custom-event',
             style: {
-                borderLeft: `4px solid ${backgroundColor}`,
                 backgroundColor: 'transparent',
+                borderRadius: '0',
+                border: 'none',
+                color: 'inherit',
+                fontSize: '14px',
+                padding: '4px 0',
+                fontWeight: '500',
             }
         };
     };
@@ -172,7 +175,7 @@ export default function CalendarSection({
             return {
                 style: {
                     boxShadow: 'inset 0 0 0 2px #3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
                 }
             };
         }
@@ -180,47 +183,53 @@ export default function CalendarSection({
     };
 
     return (
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden p-6 h-[500px]">
-            <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <CalendarIcon className="text-blue-600" /> ปฏิทินการจองห้องประชุม
+        <div className="lg:col-span-2 bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl rounded-3xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden p-5 h-[520px]">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                        <CalendarIcon size={16} />
+                    </div>
+                    ปฏิทินการจอง
                 </h2>
                 <button
                     onClick={() => router.push('/booking')}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors tap-scale"
                 >
-                    จองห้องประชุม &rarr;
+                    <Plus size={14} />
+                    จองห้อง
                 </button>
             </div>
 
             <style jsx global>{`
-                .rbc-calendar { font-family: 'Prompt', sans-serif; }
+                .rbc-calendar { font-family: inherit; }
                 
                 /* Clean Grid */
-                .rbc-month-view, .rbc-time-view, .rbc-agenda-view { border: none !important; }
+                .rbc-month-view, .rbc-time-view, .rbc-agenda-view { border: none !important; border-radius: 12px; overflow: hidden; }
                 .rbc-header { 
-                    padding: 12px 0; 
+                    padding: 10px 0; 
                     font-weight: 600; 
                     color: #6b7280; 
                     text-transform: uppercase; 
-                    font-size: 0.85rem;
-                    border-bottom: 1px solid #e5e7eb !important;
+                    font-size: 0.7rem;
+                    letter-spacing: 0.05em;
+                    border-bottom: 1px solid #f3f4f6 !important;
+                    background: #f9fafb;
                 }
-                .dark .rbc-header { color: #9ca3af; border-bottom-color: #374151 !important; }
+                .dark .rbc-header { color: #9ca3af; border-bottom-color: #374151 !important; background: #1f2937; }
                 
                 .rbc-day-bg { border-left: 1px solid #f3f4f6 !important; }
                 .dark .rbc-day-bg { border-left-color: #374151 !important; }
                 
-                .rbc-off-range-bg { background-color: #f9fafb; }
+                .rbc-off-range-bg { background-color: #fafafa; }
                 .dark .rbc-off-range-bg { background-color: #111827; }
                 
                 /* Today Highlight */
                 .rbc-today { background-color: transparent !important; }
-                .rbc-date-cell { padding: 8px; font-size: 0.9rem; font-weight: 500; color: #374151; }
+                .rbc-date-cell { padding: 6px; font-size: 0.8rem; font-weight: 500; color: #374151; }
                 .dark .rbc-date-cell { color: #d1d5db; }
                 
                 .rbc-now .rbc-button-link {
-                    background-color: #ef4444;
+                    background: #ef4444;
                     color: white;
                     width: 28px;
                     height: 28px;
@@ -229,23 +238,50 @@ export default function CalendarSection({
                     align-items: center;
                     justify-content: center;
                     margin-left: auto;
+                    font-weight: 700;
+                    font-size: 0.8rem;
+                    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
                 }
 
-                /* Events */
-                .rbc-event {
-                    border-radius: 6px;
-                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                /* Events - Month View Dot Style */
+                .rbc-month-view .rbc-event {
+                    padding: 0 !important;
+                    border: none !important;
+                    background: #ef4444 !important;
+                    width: 8px !important;
+                    height: 8px !important;
+                    border-radius: 50% !important;
+                }
+                .rbc-month-view .rbc-event-content {
+                    display: none;
+                }
+                .rbc-row-segment {
+                    display: flex;
+                    justify-content: center;
+                    padding: 2px 0;
+                }
+                .rbc-show-more {
+                    display: none !important;
+                }
+
+                /* Agenda/Week/Day View - No background */
+                .rbc-agenda-view .rbc-event,
+                .rbc-time-view .rbc-event {
+                    background: transparent !important;
+                    color: inherit !important;
                 }
                 
                 /* Time View Grid */
-                .rbc-time-content { border-top: 1px solid #e5e7eb !important; }
+                .rbc-time-content { border-top: 1px solid #f3f4f6 !important; }
                 .dark .rbc-time-content { border-top-color: #374151 !important; }
                 .rbc-timeslot-group { border-bottom: 1px solid #f3f4f6 !important; }
                 .dark .rbc-timeslot-group { border-bottom-color: #374151 !important; }
-                .rbc-time-view-resources .rbc-time-gutter, .rbc-time-view-resources .rbc-time-header-gutter { border-right: 1px solid #e5e7eb !important; }
-                .dark .rbc-time-view-resources .rbc-time-gutter, .dark .rbc-time-view-resources .rbc-time-header-gutter { border-right-color: #374151 !important; }
 
                 /* Agenda View Customization */
+                .rbc-agenda-view {
+                    overflow-y: auto !important;
+                    max-height: 100% !important;
+                }
                 .rbc-agenda-custom-event {
                     color: inherit !important;
                     border-bottom: 1px solid #f3f4f6;
@@ -258,16 +294,21 @@ export default function CalendarSection({
                     border: none !important;
                 }
                 .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
-                    padding: 12px 8px !important;
+                    padding: 10px 8px !important;
                     vertical-align: middle !important;
                 }
                 .rbc-agenda-date-cell {
                     font-weight: 600;
                     color: #4b5563;
+                    font-size: 0.85rem;
                 }
                 .dark .rbc-agenda-date-cell {
                     color: #9ca3af;
                 }
+
+                /* Row borders */
+                .rbc-month-row { border-bottom: 1px solid #f3f4f6 !important; }
+                .dark .rbc-month-row { border-bottom-color: #374151 !important; }
 
                 /* Mobile Agenda View - Card Style */
                 @media (max-width: 768px) {
@@ -277,37 +318,32 @@ export default function CalendarSection({
                         display: flex;
                         flex-direction: column;
                         background: white;
-                        margin-bottom: 12px;
+                        margin-bottom: 10px;
                         border: 1px solid #e5e7eb;
                         border-radius: 12px;
-                        padding: 16px;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                        padding: 14px;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
                     }
                     .dark .rbc-agenda-view table.rbc-agenda-table tr {
                         background: #1f2937;
                         border-color: #374151;
                     }
                     
-                    /* Hide Date Cell on Mobile */
                     .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-date-cell { display: none; }
                     
-                    /* Time Cell */
                     .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-time-cell {
                         display: block;
                         width: 100%;
-                        padding: 0 0 8px 0 !important;
-                        font-size: 0.9rem;
+                        padding: 0 0 6px 0 !important;
+                        font-size: 0.8rem;
                         color: #6b7280;
                         border: none !important;
                         font-weight: 600;
-                        text-transform: uppercase;
-                        letter-spacing: 0.05em;
                     }
                     .dark .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-time-cell {
                         color: #9ca3af;
                     }
                     
-                    /* Event Cell */
                     .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-event-cell {
                         display: block;
                         width: 100%;
@@ -322,7 +358,7 @@ export default function CalendarSection({
                 events={events}
                 startAccessor="start"
                 endAccessor="end"
-                style={{ height: '90%' }}
+                style={{ height: 'calc(100% - 50px)' }}
                 views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
                 view={view}
                 onView={setView}
@@ -343,11 +379,7 @@ export default function CalendarSection({
                     setDate(moment(drillDate).startOf('day').toDate());
                     setView(Views.AGENDA);
                 }}
-                onSelectEvent={(event) => {
-                    if (onSelectEvent) {
-                        onSelectEvent(event);
-                    }
-                }}
+                onSelectEvent={view !== Views.MONTH && onSelectEvent ? (event) => onSelectEvent(event) : undefined}
                 eventPropGetter={eventStyleGetter}
                 dayPropGetter={dayPropGetter}
                 messages={{

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { collection, query, onSnapshot } from "firebase/firestore";
+import { collection, query, onSnapshot, where, Timestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { View, Views } from "react-big-calendar";
 import moment from "moment";
@@ -19,6 +19,7 @@ export interface BookingEvent {
 
 interface UseBookingsOptions {
     filterApprovedOnly?: boolean;
+    monthsRange?: number; // How many months before and after to fetch
 }
 
 interface UseBookingsReturn {
@@ -34,11 +35,12 @@ interface UseBookingsReturn {
 /**
  * Hook for fetching booking events from Firestore
  * Provides calendar state management (view, date)
+ * Only fetches bookings within specified months range to reduce reads
  * @param options - Configuration options
  * @returns Booking events and calendar state
  */
 export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn {
-    const { filterApprovedOnly = true } = options;
+    const { filterApprovedOnly = true, monthsRange = 3 } = options;
 
     const [events, setEvents] = useState<BookingEvent[]>([]);
     const [loading, setLoading] = useState(true);
@@ -46,7 +48,15 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
     const [date, setDate] = useState(moment().startOf('day').toDate());
 
     useEffect(() => {
-        const q = query(collection(db, "bookings"));
+        // Calculate date range: 3 months before and after current date
+        const startRange = moment().subtract(monthsRange, 'months').startOf('month').toDate();
+        const endRange = moment().add(monthsRange, 'months').endOf('month').toDate();
+
+        const q = query(
+            collection(db, "bookings"),
+            where("startTime", ">=", Timestamp.fromDate(startRange)),
+            where("startTime", "<=", Timestamp.fromDate(endRange))
+        );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             let loadedEvents: BookingEvent[] = snapshot.docs.map(doc => {
@@ -73,7 +83,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         });
 
         return () => unsubscribe();
-    }, [filterApprovedOnly]);
+    }, [filterApprovedOnly, monthsRange]);
 
     // Compute visible events based on current view and date
     const visibleEvents = useMemo(() => {

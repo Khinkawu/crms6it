@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { db, storage } from "../../lib/firebase";
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDocs, query, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
@@ -123,7 +123,29 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onS
                 }
             }
 
-            // 3. Create Transaction (Return Record)
+            // 3. Find and Update the Original Borrow Transaction
+            // This ensures the item stays in user's borrow history with "คืนแล้ว" status
+            const borrowQuery = query(
+                collection(db, "transactions"),
+                where("type", "==", "borrow"),
+                where("productId", "==", product.id),
+                where("status", "==", "active")
+            );
+            const borrowSnapshot = await getDocs(borrowQuery);
+
+            // Update all active borrow transactions for this product (usually just one)
+            for (const borrowDoc of borrowSnapshot.docs) {
+                await updateDoc(doc(db, "transactions", borrowDoc.id), {
+                    status: "completed",
+                    returnedAt: serverTimestamp(),
+                    returnerName: formData.returnerName,
+                    returnReceiverName: user?.displayName,
+                    returnNotes: formData.notes,
+                    returnSignatureUrl: signatureUrl
+                });
+            }
+
+            // 4. Create Return Record (for audit log - separate record)
             await addDoc(collection(db, "transactions"), {
                 type: "return",
                 productId: product.id,
