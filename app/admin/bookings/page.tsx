@@ -187,48 +187,43 @@ export default function BookingManagement() {
                 </div>
             </div>
 
-            {/* Filters - Glassmorphism */}
-            <div className="bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl p-4 shadow-sm">
-                <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-                    {/* Status Tabs */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 lg:pb-0 no-scrollbar">
-                        {[
-                            { id: 'pending', label: 'รออนุมัติ', icon: <Clock size={16} />, count: counts.pending, color: 'from-amber-500 to-orange-500' },
-                            { id: 'approved', label: 'อนุมัติแล้ว', icon: <CheckCircle size={16} />, count: counts.approved, color: 'from-emerald-500 to-teal-500' },
-                            { id: 'rejected', label: 'ไม่อนุมัติ/ยกเลิก', icon: <XCircle size={16} />, count: counts.rejected, color: 'from-red-500 to-rose-500' },
-                        ].map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setFilterStatus(tab.id as any)}
-                                className={`
-                                    flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all tap-scale whitespace-nowrap
-                                    ${filterStatus === tab.id
-                                        ? `bg-gradient-to-r ${tab.color} text-white shadow-lg`
-                                        : 'bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}
-                                `}
-                            >
-                                {tab.icon}
-                                {tab.label}
-                                <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${filterStatus === tab.id ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'
-                                    }`}>
-                                    {tab.count}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
+            {/* Status Tabs - Wrap on mobile */}
+            <div className="flex flex-wrap gap-2">
+                {[
+                    { id: 'pending', label: 'รออนุมัติ', icon: <Clock size={16} />, count: counts.pending, color: 'from-amber-500 to-orange-500' },
+                    { id: 'approved', label: 'อนุมัติแล้ว', icon: <CheckCircle size={16} />, count: counts.approved, color: 'from-emerald-500 to-teal-500' },
+                    { id: 'rejected', label: 'ไม่อนุมัติ', icon: <XCircle size={16} />, count: counts.rejected, color: 'from-red-500 to-rose-500' },
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setFilterStatus(tab.id as any)}
+                        className={`
+                            flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all tap-scale
+                            ${filterStatus === tab.id
+                                ? `bg-gradient-to-r ${tab.color} text-white shadow-lg`
+                                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}
+                        `}
+                    >
+                        {tab.icon}
+                        {tab.label}
+                        <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ${filterStatus === tab.id ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-600'
+                            }`}>
+                            {tab.count}
+                        </span>
+                    </button>
+                ))}
+            </div>
 
-                    {/* Search */}
-                    <div className="relative w-full lg:w-80">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="ค้นหา (หัวข้อ, ผู้จอง, ห้อง)..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 outline-none transition-all"
-                        />
-                    </div>
-                </div>
+            {/* Search Bar */}
+            <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                    type="text"
+                    placeholder="ค้นหา (หัวข้อ, ผู้จอง, ห้อง)..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 outline-none transition-all"
+                />
             </div>
 
             {/* Booking List - Card Layout */}
@@ -252,8 +247,8 @@ export default function BookingManagement() {
                         >
                             {/* Status accent bar */}
                             <div className={`absolute top-0 left-0 right-0 h-1 ${booking.status === 'pending' ? 'bg-gradient-to-r from-amber-400 to-orange-400' :
-                                    booking.status === 'approved' ? 'bg-gradient-to-r from-emerald-400 to-teal-400' :
-                                        'bg-gradient-to-r from-red-400 to-rose-400'
+                                booking.status === 'approved' ? 'bg-gradient-to-r from-emerald-400 to-teal-400' :
+                                    'bg-gradient-to-r from-red-400 to-rose-400'
                                 }`}></div>
 
                             <div className="p-5 pt-6">

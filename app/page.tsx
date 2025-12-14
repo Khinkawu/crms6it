@@ -218,18 +218,6 @@ export default function Dashboard() {
                                 {getGreeting()}, {user.displayName?.split(' ')[0] || "User"}! 👋
                             </h1>
                         </div>
-
-                        {/* Quick Stats Pills */}
-                        <div className="flex gap-2 flex-wrap">
-                            <div className="bg-white/15 backdrop-blur-xl rounded-full px-4 py-2 border border-white/20 flex items-center gap-2">
-                                <Timer size={14} className="text-white/70" />
-                                <span className="text-sm font-medium text-white">{pendingBookings} รอการอนุมัติ</span>
-                            </div>
-                            <div className="bg-white/15 backdrop-blur-xl rounded-full px-4 py-2 border border-white/20 flex items-center gap-2">
-                                <TrendingUp size={14} className="text-white/70" />
-                                <span className="text-sm font-medium text-white">{todayActivities} กิจกรรมวันนี้</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </motion.div>
@@ -359,6 +347,18 @@ export default function Dashboard() {
                                 }
                             };
 
+                            // Helper for status color
+                            const getStatusColor = (status: string) => {
+                                switch (status) {
+                                    case 'pending': return 'bg-amber-500';
+                                    case 'in_progress': return 'bg-blue-500';
+                                    case 'waiting_parts': return 'bg-purple-500';
+                                    case 'completed': return 'bg-emerald-500';
+                                    case 'cancelled': return 'bg-red-500';
+                                    default: return 'bg-orange-500'; // default for new repairs
+                                }
+                            };
+
                             // Build location string: Room + Zone
                             const roomNumber = activity.productName || '';
                             const zoneThai = activity.zone ? getZoneThai(activity.zone) : '';
@@ -372,8 +372,7 @@ export default function Dashboard() {
                                     transition={{ delay: index * 0.1 }}
                                     className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                                 >
-                                    <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${activity.action === 'repair' ? 'bg-orange-500' : 'bg-blue-500'
-                                        }`} />
+                                    <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${getStatusColor(activity.status || '')}`} />
                                     <div className="flex-1 min-w-0">
                                         {/* Room & Zone */}
                                         {locationText && (
