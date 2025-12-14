@@ -345,28 +345,64 @@ export default function Dashboard() {
                     action={{ label: "ดูทั้งหมด", href: "/admin/repairs" }}
                 >
                     <div className="space-y-2">
-                        {activities.slice(0, 4).map((activity, index) => (
-                            <motion.div
-                                key={activity.id}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                className="flex items-start gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                            >
-                                <div className="w-2 h-2 mt-2 rounded-full bg-blue-500 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-gray-700 dark:text-gray-200 truncate">
-                                        {activity.details || activity.action}
-                                    </p>
-                                    <p className="text-xs text-gray-400">
-                                        {activity.timestamp?.toDate?.()?.toLocaleTimeString('th-TH', {
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        })}
-                                    </p>
-                                </div>
-                            </motion.div>
-                        ))}
+                        {activities.slice(0, 4).map((activity, index) => {
+                            // Helper to translate zone
+                            const getZoneThai = (zone: string) => {
+                                switch (zone) {
+                                    case 'senior_high': return 'ม.ปลาย';
+                                    case 'junior_high': return 'ม.ต้น';
+                                    case 'common': return 'ส่วนกลาง';
+                                    case 'elementary': return 'ประถม';
+                                    case 'kindergarten': return 'อนุบาล';
+                                    case 'auditorium': return 'หอประชุม';
+                                    default: return zone;
+                                }
+                            };
+
+                            // Build location string: Room + Zone
+                            const roomNumber = activity.productName || '';
+                            const zoneThai = activity.zone ? getZoneThai(activity.zone) : '';
+                            const locationText = [roomNumber, zoneThai].filter(Boolean).join(' • ');
+
+                            return (
+                                <motion.div
+                                    key={activity.id}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                                >
+                                    <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${activity.action === 'repair' ? 'bg-orange-500' : 'bg-blue-500'
+                                        }`} />
+                                    <div className="flex-1 min-w-0">
+                                        {/* Room & Zone */}
+                                        {locationText && (
+                                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-0.5">
+                                                📍 {locationText}
+                                            </p>
+                                        )}
+                                        {/* Symptom/Details */}
+                                        <p className="text-sm text-gray-700 dark:text-gray-200 line-clamp-2">
+                                            {activity.details || 'แจ้งซ่อม'}
+                                        </p>
+                                        {/* Time and User */}
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-xs text-gray-400">
+                                                {activity.timestamp?.toDate?.()?.toLocaleTimeString('th-TH', {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </p>
+                                            {activity.userName && (
+                                                <span className="text-xs text-gray-400 truncate max-w-[100px]">
+                                                    • {activity.userName}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
                         {activities.length === 0 && (
                             <p className="text-sm text-gray-400 text-center py-4">
                                 ยังไม่มีกิจกรรม
