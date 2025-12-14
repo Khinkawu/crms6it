@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import {
     Sparkles, TrendingUp, Calendar as CalendarIcon,
     Wrench, Package, ChevronRight, Clock,
-    AlertCircle, CheckCircle2, Timer, User
+    AlertCircle, CheckCircle2, Timer, User, ClipboardList
 } from "lucide-react";
 
 // Custom Hooks
@@ -244,6 +244,7 @@ export default function Dashboard() {
                     icon={Sparkles}
                 >
                     <div className="grid grid-cols-2 gap-3">
+                        {/* แจ้งซ่อม - Everyone */}
                         <QuickAction
                             icon={Wrench}
                             title="แจ้งซ่อม"
@@ -252,6 +253,7 @@ export default function Dashboard() {
                             gradient="from-orange-500 to-red-500"
                             delay={0.1}
                         />
+                        {/* จองห้อง - Everyone */}
                         <QuickAction
                             icon={CalendarIcon}
                             title="จองห้อง"
@@ -260,25 +262,49 @@ export default function Dashboard() {
                             gradient="from-blue-500 to-cyan-500"
                             delay={0.15}
                         />
-                        {isAdmin && (
-                            <>
-                                <QuickAction
-                                    icon={Package}
-                                    title="อุปกรณ์"
-                                    description="จัดการอุปกรณ์"
-                                    href="/admin/inventory"
-                                    gradient="from-violet-500 to-purple-500"
-                                    delay={0.2}
-                                />
-                                <QuickAction
-                                    icon={User}
-                                    title="ผู้ใช้"
-                                    description="จัดการผู้ใช้"
-                                    href="/admin/users"
-                                    gradient="from-emerald-500 to-teal-500"
-                                    delay={0.25}
-                                />
-                            </>
+                        {/* จัดการงานซ่อม - admin, moderator */}
+                        {(role === 'admin' || role === 'moderator') && (
+                            <QuickAction
+                                icon={ClipboardList}
+                                title="จัดการซ่อม"
+                                description="จัดการงานซ่อม"
+                                href="/admin/repairs"
+                                gradient="from-amber-500 to-orange-500"
+                                delay={0.2}
+                            />
+                        )}
+                        {/* จัดการการจอง - admin, moderator */}
+                        {(role === 'admin' || role === 'moderator') && (
+                            <QuickAction
+                                icon={CalendarIcon}
+                                title="จัดการจอง"
+                                description="จัดการการจอง"
+                                href="/admin/bookings"
+                                gradient="from-pink-500 to-rose-500"
+                                delay={0.25}
+                            />
+                        )}
+                        {/* อุปกรณ์ - admin only */}
+                        {role === 'admin' && (
+                            <QuickAction
+                                icon={Package}
+                                title="อุปกรณ์"
+                                description="จัดการอุปกรณ์"
+                                href="/admin/inventory"
+                                gradient="from-violet-500 to-purple-500"
+                                delay={0.3}
+                            />
+                        )}
+                        {/* ผู้ใช้ - admin only */}
+                        {role === 'admin' && (
+                            <QuickAction
+                                icon={User}
+                                title="ผู้ใช้"
+                                description="จัดการผู้ใช้"
+                                href="/admin/users"
+                                gradient="from-emerald-500 to-teal-500"
+                                delay={0.35}
+                            />
                         )}
                     </div>
                 </Widget>

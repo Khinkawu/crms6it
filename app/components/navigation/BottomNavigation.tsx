@@ -7,12 +7,12 @@ import { useState } from "react";
 import {
     Home, Wrench, Calendar, User,
     Plus, Package, ClipboardList, MoreHorizontal,
-    Settings, X
+    Settings, X, LogOut
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function BottomNavigation() {
-    const { user, role } = useAuth();
+    const { user, role, signOut } = useAuth();
     const pathname = usePathname();
     const [fabOpen, setFabOpen] = useState(false);
     const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -131,14 +131,29 @@ export default function BottomNavigation() {
                                         href={item.path}
                                         onClick={() => setMoreMenuOpen(false)}
                                         className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === item.path
-                                                ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                                                : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                            ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                            : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                             }`}
                                     >
                                         <item.icon size={20} />
                                         <span className="font-medium text-sm">{item.name}</span>
                                     </Link>
                                 ))}
+
+                                {/* Divider */}
+                                <div className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
+
+                                {/* Logout Button */}
+                                <button
+                                    onClick={() => {
+                                        setMoreMenuOpen(false);
+                                        signOut();
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                >
+                                    <LogOut size={20} />
+                                    <span className="font-medium text-sm">ออกจากระบบ</span>
+                                </button>
                             </div>
                         </div>
                     </motion.div>
@@ -189,8 +204,8 @@ export default function BottomNavigation() {
                                         <item.icon
                                             size={22}
                                             className={`transition-all duration-200 ${moreMenuOpen || isAdminPage
-                                                    ? "text-blue-600 dark:text-blue-400 scale-110"
-                                                    : "text-gray-500 dark:text-gray-400 group-active:scale-90"
+                                                ? "text-blue-600 dark:text-blue-400 scale-110"
+                                                : "text-gray-500 dark:text-gray-400 group-active:scale-90"
                                                 }`}
                                             strokeWidth={moreMenuOpen || isAdminPage ? 2.5 : 2}
                                         />
@@ -202,8 +217,8 @@ export default function BottomNavigation() {
                                         )}
                                     </div>
                                     <span className={`text-[10px] font-medium transition-colors ${moreMenuOpen || isAdminPage
-                                            ? "text-blue-600 dark:text-blue-400"
-                                            : "text-gray-500 dark:text-gray-400"
+                                        ? "text-blue-600 dark:text-blue-400"
+                                        : "text-gray-500 dark:text-gray-400"
                                         }`}>
                                         {item.name}
                                     </span>
@@ -226,8 +241,8 @@ export default function BottomNavigation() {
                                     <item.icon
                                         size={22}
                                         className={`transition-all duration-200 ${active
-                                                ? "text-blue-600 dark:text-blue-400 scale-110"
-                                                : "text-gray-500 dark:text-gray-400 group-active:scale-90"
+                                            ? "text-blue-600 dark:text-blue-400 scale-110"
+                                            : "text-gray-500 dark:text-gray-400 group-active:scale-90"
                                             }`}
                                         strokeWidth={active ? 2.5 : 2}
                                     />
@@ -239,8 +254,8 @@ export default function BottomNavigation() {
                                     )}
                                 </div>
                                 <span className={`text-[10px] font-medium transition-colors ${active
-                                        ? "text-blue-600 dark:text-blue-400"
-                                        : "text-gray-500 dark:text-gray-400"
+                                    ? "text-blue-600 dark:text-blue-400"
+                                    : "text-gray-500 dark:text-gray-400"
                                     }`}>
                                     {item.name}
                                 </span>

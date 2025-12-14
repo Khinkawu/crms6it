@@ -6,7 +6,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { useTheme } from "../../../context/ThemeContext";
 import { useState } from "react";
 import {
-    Search, Command, Sun, Moon, Bell,
+    Search, Command, Sun, Moon,
     ChevronDown, LogOut, User, Settings
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -77,12 +77,6 @@ export default function TopHeader({ onOpenCommandPalette }: TopHeaderProps) {
                         ) : (
                             <Sun size={18} className="text-amber-500" />
                         )}
-                    </button>
-
-                    {/* Notifications */}
-                    <button className="relative p-2.5 rounded-xl bg-gray-100/80 dark:bg-gray-800/50 hover:bg-gray-200/80 dark:hover:bg-gray-700/50 transition-colors tap-scale">
-                        <Bell size={18} className="text-gray-600 dark:text-gray-300" />
-                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
                     </button>
 
                     {/* User Menu */}
