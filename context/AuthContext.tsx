@@ -95,32 +95,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     useEffect(() => {
-        // Handle redirect result (for mobile login)
-        const handleRedirectResult = async () => {
+        let unsubscribe: () => void;
+
+        const initAuth = async () => {
+            // First, handle redirect result (for mobile login)
             try {
                 const result = await getRedirectResult(auth);
                 if (result?.user) {
                     await handleUserData(result.user);
+                    setLoading(false);
+                    return; // Exit early, onAuthStateChanged will handle the rest
                 }
             } catch (error) {
                 console.error("Error handling redirect result:", error);
             }
+
+            // Then set up auth state listener
+            unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+                setLoading(true);
+                if (currentUser) {
+                    await handleUserData(currentUser);
+                } else {
+                    setUser(null);
+                    setRole(null);
+                }
+                setLoading(false);
+            });
         };
 
-        handleRedirectResult();
+        initAuth();
 
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            setLoading(true);
-            if (currentUser) {
-                await handleUserData(currentUser);
-            } else {
-                setUser(null);
-                setRole(null);
-            }
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
     }, []);
 
     const signInWithGoogle = async () => {
