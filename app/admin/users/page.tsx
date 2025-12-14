@@ -8,7 +8,7 @@ import { db } from "../../../lib/firebase";
 import { UserProfile, UserRole } from "../../../types";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toast from "react-hot-toast";
-import { Search, Shield, User, Wrench, GraduationCap, ChevronDown, LayoutGrid, List } from "lucide-react";
+import { Search, Shield, User, Wrench, GraduationCap, ChevronDown, LayoutGrid, List, Camera } from "lucide-react";
 
 export default function UsersPage() {
     const { user, role, loading } = useAuth();
@@ -84,6 +84,27 @@ export default function UsersPage() {
         } catch (error) {
             console.error("Error updating responsibility:", error);
             toast.error("Failed to update responsibility.");
+        } finally {
+            setUpdatingUserId(null);
+        }
+    };
+
+    const handlePhotographerToggle = async (userId: string, currentStatus: boolean) => {
+        setUpdatingUserId(userId);
+        try {
+            const userRef = doc(db, "users", userId);
+            await updateDoc(userRef, {
+                isPhotographer: !currentStatus,
+                updatedAt: serverTimestamp()
+            });
+
+            setUsers(prev => prev.map(u =>
+                u.uid === userId ? { ...u, isPhotographer: !currentStatus } : u
+            ));
+            toast.success(currentStatus ? "Removed photographer role" : "Added photographer role");
+        } catch (error) {
+            console.error("Error updating photographer status:", error);
+            toast.error("Failed to update photographer status");
         } finally {
             setUpdatingUserId(null);
         }
@@ -245,6 +266,22 @@ export default function UsersPage() {
                                                         </div>
                                                     </div>
                                                 )}
+
+                                                {/* Photographer Toggle */}
+                                                <div>
+                                                    <label className="text-xs text-text-secondary uppercase font-bold block mb-1.5">Photographer</label>
+                                                    <button
+                                                        onClick={() => handlePhotographerToggle(u.uid, u.isPhotographer || false)}
+                                                        disabled={updatingUserId === u.uid}
+                                                        className={`w-full py-2 px-3 rounded-lg border flex items-center justify-center gap-2 transition-colors ${u.isPhotographer
+                                                                ? 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300'
+                                                                : 'bg-background border-border text-text-secondary hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                            }`}
+                                                    >
+                                                        <Camera size={16} />
+                                                        <span>{u.isPhotographer ? 'Active' : 'Inactive'}</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -316,6 +353,19 @@ export default function UsersPage() {
                                                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
                                                             </div>
                                                         )}
+
+                                                        {/* Photographer Toggle */}
+                                                        <button
+                                                            onClick={() => handlePhotographerToggle(u.uid, u.isPhotographer || false)}
+                                                            disabled={updatingUserId === u.uid}
+                                                            title="Toggle Photographer Role"
+                                                            className={`p-2 rounded-lg border transition-all ${u.isPhotographer
+                                                                    ? 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300'
+                                                                    : 'bg-background border-border text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                                                                }`}
+                                                        >
+                                                            <Camera size={20} />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -337,6 +387,6 @@ export default function UsersPage() {
                 confirmText="Change Role"
                 isDangerous={true}
             />
-        </div>
+        </div >
     );
 }

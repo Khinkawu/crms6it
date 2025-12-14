@@ -8,11 +8,11 @@ import { useState } from "react";
 import {
     LayoutDashboard, Package, Wrench, Users,
     History, Calendar, Sun, Moon, LogOut,
-    Menu, X, ChevronRight
+    Menu, X, ChevronRight, Camera
 } from "lucide-react";
 
 export default function Sidebar() {
-    const { user, role, signOut } = useAuth();
+    const { user, role, isPhotographer, signOut } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const pathname = usePathname();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -190,6 +190,12 @@ export default function Sidebar() {
                                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold text-white bg-gradient-to-r ${badge.color}`}>
                                             {badge.label}
                                         </span>
+                                        {isPhotographer && (
+                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white bg-gradient-to-r from-purple-500 to-pink-500 flex items-center gap-1">
+                                                <Camera size={8} />
+                                                <span>Photo</span>
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 

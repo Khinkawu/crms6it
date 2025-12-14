@@ -7,7 +7,7 @@ import { useTheme } from "../../../context/ThemeContext";
 import { useState } from "react";
 import {
     Search, Command, Sun, Moon,
-    ChevronDown, LogOut, User, Settings
+    ChevronDown, LogOut, User, Settings, Camera
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -16,7 +16,7 @@ interface TopHeaderProps {
 }
 
 export default function TopHeader({ onOpenCommandPalette }: TopHeaderProps) {
-    const { user, role, signOut } = useAuth();
+    const { user, role, isPhotographer, signOut } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -122,6 +122,12 @@ export default function TopHeader({ onOpenCommandPalette }: TopHeaderProps) {
                                             <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold text-white bg-gradient-to-r ${badge.color}`}>
                                                 {badge.label}
                                             </span>
+                                            {isPhotographer && (
+                                                <span className="inline-block mt-1 ml-1 px-2 py-0.5 rounded text-[10px] font-bold text-white bg-gradient-to-r from-purple-500 to-pink-500 flex-inline items-center gap-1">
+                                                    <Camera size={10} className="inline mr-1" />
+                                                    Photo
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />

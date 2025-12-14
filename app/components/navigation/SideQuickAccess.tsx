@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
 import {
     Home, Wrench, Calendar, Package, Users,
-    ClipboardList, LayoutDashboard
+    ClipboardList, LayoutDashboard, Camera
 } from "lucide-react";
 
 interface SideQuickAccessProps {
@@ -24,6 +24,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
         { name: "Dashboard", icon: LayoutDashboard, path: "/" },
         { name: "แจ้งซ่อม", icon: Wrench, path: "/repair" },
         { name: "จองห้อง", icon: Calendar, path: "/booking" },
+        { name: "ภาพกิจกรรม", icon: Camera, path: "/gallery" },
     ];
 
     const adminItems = [
@@ -47,8 +48,8 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
                         key={item.path}
                         href={item.path}
                         className={`relative group p-3 rounded-xl transition-all duration-200 ${isActive(item.path)
-                                ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-200"
+                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-200"
                             }`}
                     >
                         {isActive(item.path) && (
@@ -74,8 +75,8 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
                         key={item.path}
                         href={item.path}
                         className={`relative group p-3 rounded-xl transition-all duration-200 ${isActive(item.path)
-                                ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-200"
+                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-200"
                             }`}
                     >
                         {isActive(item.path) && (

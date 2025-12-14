@@ -7,12 +7,22 @@ import { motion } from "framer-motion";
 import {
     Sparkles, TrendingUp, Calendar as CalendarIcon,
     Wrench, Package, ChevronRight, Clock,
-    AlertCircle, CheckCircle2, Timer, User, ClipboardList
+    AlertCircle, CheckCircle2, Timer, User, ClipboardList, Users,
+    Camera, Image as ImageIcon, ExternalLink, Plus, Check
 } from "lucide-react";
+import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { PhotographyJob } from "../types";
+import PhotographyJobModal from "./components/PhotographyJobModal";
 
 // Custom Hooks
 import { useBookings, BookingEvent } from "../hooks/useBookings";
 import { useActivityLogs } from "../hooks/useActivityLogs";
+import ReportIssueModal from "./components/ReportIssueModal";
+
+import MyPhotographyJobsModal from "./components/MyPhotographyJobsModal";
+import { useRepairTickets } from "../hooks/useRepairTickets";
+import { Views } from "react-big-calendar";
 
 // Components
 import {
@@ -30,7 +40,8 @@ interface WidgetProps {
     icon?: React.ElementType;
     action?: {
         label: string;
-        href: string;
+        href?: string;
+        action?: () => void;
     };
     gradient?: string;
 }
@@ -59,13 +70,23 @@ function Widget({ children, className = "", title, icon: Icon, action, gradient 
                             )}
                         </div>
                         {action && (
-                            <Link
-                                href={action.href}
-                                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 tap-scale"
-                            >
-                                {action.label}
-                                <ChevronRight size={14} />
-                            </Link>
+                            typeof action.action === 'function' ? (
+                                <button
+                                    onClick={action.action}
+                                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 tap-scale"
+                                >
+                                    {action.label}
+                                    <Plus size={14} />
+                                </button>
+                            ) : (
+                                <Link
+                                    href={action.href!}
+                                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 tap-scale"
+                                >
+                                    {action.label}
+                                    <ChevronRight size={14} />
+                                </Link>
+                            )
                         )}
                     </div>
                 )}
@@ -82,32 +103,48 @@ interface QuickActionProps {
     icon: React.ElementType;
     title: string;
     description: string;
-    href: string;
+    href?: string;
+    onClick?: () => void;
     gradient: string;
     delay: number;
 }
 
-function QuickAction({ icon: Icon, title, description, href, gradient, delay }: QuickActionProps) {
+function QuickAction({ icon: Icon, title, description, href, onClick, gradient, delay }: QuickActionProps) {
+    const content = (
+        <>
+            <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg mb-3`}>
+                <Icon size={22} className="text-white" />
+            </div>
+            <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                {title}
+            </h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+                {description}
+            </p>
+        </>
+    );
+
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay }}
         >
-            <Link
-                href={href}
-                className="group block p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all tap-scale"
-            >
-                <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg mb-3`}>
-                    <Icon size={22} className="text-white" />
-                </div>
-                <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {title}
-                </h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {description}
-                </p>
-            </Link>
+            {href ? (
+                <Link
+                    href={href}
+                    className="group block p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all tap-scale"
+                >
+                    {content}
+                </Link>
+            ) : (
+                <button
+                    onClick={onClick}
+                    className="group w-full text-left block p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all tap-scale"
+                >
+                    {content}
+                </button>
+            )}
         </motion.div>
     );
 }
@@ -141,15 +178,42 @@ function StatCard({ label, value, icon: Icon, color, trend }: StatCardProps) {
 }
 
 export default function Dashboard() {
-    const { user, role, loading } = useAuth();
+    const { user, role, isPhotographer, loading } = useAuth();
     const router = useRouter();
 
     // Custom hooks for data fetching
-    const { visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings();
+    const { visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: false });
     const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true });
+    const { stats: repairStats } = useRepairTickets();
 
     // Modal state
+    const [historyType, setHistoryType] = useState<'repair' | 'booking' | 'borrow' | 'requisition'>('repair');
     const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
+
+    // Photography Jobs State
+    const [photoJobs, setPhotoJobs] = useState<PhotographyJob[]>([]);
+    const [isJobModalOpen, setIsJobModalOpen] = useState(false);
+    const [isMyJobsModalOpen, setIsMyJobsModalOpen] = useState(false);
+
+    // Fetch Completed Photography Jobs
+    useEffect(() => {
+        const q = query(
+            collection(db, "photography_jobs"),
+            where("status", "==", "completed"),
+            orderBy("endTime", "desc"),
+            limit(4)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const jobs: PhotographyJob[] = [];
+            snapshot.forEach((doc) => {
+                jobs.push({ id: doc.id, ...doc.data() } as PhotographyJob);
+            });
+            setPhotoJobs(jobs);
+        });
+
+        return () => unsubscribe();
+    }, []);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
     // Greeting based on time
@@ -159,7 +223,10 @@ export default function Dashboard() {
         if (hour < 17) return "สวัสดีตอนบ่าย";
         return "สวัสดีตอนเย็น";
     };
+    // State for Report Issue Modal
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
+    // Initial load
     useEffect(() => {
         if (!loading && !user) {
             router.push("/login");
@@ -186,11 +253,9 @@ export default function Dashboard() {
     // Stats calculations
     const pendingBookings = visibleEvents.filter(e => e.status === 'pending').length;
     const approvedBookings = visibleEvents.filter(e => e.status === 'approved').length;
-    const todayActivities = activities.filter(a => {
-        const actDate = a.timestamp?.toDate?.();
-        if (!actDate) return false;
+    const todayActivities = visibleEvents.filter(e => {
         const today = new Date();
-        return actDate.toDateString() === today.toDateString();
+        return e.start.toDateString() === today.toDateString() && e.status === 'approved';
     }).length;
 
     const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician';
@@ -227,7 +292,7 @@ export default function Dashboard() {
 
                 {/* Quick Actions Widget (4 cols) */}
                 <Widget
-                    className="lg:col-span-4"
+                    className="lg:col-span-4 h-full"
                     title="เริ่มต้นใช้งาน"
                     icon={Sparkles}
                 >
@@ -250,6 +315,15 @@ export default function Dashboard() {
                             gradient="from-blue-500 to-cyan-500"
                             delay={0.15}
                         />
+                        {/* ประมวลภาพกิจกรรม - Everyone */}
+                        <QuickAction
+                            icon={Camera}
+                            title="ภาพกิจกรรม"
+                            description="ประมวลภาพกิจกรรม"
+                            href="/gallery"
+                            gradient="from-amber-500 to-yellow-500"
+                            delay={0.2}
+                        />
                         {/* จัดการงานซ่อม - admin, moderator */}
                         {(role === 'admin' || role === 'moderator') && (
                             <QuickAction
@@ -261,15 +335,27 @@ export default function Dashboard() {
                                 delay={0.2}
                             />
                         )}
-                        {/* จัดการการจอง - admin, moderator */}
+                        {/* Booking Management - Admin Only */}
                         {(role === 'admin' || role === 'moderator') && (
                             <QuickAction
                                 icon={CalendarIcon}
-                                title="จัดการจอง"
+                                title="จัดการการจอง"
                                 description="จัดการการจอง"
                                 href="/admin/bookings"
-                                gradient="from-pink-500 to-rose-500"
-                                delay={0.25}
+                                gradient="from-rose-500 to-pink-600"
+                                delay={0.3}
+                            />
+                        )}
+
+                        {/* Photographer Job - Only for users with isPhotographer flag */}
+                        {isPhotographer && (
+                            <QuickAction
+                                icon={Camera}
+                                title="งานภาพ"
+                                description="งานที่ได้รับมอบหมาย"
+                                onClick={() => setIsMyJobsModalOpen(true)}
+                                gradient="from-indigo-500 to-purple-600"
+                                delay={0.35}
                             />
                         )}
                         {/* อุปกรณ์ - admin only */}
@@ -283,57 +369,140 @@ export default function Dashboard() {
                                 delay={0.3}
                             />
                         )}
-                        {/* ผู้ใช้ - admin only */}
+                        {/* ผู้ใช้งาน - admin only */}
                         {role === 'admin' && (
                             <QuickAction
-                                icon={User}
-                                title="ผู้ใช้"
+                                icon={Users}
+                                title="ผู้ใช้งาน"
                                 description="จัดการผู้ใช้"
                                 href="/admin/users"
                                 gradient="from-emerald-500 to-teal-500"
                                 delay={0.35}
                             />
                         )}
+                        {/* Report Issue - Non-Admin Users */}
+                        {role !== 'admin' && (
+                            <QuickAction
+                                icon={AlertCircle}
+                                title="แจ้งปัญหา"
+                                description="แจ้งปัญหาการใช้งาน"
+                                onClick={() => setIsReportModalOpen(true)}
+                                gradient="from-gray-500 to-slate-600"
+                                delay={0.3}
+                            />
+                        )}
                     </div>
                 </Widget>
 
+                {/* Report Issue Modal */}
+                <ReportIssueModal
+                    isOpen={isReportModalOpen}
+                    onClose={() => setIsReportModalOpen(false)}
+                />
+
                 {/* Stats Widget (4 cols) */}
                 <Widget
-                    className="lg:col-span-4"
-                    title="สถิติ"
+                    className="lg:col-span-4 h-full"
+                    title="การจองห้องประชุมประจำวัน"
                     icon={TrendingUp}
                 >
-                    <div className="space-y-3">
-                        <StatCard
-                            label="รอการอนุมัติ"
-                            value={pendingBookings}
-                            icon={AlertCircle}
-                            color="bg-amber-500"
-                        />
-                        <StatCard
-                            label="การจองที่อนุมัติแล้ว"
-                            value={approvedBookings}
-                            icon={CheckCircle2}
-                            color="bg-emerald-500"
-                        />
-                        <StatCard
-                            label="กิจกรรมวันนี้"
-                            value={todayActivities}
-                            icon={Clock}
-                            color="bg-blue-500"
-                        />
+                    <div className="space-y-4">
+                        {/* Today Activities - clickable */}
+                        <button
+                            onClick={() => {
+                                setView(Views.AGENDA);
+                                setDate(new Date());
+                                document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className="w-full flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 rounded-xl transition-colors group"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/30">
+                                    <CalendarIcon size={18} className="text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <span className="text-sm text-gray-600 dark:text-gray-300">กิจกรรมวันนี้</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{todayActivities}</span>
+                                <ChevronRight size={16} className="text-gray-400 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                        </button>
+
+                        {/* Divider */}
+                        <div className="h-px bg-gray-100 dark:bg-gray-700" />
+
+                        {/* Repair Stats Header */}
+                        <div className="px-1 pt-1">
+                            <h3 className="font-semibold text-gray-900 dark:text-white text-sm">สถิติงานซ่อม</h3>
+                        </div>
+
+                        {/* Ring Charts for Repairs */}
+                        <div className="flex justify-between items-center pb-4 px-2">
+                            {/* Total Repairs Ring */}
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="relative w-24 h-24">
+                                    <svg className="w-24 h-24 -rotate-90" viewBox="0 0 36 36">
+                                        <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-gray-200 dark:text-gray-700" />
+                                        <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3"
+                                            className="text-amber-500"
+                                            strokeDasharray={`${repairStats.total > 0 ? 88 : 0} 88`}
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{repairStats.total}</span>
+                                    </div>
+                                </div>
+                                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">ทั้งหมด</span>
+                            </div>
+
+                            {/* Pending Repairs Ring */}
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="relative w-24 h-24">
+                                    <svg className="w-24 h-24 -rotate-90" viewBox="0 0 36 36">
+                                        <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-gray-200 dark:text-gray-700" />
+                                        <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3"
+                                            className="text-blue-500"
+                                            strokeDasharray={`${repairStats.total > 0 ? ((repairStats.pending + repairStats.inProgress) / repairStats.total) * 88 : 0} 88`}
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{repairStats.pending + repairStats.inProgress}</span>
+                                    </div>
+                                </div>
+                                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">กำลังซ่อม</span>
+                            </div>
+
+                            {/* Completed Repairs Ring */}
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="relative w-24 h-24">
+                                    <svg className="w-24 h-24 -rotate-90" viewBox="0 0 36 36">
+                                        <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3" className="text-gray-200 dark:text-gray-700" />
+                                        <circle cx="18" cy="18" r="14" fill="none" stroke="currentColor" strokeWidth="3"
+                                            className="text-emerald-500"
+                                            strokeDasharray={`${repairStats.total > 0 ? (repairStats.completed / repairStats.total) * 88 : 0} 88`}
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className="text-2xl font-bold text-gray-900 dark:text-white">{repairStats.completed}</span>
+                                    </div>
+                                </div>
+                                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">เสร็จสิ้น</span>
+                            </div>
+                        </div>
                     </div>
                 </Widget>
 
                 {/* Recent Activity Widget (4 cols) */}
                 <Widget
-                    className="lg:col-span-4"
-                    title="กิจกรรมล่าสุด"
+                    className="lg:col-span-4 h-full"
+                    title="สถานะการแจ้งซ่อมล่าสุด"
                     icon={Clock}
-                    action={{ label: "ดูทั้งหมด", href: "/admin/repairs" }}
                 >
-                    <div className="space-y-2">
-                        {activities.slice(0, 4).map((activity, index) => {
+                    <div className="space-y-3">
+                        {activities.slice(0, 3).map((activity, index) => {
                             // Helper to translate zone
                             const getZoneThai = (zone: string) => {
                                 switch (zone) {
@@ -343,67 +512,75 @@ export default function Dashboard() {
                                     case 'elementary': return 'ประถม';
                                     case 'kindergarten': return 'อนุบาล';
                                     case 'auditorium': return 'หอประชุม';
-                                    default: return zone;
+                                    default: return zone || '';
                                 }
                             };
 
-                            // Helper for status color
-                            const getStatusColor = (status: string) => {
+                            // Helper for status badge
+                            const getStatusBadge = (status: string) => {
                                 switch (status) {
-                                    case 'pending': return 'bg-amber-500';
-                                    case 'in_progress': return 'bg-blue-500';
-                                    case 'waiting_parts': return 'bg-purple-500';
-                                    case 'completed': return 'bg-emerald-500';
-                                    case 'cancelled': return 'bg-red-500';
-                                    default: return 'bg-orange-500'; // default for new repairs
+                                    case 'pending': return { text: 'รอดำเนินการ', color: 'bg-amber-100 text-amber-700' };
+                                    case 'in_progress': return { text: 'กำลังดำเนินการ', color: 'bg-blue-100 text-blue-700' };
+                                    case 'waiting_parts': return { text: 'รออะไหล่', color: 'bg-purple-100 text-purple-700' };
+                                    case 'completed': return { text: 'เสร็จสิ้น', color: 'bg-emerald-100 text-emerald-700' };
+                                    default: return { text: 'ใหม่', color: 'bg-orange-100 text-orange-700' };
                                 }
                             };
 
-                            // Build location string: Room + Zone
-                            const roomNumber = activity.productName || '';
-                            const zoneThai = activity.zone ? getZoneThai(activity.zone) : '';
-                            const locationText = [roomNumber, zoneThai].filter(Boolean).join(' • ');
+                            const status = getStatusBadge(activity.status || '');
+                            const roomNumber = activity.productName || '-';
+                            const zoneThai = getZoneThai(activity.zone || '');
 
                             return (
                                 <motion.div
                                     key={activity.id}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                    className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
                                 >
-                                    <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${getStatusColor(activity.status || '')}`} />
-                                    <div className="flex-1 min-w-0">
-                                        {/* Room & Zone */}
-                                        {locationText && (
-                                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-0.5">
-                                                📍 {locationText}
-                                            </p>
-                                        )}
-                                        {/* Symptom/Details */}
-                                        <p className="text-sm text-gray-700 dark:text-gray-200 line-clamp-2">
-                                            {activity.details || 'แจ้งซ่อม'}
-                                        </p>
-                                        {/* Time and User */}
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-xs text-gray-400">
-                                                {activity.timestamp?.toDate?.()?.toLocaleTimeString('th-TH', {
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </p>
-                                            {activity.userName && (
-                                                <span className="text-xs text-gray-400 truncate max-w-[100px]">
-                                                    • {activity.userName}
-                                                </span>
-                                            )}
-                                        </div>
+                                    {/* Header: Status + Time */}
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                                            {status.text}
+                                        </span>
+                                        <span className="text-xs text-gray-400">
+                                            {activity.timestamp?.toDate?.()?.toLocaleTimeString('th-TH', {
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </span>
                                     </div>
+
+                                    {/* Location */}
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                            ห้อง {roomNumber}
+                                        </span>
+                                        {zoneThai && (
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded">
+                                                {zoneThai}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Description */}
+                                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-1">
+                                        {activity.details || 'แจ้งซ่อม'}
+                                    </p>
+
+                                    {/* Reporter */}
+                                    {activity.userName && (
+                                        <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
+                                            <User size={12} />
+                                            {activity.userName}
+                                        </p>
+                                    )}
                                 </motion.div>
                             );
                         })}
                         {activities.length === 0 && (
-                            <p className="text-sm text-gray-400 text-center py-4">
+                            <p className="text-sm text-gray-400 text-center py-6">
                                 ยังไม่มีกิจกรรม
                             </p>
                         )}
@@ -411,15 +588,78 @@ export default function Dashboard() {
                 </Widget>
 
                 {/* Calendar Widget (Full width) */}
-                <div className="lg:col-span-12">
-                    <LazyCalendarSection
-                        events={visibleEvents}
-                        view={view}
-                        setView={setView}
-                        date={date}
-                        setDate={setDate}
-                        onSelectEvent={handleSelectEvent}
-                    />
+                {/* Split Section: Calendar (8) + Gallery (4) */}
+                <div className="lg:col-span-12 grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Calendar - Left Side */}
+                    <div id="calendar-section" className="lg:col-span-8">
+                        <LazyCalendarSection
+                            events={visibleEvents}
+                            view={view}
+                            setView={setView}
+                            date={date}
+                            setDate={setDate}
+                            onSelectEvent={handleSelectEvent}
+                        />
+                    </div>
+
+                    {/* Gallery - Right Side */}
+                    <div className="lg:col-span-4 space-y-6">
+                        <Widget
+                            title="ภาพกิจกรรมล่าสุด"
+                            icon={ImageIcon}
+                            className="h-full"
+                            action={role === 'admin' ? {
+                                label: "มอบหมายงาน",
+                                action: () => setIsJobModalOpen(true)
+                            } : undefined}
+                        >
+                            {photoJobs.length === 0 ? (
+                                <div className="text-center py-12 text-gray-400">
+                                    <Camera size={40} className="mx-auto mb-3 opacity-50" />
+                                    <p className="text-sm">ยังไม่มีภาพกิจกรรม</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-1">
+                                    {photoJobs.slice(0, 5).map((job) => (
+                                        <a
+                                            key={job.id}
+                                            href={job.driveLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                                        >
+                                            {/* Thumbnail */}
+                                            <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                                                {job.coverImage ? (
+                                                    <img
+                                                        src={job.coverImage}
+                                                        alt={job.title}
+                                                        className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <ImageIcon className="text-gray-400" size={20} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-medium text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                                    {job.title}
+                                                </h4>
+                                                <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                    <CalendarIcon size={11} />
+                                                    <span>{job.endTime?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
+                                                </div>
+                                            </div>
+                                            {/* Arrow */}
+                                            <ExternalLink size={14} className="text-gray-400 group-hover:text-blue-500 transition-colors flex-shrink-0" />
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+                        </Widget>
+                    </div>
                 </div>
             </div>
 
@@ -431,6 +671,20 @@ export default function Dashboard() {
                     event={selectedEvent}
                 />
             )}
+
+            {/* Photography Job Creation Modal */}
+            <PhotographyJobModal
+                isOpen={isJobModalOpen}
+                onClose={() => setIsJobModalOpen(false)}
+                requesterId={user?.uid || ''}
+            />
+
+            {/* My Photography Jobs Modal */}
+            <MyPhotographyJobsModal
+                isOpen={isMyJobsModalOpen}
+                onClose={() => setIsMyJobsModalOpen(false)}
+                userId={user?.uid || ''}
+            />
         </div>
     );
 }

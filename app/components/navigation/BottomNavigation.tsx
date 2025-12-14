@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
+import { useTheme } from "../../../context/ThemeContext";
 import { useState } from "react";
 import {
     Home, Wrench, Calendar, User,
     Plus, Package, ClipboardList, MoreHorizontal,
-    Settings, X, LogOut
+    Settings, X, LogOut, Sun, Moon, Camera
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function BottomNavigation() {
     const { user, role, signOut } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const pathname = usePathname();
     const [fabOpen, setFabOpen] = useState(false);
     const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -43,6 +45,7 @@ export default function BottomNavigation() {
     // More menu items for admin
     const moreMenuItems = [
         { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician"] },
+        { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "admin", "moderator", "technician"] },
         { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["admin", "moderator"] },
         { name: "จัดการอุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"] },
@@ -142,6 +145,15 @@ export default function BottomNavigation() {
 
                                 {/* Divider */}
                                 <div className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
+
+                                {/* Theme Toggle Button */}
+                                <button
+                                    onClick={toggleTheme}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                >
+                                    {theme === 'light' ? <Moon size={20} /> : <Sun size={20} className="text-amber-500" />}
+                                    <span className="font-medium text-sm">{theme === 'light' ? 'โหมดกลางคืน' : 'โหมดกลางวัน'}</span>
+                                </button>
 
                                 {/* Logout Button */}
                                 <button

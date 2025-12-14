@@ -202,7 +202,8 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
                 userName: userName || "Technician",
                 details: technicianNote,
                 status: status,
-                imageUrl: completionImageUrl || selectedTicket.images?.[0]
+                imageUrl: completionImageUrl || selectedTicket.images?.[0],
+                zone: selectedTicket.zone
             });
 
             // Send LINE notification if completed

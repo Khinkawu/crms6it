@@ -19,13 +19,25 @@ import {
     Mail,
     Bell,
     LinkIcon,
-    ExternalLink
+    ExternalLink,
+    MessageSquare,
+    Clock,
+    Camera
 } from "lucide-react";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 
 type HistoryType = "repair" | "booking" | "borrow" | "requisition";
 
+interface Feedback {
+    id: string;
+    details: string;
+    timestamp: any;
+    status: string;
+    userAgent?: string;
+}
+
 function ProfileContent() {
-    const { user, role, loading } = useAuth();
+    const { user, role, isPhotographer, loading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -35,6 +47,26 @@ function ProfileContent() {
     const [isDisconnectConfirmOpen, setIsDisconnectConfirmOpen] = useState(false);
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
     const [historyType, setHistoryType] = useState<HistoryType>("repair");
+
+    // Admin Feedbacks
+    const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+    const [feedbacksLoading, setFeedbacksLoading] = useState(false);
+
+    useEffect(() => {
+        if (role === 'admin') {
+            setFeedbacksLoading(true);
+            const q = query(collection(db, "feedbacks"), orderBy("timestamp", "desc"));
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const items: Feedback[] = [];
+                snapshot.forEach((doc) => {
+                    items.push({ id: doc.id, ...doc.data() } as Feedback);
+                });
+                setFeedbacks(items);
+                setFeedbacksLoading(false);
+            });
+            return () => unsubscribe();
+        }
+    }, [role]);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -99,16 +131,24 @@ function ProfileContent() {
 
     const getRoleBadge = (role: string | null) => {
         const roleLabels: Record<string, { label: string; style: string }> = {
-            admin: { label: "ผู้ดูแลระบบ", style: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800" },
-            technician: { label: "ช่างเทคนิค", style: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800" },
-            moderator: { label: "ผู้ตรวจสอบ", style: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800" },
-            user: { label: "ผู้ใช้งาน", style: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800" }
+            admin: { label: "Admin", style: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800" },
+            technician: { label: "Technician", style: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800" },
+            moderator: { label: "Moderator", style: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800" },
+            user: { label: "User", style: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800" }
         };
         const config = roleLabels[role || 'user'] || roleLabels.user;
         return (
-            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${config.style}`}>
-                {config.label}
-            </span>
+            <div className="flex flex-row gap-2 items-center mt-2 sm:mt-0">
+                <span className={`px-3 py-1 rounded-full text-xs font-medium border ${config.style}`}>
+                    {config.label}
+                </span>
+                {isPhotographer && (
+                    <span className="px-3 py-1 rounded-full text-xs font-medium border bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800 flex items-center gap-1">
+                        <Camera size={12} />
+                        Photographer
+                    </span>
+                )}
+            </div>
         );
     };
 
@@ -160,6 +200,46 @@ function ProfileContent() {
                         </div>
                     </div>
                 </div>
+
+                {/* System Feedback (Admin Only) */}
+                {role === 'admin' && (
+                    <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <MessageSquare size={18} className="text-gray-500" />
+                                <h2 className="text-base font-semibold text-gray-900 dark:text-white">ปัญหาการใช้งาน ({feedbacks.length})</h2>
+                            </div>
+                        </div>
+                        <div className="max-h-[400px] overflow-y-auto p-4 space-y-3">
+                            {feedbacksLoading ? (
+                                <div className="text-center py-8 text-gray-400">Loading...</div>
+                            ) : feedbacks.length === 0 ? (
+                                <div className="text-center py-8 text-gray-400">ยังไม่มีการแจ้งปัญหา</div>
+                            ) : (
+                                feedbacks.map((item) => (
+                                    <div key={item.id} className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700/50">
+                                        <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap mb-2">
+                                            {item.details}
+                                        </p>
+                                        <div className="flex items-center justify-between text-xs text-gray-400">
+                                            <div className="flex items-center gap-1">
+                                                <Clock size={12} />
+                                                <span>
+                                                    {item.timestamp?.toDate().toLocaleString('th-TH')}
+                                                </span>
+                                            </div>
+                                            {item.userAgent && (
+                                                <span className="opacity-50 truncate max-w-[150px]" title={item.userAgent}>
+                                                    {item.userAgent.split(')')[0] + ')'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Activity History Section */}
                 <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -270,6 +350,8 @@ function ProfileContent() {
                         </div>
                     </div>
                 </div>
+
+
             </div>
 
             {/* History Modal */}

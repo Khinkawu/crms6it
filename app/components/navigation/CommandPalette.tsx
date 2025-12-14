@@ -130,16 +130,26 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         return () => document.removeEventListener("keydown", handleGlobalKeyDown);
     }, [isOpen, onClose]);
 
+    // Lock body scroll when open
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     return (
         <AnimatePresence>
             {isOpen && (
-                <>
+                <div className="fixed inset-0 z-[9999] flex justify-center items-start pt-[15vh] px-4">
                     {/* Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
                         onClick={onClose}
                     />
 
@@ -149,7 +159,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -20 }}
                         transition={{ duration: 0.15 }}
-                        className="fixed top-[15%] left-1/2 -translate-x-1/2 w-full max-w-xl z-50 mx-4"
+                        className="relative w-full max-w-xl z-50 pointer-events-auto"
                     >
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
                             {/* Search Input */}
@@ -197,13 +207,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                                                         }}
                                                         onMouseEnter={() => setSelectedIndex(flatCommands.findIndex(c => c.id === cmd.id))}
                                                         className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${isSelected
-                                                                ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                                                                : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                                            ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                                            : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                                             }`}
                                                     >
                                                         <div className={`p-2 rounded-xl ${isSelected
-                                                                ? "bg-blue-100 dark:bg-blue-900/50"
-                                                                : "bg-gray-100 dark:bg-gray-700"
+                                                            ? "bg-blue-100 dark:bg-blue-900/50"
+                                                            : "bg-gray-100 dark:bg-gray-700"
                                                             }`}>
                                                             <cmd.icon size={18} />
                                                         </div>
@@ -245,7 +255,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                             </div>
                         </div>
                     </motion.div>
-                </>
+                </div>
             )}
         </AnimatePresence>
     );
