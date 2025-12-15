@@ -28,8 +28,8 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
     const [photographers, setPhotographers] = useState<UserProfile[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Import from Booking
-    const { events: bookings, loading: bookingsLoading } = useBookings({ filterApprovedOnly: true });
+    // Import from Booking - extend range to 6 months to include more bookings
+    const { events: bookings, loading: bookingsLoading } = useBookings({ filterApprovedOnly: true, monthsRange: 6 });
     const [selectedBookingId, setSelectedBookingId] = useState("");
 
     // Track which bookings already have photography jobs (assigned or completed)
@@ -64,9 +64,18 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
     }, [isOpen]);
 
     // Filter bookings that don't have jobs yet
+    // Debug: log all bookings to check if they are loaded
+    console.log('📌 All bookings:', bookings.length, bookings.map(b => ({ id: b.id, title: b.title, date: moment(b.start).format('YYYY-MM-DD') })));
+    console.log('📌 Existing job booking IDs:', Array.from(existingJobBookingIds));
+
     const availableBookings = bookings.filter(booking => {
-        const bookingKey = `${booking.title.split(' (')[0]}_${moment(booking.start).format('YYYY-MM-DD')}`;
-        return !existingJobBookingIds.has(bookingKey);
+        // Match by booking title (without room name) and date
+        const bookingTitle = booking.title.split(' (')[0];
+        const bookingDate = moment(booking.start).format('YYYY-MM-DD');
+        const bookingKey = `${bookingTitle}_${bookingDate}`;
+        const isExcluded = existingJobBookingIds.has(bookingKey);
+        console.log(`📌 Booking: ${bookingTitle} on ${bookingDate} - Excluded: ${isExcluded}`);
+        return !isExcluded;
     });
 
     const handleImportBooking = (bookingId: string) => {
