@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
-import { useSessionTimeout } from "../../hooks/useSessionTimeout";
+// import { useSessionTimeout } from "../../hooks/useSessionTimeout"; // Disabled - no session timeout
 import ErrorBoundary from "./ErrorBoundary";
 import BottomNavigation from "./navigation/BottomNavigation";
 import TopHeader from "./navigation/TopHeader";
@@ -13,11 +13,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const pathname = usePathname();
     const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
-    // Session timeout - auto logout after 60 minutes of inactivity
-    useSessionTimeout({
-        timeoutMinutes: 60,
-        warningMinutes: 5
-    });
+    // Session timeout disabled - users stay logged in indefinitely
+    // useSessionTimeout({
+    //     timeoutMinutes: 60,
+    //     warningMinutes: 5
+    // });
 
     // Global keyboard shortcut for Command Palette
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
