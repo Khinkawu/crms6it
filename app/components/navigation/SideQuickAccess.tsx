@@ -13,7 +13,7 @@ interface SideQuickAccessProps {
 }
 
 export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAccessProps) {
-    const { user, role } = useAuth();
+    const { user, role, isPhotographer } = useAuth();
     const pathname = usePathname();
 
     if (!user) return null;
@@ -30,9 +30,12 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
     const adminItems = [
         { name: "งานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
         { name: "การจอง", icon: Calendar, path: "/admin/bookings", roles: ["admin", "moderator"] },
-        { name: "อุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"] },
+        { name: "อุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
         { name: "ผู้ใช้", icon: Users, path: "/admin/users", roles: ["admin"] },
-    ].filter(item => role && item.roles.includes(role));
+    ].filter(item => {
+        if (item.allowPhotographer && isPhotographer) return true;
+        return role && item.roles.includes(role);
+    });
 
     const isActive = (path: string) => pathname === path;
 

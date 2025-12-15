@@ -24,10 +24,11 @@ interface CommandItem {
     category: string;
     keywords?: string[];
     roles?: string[];
+    allowPhotographer?: boolean;
 }
 
 export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
-    const { role } = useAuth();
+    const { role, isPhotographer } = useAuth();
     const router = useRouter();
     const [query, setQuery] = useState("");
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -45,14 +46,18 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         // Admin
         { id: "admin-repairs", name: "จัดการงานซ่อม", description: "ดูและจัดการงานซ่อมทั้งหมด", icon: ClipboardList, path: "/admin/repairs", category: "Admin", keywords: ["manage", "repairs", "จัดการ"], roles: ["admin", "moderator", "technician"] },
         { id: "admin-bookings", name: "จัดการการจอง", description: "อนุมัติและจัดการการจอง", icon: Calendar, path: "/admin/bookings", category: "Admin", keywords: ["manage", "bookings"], roles: ["admin", "moderator"] },
-        { id: "admin-inventory", name: "คลังอุปกรณ์", description: "จัดการอุปกรณ์และสินค้า", icon: Package, path: "/admin/inventory", category: "Admin", keywords: ["inventory", "stock", "อุปกรณ์"], roles: ["admin", "technician"] },
+        { id: "admin-inventory", name: "คลังอุปกรณ์", description: "จัดการอุปกรณ์และสินค้า", icon: Package, path: "/admin/inventory", category: "Admin", keywords: ["inventory", "stock", "อุปกรณ์"], roles: ["admin", "technician"], allowPhotographer: true },
         { id: "admin-users", name: "จัดการผู้ใช้", description: "จัดการบัญชีและสิทธิ์", icon: Users, path: "/admin/users", category: "Admin", keywords: ["users", "manage", "ผู้ใช้"], roles: ["admin"] },
     ];
 
     // Filter commands based on role and search query
     const filteredCommands = allCommands.filter(cmd => {
         // Role check
-        if (cmd.roles && role && !cmd.roles.includes(role)) return false;
+        if (cmd.roles) {
+            const hasRoleAccess = role && cmd.roles.includes(role);
+            const hasPhotographerAccess = cmd.allowPhotographer && isPhotographer;
+            if (!hasRoleAccess && !hasPhotographerAccess) return false;
+        }
 
         // Search check
         if (!query) return true;

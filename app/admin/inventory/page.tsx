@@ -45,7 +45,7 @@ import { PageSkeleton, CardSkeleton } from "../../components/ui/Skeleton";
 
 
 function InventoryContent() {
-    const { user, role, loading } = useAuth();
+    const { user, role, isPhotographer, loading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     // ... rest of the component logic
@@ -66,13 +66,16 @@ function InventoryContent() {
     const [logType, setLogType] = useState<'stock' | 'activity'>('stock');
     const [activityLogs, setActivityLogs] = useState<any[]>([]);
 
+    // Access control: admin, technician, or photographer can access
+    const hasAccess = role === 'admin' || role === 'technician' || isPhotographer;
+
     useEffect(() => {
         if (!loading) {
-            if (!user || role !== 'admin') {
+            if (!user || !hasAccess) {
                 router.push("/");
             }
         }
-    }, [user, role, loading, router]);
+    }, [user, hasAccess, loading, router]);
 
     useEffect(() => {
         if (!user) return;
@@ -350,7 +353,7 @@ function InventoryContent() {
         totalItems
     } = usePagination({ data: filteredProducts, itemsPerPage: 12 });
 
-    if (loading || !user || role !== 'admin') {
+    if (loading || !user || !hasAccess) {
         return <PageSkeleton />;
     }
 

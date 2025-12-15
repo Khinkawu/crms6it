@@ -358,8 +358,8 @@ export default function Dashboard() {
                                 delay={0.35}
                             />
                         )}
-                        {/* อุปกรณ์ - admin only */}
-                        {role === 'admin' && (
+                        {/* อุปกรณ์ - admin or photographer */}
+                        {(role === 'admin' || role === 'technician' || isPhotographer) && (
                             <QuickAction
                                 icon={Package}
                                 title="อุปกรณ์"

@@ -13,7 +13,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function BottomNavigation() {
-    const { user, role, signOut } = useAuth();
+    const { user, role, isPhotographer, signOut } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const pathname = usePathname();
     const [fabOpen, setFabOpen] = useState(false);
@@ -48,9 +48,12 @@ export default function BottomNavigation() {
         { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "admin", "moderator", "technician"] },
         { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["admin", "moderator"] },
-        { name: "จัดการอุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"] },
+        { name: "จัดการอุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
         { name: "จัดการผู้ใช้", icon: Settings, path: "/admin/users", roles: ["admin"] },
-    ].filter(item => role && item.roles.includes(role));
+    ].filter(item => {
+        if (item.allowPhotographer && isPhotographer) return true;
+        return role && item.roles.includes(role);
+    });
 
     const isActive = (path: string | null) => {
         if (path === "more") return moreMenuOpen;
