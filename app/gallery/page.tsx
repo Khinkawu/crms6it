@@ -78,7 +78,7 @@ export default function GalleryPage() {
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
                 const matchTitle = job.title.toLowerCase().includes(query);
-                const matchPhotographer = (job.assigneeNames?.join(' ') || '').toLowerCase().includes(query);
+                const matchPhotographer = (job.assigneeNames?.join(' ') || (job as any).assigneeName || '').toLowerCase().includes(query);
                 const matchLocation = (job.location || '').toLowerCase().includes(query);
                 if (!matchTitle && !matchPhotographer && !matchLocation) {
                     return false;
@@ -292,7 +292,7 @@ export default function GalleryPage() {
                                             </div>
                                             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                                 <User size={14} />
-                                                <span>ถ่ายโดย: {job.assigneeNames?.join(', ') || 'ไม่ระบุ'}</span>
+                                                <span>ถ่ายโดย: {job.assigneeNames?.join(', ') || (job as any).assigneeName || 'ไม่ระบุ'}</span>
                                             </div>
                                         </div>
 
