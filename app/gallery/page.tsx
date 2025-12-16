@@ -78,7 +78,7 @@ export default function GalleryPage() {
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
                 const matchTitle = job.title.toLowerCase().includes(query);
-                const matchPhotographer = (job.assigneeName || '').toLowerCase().includes(query);
+                const matchPhotographer = (job.assigneeNames?.join(' ') || '').toLowerCase().includes(query);
                 const matchLocation = (job.location || '').toLowerCase().includes(query);
                 if (!matchTitle && !matchPhotographer && !matchLocation) {
                     return false;
@@ -292,7 +292,7 @@ export default function GalleryPage() {
                                             </div>
                                             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                                 <User size={14} />
-                                                <span>ถ่ายโดย: {job.assigneeName || 'ไม่ระบุ'}</span>
+                                                <span>ถ่ายโดย: {job.assigneeNames?.join(', ') || 'ไม่ระบุ'}</span>
                                             </div>
                                         </div>
 
@@ -325,8 +325,8 @@ export default function GalleryPage() {
                                             key={page}
                                             onClick={() => setCurrentPage(page)}
                                             className={`w-10 h-10 rounded-xl text-sm font-medium transition-colors ${page === currentPage
-                                                    ? 'bg-blue-500 text-white'
-                                                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                                ? 'bg-blue-500 text-white'
+                                                : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
                                                 }`}
                                         >
                                             {page}
