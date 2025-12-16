@@ -83,7 +83,7 @@ export default function LoginPage() {
                     <div className="flex items-center gap-4 mb-12">
                         <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xl p-0.5 shadow-xl">
                             <div className="w-full h-full rounded-[14px] bg-white flex items-center justify-center overflow-hidden">
-                                <img src="/apple-icon.png" alt="Logo" className="w-12 h-12 object-contain" />
+                                <img src="/icon.png" alt="Logo" className="w-12 h-12 object-contain" />
                             </div>
                         </div>
                         <div>
@@ -95,13 +95,13 @@ export default function LoginPage() {
                     {/* Hero Text */}
                     <h2 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-6">
                         ระบบบริหารจัดการ<br />
-                        <span className="text-cyan-200">สำหรับโรงเรียน</span><br />
-                        ที่คุณไว้ใจได้
+                        <span className="text-cyan-200">สำหรับงานโสตทัศนศึกษา</span><br />
+                        โรงเรียนเทศบาล 6 นครเชียงราย
                     </h2>
 
                     <p className="text-lg text-white/80 mb-12 max-w-md">
-                        แพลตฟอร์มครบวงจรสำหรับการจัดการอุปกรณ์โสตทัศนศึกษา
-                        การจองห้องประชุม และระบบแจ้งซ่อม
+                        แพลตฟอร์มสำหรับการจัดการอุปกรณ์โสตทัศนศึกษา<br />
+                        จองห้องประชุม ระบบแจ้งซ่อม และประมวลผลภาพกิจกรรม
                     </p>
 
                     {/* Feature Carousel */}
@@ -141,8 +141,8 @@ export default function LoginPage() {
                                 key={index}
                                 onClick={() => setCurrentFeature(index)}
                                 className={`h-1.5 rounded-full transition-all duration-300 ${index === currentFeature
-                                        ? "w-8 bg-white"
-                                        : "w-2 bg-white/40 hover:bg-white/60"
+                                    ? "w-8 bg-white"
+                                    : "w-2 bg-white/40 hover:bg-white/60"
                                     }`}
                             />
                         ))}
@@ -169,7 +169,7 @@ export default function LoginPage() {
                         <div className="relative">
                             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 p-0.5 shadow-xl shadow-blue-500/30 mb-4">
                                 <div className="w-full h-full rounded-[14px] bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden">
-                                    <img src="/apple-icon.png" alt="Logo" className="w-14 h-14 object-contain" />
+                                    <img src="/icon.png" alt="Logo" className="w-14 h-14 object-contain" />
                                 </div>
                             </div>
                             <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">

@@ -78,8 +78,8 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
 
         const q = query(
             collection(db, "photography_jobs"),
-            where("assigneeId", "==", userId),
-            where("status", "==", "assigned"), // Only show active jobs
+            where("assigneeIds", "array-contains", userId),
+            where("status", "==", "assigned"),
             orderBy("startTime", "asc")
         );
 
@@ -89,6 +89,9 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                 fetchedJobs.push({ id: doc.id, ...doc.data() } as PhotographyJob);
             });
             setJobs(fetchedJobs);
+            setLoading(false);
+        }, (error) => {
+            console.error("Firestore query error:", error);
             setLoading(false);
         });
 

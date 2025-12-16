@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Calendar, Clock, MapPin, User, Save } from "lucide-react";
+import { X, Calendar, Clock, MapPin, User, Save, Check, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, addDoc, serverTimestamp, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
@@ -23,7 +23,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState("");
     const [description, setDescription] = useState("");
-    const [assigneeId, setAssigneeId] = useState("");
+    const [assigneeIds, setAssigneeIds] = useState<string[]>([]); // Changed to array
 
     const [photographers, setPhotographers] = useState<UserProfile[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,18 +64,11 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
     }, [isOpen]);
 
     // Filter bookings that don't have jobs yet
-    // Debug: log all bookings to check if they are loaded
-    console.log('📌 All bookings:', bookings.length, bookings.map(b => ({ id: b.id, title: b.title, date: moment(b.start).format('YYYY-MM-DD') })));
-    console.log('📌 Existing job booking IDs:', Array.from(existingJobBookingIds));
-
     const availableBookings = bookings.filter(booking => {
-        // Match by booking title (without room name) and date
         const bookingTitle = booking.title.split(' (')[0];
         const bookingDate = moment(booking.start).format('YYYY-MM-DD');
         const bookingKey = `${bookingTitle}_${bookingDate}`;
-        const isExcluded = existingJobBookingIds.has(bookingKey);
-        console.log(`📌 Booking: ${bookingTitle} on ${bookingDate} - Excluded: ${isExcluded}`);
-        return !isExcluded;
+        return !existingJobBookingIds.has(bookingKey);
     });
 
     const handleImportBooking = (bookingId: string) => {
@@ -132,18 +125,20 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!title || !location || !date || !startTime || !endTime || !assigneeId) {
-            toast.error("กรุณากรอกข้อมูลให้ครบถ้วน");
+        if (!title || !location || !date || !startTime || !endTime || assigneeIds.length === 0) {
+            toast.error("กรุณากรอกข้อมูลให้ครบถ้วน และเลือกช่างภาพอย่างน้อย 1 คน");
             return;
         }
 
         setIsSubmitting(true);
         try {
-            // Constuct timestamps
+            // Construct timestamps
             const startDateTime = new Date(`${date}T${startTime}`);
             const endDateTime = new Date(`${date}T${endTime}`);
 
-            const assignee = photographers.find(u => u.uid === assigneeId);
+            // Get assignee details
+            const selectedPhotographers = photographers.filter(p => assigneeIds.includes(p.uid));
+            const assigneeNames = selectedPhotographers.map(p => p.displayName);
 
             const jobData = {
                 title,
@@ -151,8 +146,8 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
                 description,
                 startTime: startDateTime,
                 endTime: endDateTime,
-                assigneeId,
-                assigneeName: assignee?.displayName || 'Unknown',
+                assigneeIds,
+                assigneeNames,
                 requesterId,
                 status: 'assigned',
                 createdAt: serverTimestamp()
@@ -160,45 +155,47 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
 
             await addDoc(collection(db, "photography_jobs"), jobData);
 
-            // Trigger Notification (Mock or Real)
-            // TODO: Call API to send LINE notification if assignee has lineUserId
-            if (assignee?.lineUserId) {
-                await fetch('/api/line/push', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: assignee.lineUserId,
-                        messages: [
-                            {
-                                type: "flex",
-                                altText: "📸 มีงานถ่ายภาพใหม่",
-                                contents: {
-                                    type: "bubble",
-                                    header: {
-                                        type: "box",
-                                        layout: "vertical",
-                                        contents: [
-                                            { type: "text", text: "📸 งานถ่ายภาพใหม่", weight: "bold", color: "#EAB308", size: "lg" }
-                                        ]
-                                    },
-                                    body: {
-                                        type: "box",
-                                        layout: "vertical",
-                                        contents: [
-                                            { type: "text", text: title, weight: "bold", size: "xl", wrap: true },
-                                            { type: "text", text: `📍 ${location}`, size: "sm", margin: "md" },
-                                            { type: "text", text: `🗓 ${date} | ${startTime} - ${endTime}`, size: "sm" },
-                                            { type: "text", text: description || "-", size: "sm", color: "#aaaaaa", wrap: true, margin: "md" }
-                                        ]
+            // Send LINE notifications to all assigned photographers
+            for (const photographer of selectedPhotographers) {
+                if (photographer.lineUserId) {
+                    await fetch('/api/line/push', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: photographer.lineUserId,
+                            messages: [
+                                {
+                                    type: "flex",
+                                    altText: "📸 มีงานถ่ายภาพใหม่",
+                                    contents: {
+                                        type: "bubble",
+                                        header: {
+                                            type: "box",
+                                            layout: "vertical",
+                                            contents: [
+                                                { type: "text", text: "📸 งานถ่ายภาพใหม่", weight: "bold", color: "#EAB308", size: "lg" }
+                                            ]
+                                        },
+                                        body: {
+                                            type: "box",
+                                            layout: "vertical",
+                                            contents: [
+                                                { type: "text", text: title, weight: "bold", size: "xl", wrap: true },
+                                                { type: "text", text: `📍 ${location}`, size: "sm", margin: "md" },
+                                                { type: "text", text: `🗓 ${date} | ${startTime} - ${endTime}`, size: "sm" },
+                                                { type: "text", text: `👥 ทีมงาน: ${assigneeNames.join(', ')}`, size: "sm", margin: "md" },
+                                                { type: "text", text: description || "-", size: "sm", color: "#aaaaaa", wrap: true, margin: "md" }
+                                            ]
+                                        }
                                     }
                                 }
-                            }
-                        ]
-                    })
-                }).catch(e => console.error("LINE Notify Error", e));
+                            ]
+                        })
+                    }).catch(e => console.error("LINE Notify Error", e));
+                }
             }
 
-            toast.success("มอบหมายงานเรียบร้อยแล้ว");
+            toast.success(`มอบหมายงานให้ ${assigneeNames.length} คนเรียบร้อยแล้ว`);
             onClose();
             // Reset form
             setTitle("");
@@ -207,7 +204,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
             setStartTime("");
             setEndTime("");
             setDescription("");
-            setAssigneeId("");
+            setAssigneeIds([]);
         } catch (error) {
             console.error("Error creating job:", error);
             toast.error("เกิดข้อผิดพลาดในการสร้างงาน");
@@ -247,21 +244,61 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
                             </div>
 
                             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
+
+                                {/* Photographer Multi-Select */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ช่างภาพ</label>
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                        <select
-                                            value={assigneeId}
-                                            onChange={(e) => setAssigneeId(e.target.value)}
-                                            className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 focus:ring-2 focus:ring-amber-500"
-                                            required
-                                        >
-                                            <option value="">เลือกช่างภาพ...</option>
-                                            {photographers.map(p => (
-                                                <option key={p.uid} value={p.uid}>{p.displayName} ({p.role})</option>
-                                            ))}
-                                        </select>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                                        <User size={16} />
+                                        เลือกช่างภาพ (เลือกได้หลายคน)
+                                        {assigneeIds.length > 0 && (
+                                            <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 rounded-full">
+                                                เลือก {assigneeIds.length} คน
+                                            </span>
+                                        )}
+                                    </label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700">
+                                        {photographers.length === 0 ? (
+                                            <p className="text-sm text-gray-400 col-span-2 text-center py-4">ไม่พบช่างภาพในระบบ</p>
+                                        ) : (
+                                            photographers.map(p => (
+                                                <label
+                                                    key={p.uid}
+                                                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${assigneeIds.includes(p.uid)
+                                                        ? 'bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700'
+                                                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                        } border`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={assigneeIds.includes(p.uid)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setAssigneeIds([...assigneeIds, p.uid]);
+                                                            } else {
+                                                                setAssigneeIds(assigneeIds.filter(id => id !== p.uid));
+                                                            }
+                                                        }}
+                                                        className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                                                    />
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        {p.photoURL ? (
+                                                            <img src={p.photoURL} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                                                                <User size={14} className="text-gray-500" />
+                                                            </div>
+                                                        )}
+                                                        <div className="truncate">
+                                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{p.displayName}</span>
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">({p.role})</span>
+                                                        </div>
+                                                    </div>
+                                                    {assigneeIds.includes(p.uid) && (
+                                                        <Check size={16} className="text-amber-600 dark:text-amber-400" />
+                                                    )}
+                                                </label>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
 
@@ -269,7 +306,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
                                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50">
                                     <label className="block text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
                                         <Calendar size={16} />
-                                        นำเข้าข้อมูลจากการจองห้อง (อุปกรณ์เสริม)
+                                        นำเข้าข้อมูลจากการจองห้อง (ถ้ามี)
                                     </label>
                                     <select
                                         value={selectedBookingId}
@@ -278,7 +315,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
                                     >
                                         <option value="">-- เลือกรายการจองเพื่อเติมข้อมูลอัตโนมัติ --</option>
                                         {availableBookings
-                                            .filter(b => moment(b.start).isSameOrAfter(moment(), 'day')) // Only future/today bookings
+                                            .filter(b => moment(b.start).isSameOrAfter(moment(), 'day'))
                                             .sort((a, b) => a.start.getTime() - b.start.getTime())
                                             .map(b => (
                                                 <option key={b.id} value={b.id}>

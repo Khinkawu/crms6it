@@ -103,12 +103,13 @@ export interface PhotographyJob {
     location: string;
     startTime: Timestamp;
     endTime: Timestamp;
-    assigneeId: string; // Photographer UID
-    assigneeName?: string;
+    assigneeIds: string[]; // Array of Photographer UIDs
+    assigneeNames?: string[]; // Array of Photographer names
     requesterId: string;
     requestName?: string;
     status: 'assigned' | 'completed' | 'cancelled';
     driveLink?: string;
-    coverImage?: string; // Optional
+    coverImage?: string;
     createdAt: Timestamp;
+    isManualEntry?: boolean; // Flag for manually entered activities
 }

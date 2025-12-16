@@ -11,6 +11,7 @@ import {
     Settings, X, LogOut, Sun, Moon, Camera
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import PhotographyJobModal from "../PhotographyJobModal";
 
 export default function BottomNavigation() {
     const { user, role, isPhotographer, signOut } = useAuth();
@@ -18,11 +19,13 @@ export default function BottomNavigation() {
     const pathname = usePathname();
     const [fabOpen, setFabOpen] = useState(false);
     const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+    const [photoJobModalOpen, setPhotoJobModalOpen] = useState(false);
 
     if (!user) return null;
 
     const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician';
     const isModerator = role === 'admin' || role === 'moderator';
+    const canAssignPhotoJobs = role === 'admin' || role === 'moderator';
 
     // Main nav items - change last item based on role
     const navItems = [
@@ -36,10 +39,13 @@ export default function BottomNavigation() {
             : { name: "โปรไฟล์", icon: User, path: "/profile" },
     ];
 
-    // FAB quick actions
+    // FAB quick actions - add photo job assignment for admins
     const fabActions = [
-        { name: "แจ้งซ่อม", icon: Wrench, path: "/repair", color: "from-orange-500 to-red-500" },
-        { name: "จองห้อง", icon: Calendar, path: "/booking", color: "from-blue-500 to-cyan-500" },
+        { name: "แจ้งซ่อม", icon: Wrench, path: "/repair", color: "from-orange-500 to-red-500", isModal: false },
+        { name: "จองห้อง", icon: Calendar, path: "/booking", color: "from-blue-500 to-cyan-500", isModal: false },
+        ...(canAssignPhotoJobs ? [
+            { name: "มอบหมายงานภาพ", icon: Camera, path: null, color: "from-amber-500 to-yellow-500", isModal: true, modalAction: () => setPhotoJobModalOpen(true) }
+        ] : []),
     ];
 
     // More menu items for admin
@@ -96,24 +102,41 @@ export default function BottomNavigation() {
                     <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-3 md:hidden">
                         {fabActions.map((action, index) => (
                             <motion.div
-                                key={action.path}
+                                key={action.name}
                                 initial={{ opacity: 0, y: 20, scale: 0.8 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 20, scale: 0.8 }}
                                 transition={{ delay: index * 0.05 }}
                             >
-                                <Link
-                                    href={action.path}
-                                    onClick={() => setFabOpen(false)}
-                                    className="flex items-center gap-3 group"
-                                >
-                                    <span className="px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-lg">
-                                        {action.name}
-                                    </span>
-                                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${action.color} flex items-center justify-center shadow-xl text-white`}>
-                                        <action.icon size={20} />
-                                    </div>
-                                </Link>
+                                {action.isModal ? (
+                                    <button
+                                        onClick={() => {
+                                            setFabOpen(false);
+                                            action.modalAction?.();
+                                        }}
+                                        className="flex items-center gap-3 group"
+                                    >
+                                        <span className="px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-lg">
+                                            {action.name}
+                                        </span>
+                                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${action.color} flex items-center justify-center shadow-xl text-white`}>
+                                            <action.icon size={20} />
+                                        </div>
+                                    </button>
+                                ) : (
+                                    <Link
+                                        href={action.path!}
+                                        onClick={() => setFabOpen(false)}
+                                        className="flex items-center gap-3 group"
+                                    >
+                                        <span className="px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-lg">
+                                            {action.name}
+                                        </span>
+                                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${action.color} flex items-center justify-center shadow-xl text-white`}>
+                                            <action.icon size={20} />
+                                        </div>
+                                    </Link>
+                                )}
                             </motion.div>
                         ))}
                     </div>
@@ -279,6 +302,15 @@ export default function BottomNavigation() {
                     })}
                 </div>
             </nav>
+
+            {/* Photography Job Modal */}
+            {canAssignPhotoJobs && (
+                <PhotographyJobModal
+                    isOpen={photoJobModalOpen}
+                    onClose={() => setPhotoJobModalOpen(false)}
+                    requesterId={user.uid}
+                />
+            )}
         </>
     );
 }

@@ -4,22 +4,29 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'CRMS6 IT',
     short_name: 'CRMS6 IT',
-    description: 'Audio Visual Department Management System',
+    description: 'ระบบสารสนเทศเพื่อการบริหารจัดการ งานโสตทัศนศึกษา by CRMS6 IT',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: '#06b6d4',
     icons: [
       {
-        src: '/logo_2.png',
+        src: '/icon.png',
+        sizes: '180x180',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/icon.png',
         sizes: '192x192',
         type: 'image/png',
       },
       {
-        src: '/logo_2.png',
+        src: '/icon.png',
         sizes: '512x512',
         type: 'image/png',
       },
     ],
   }
 }
+
