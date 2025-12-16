@@ -166,25 +166,150 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
                             messages: [
                                 {
                                     type: "flex",
-                                    altText: "📸 มีงานถ่ายภาพใหม่",
+                                    altText: `📸 งานถ่ายภาพ: ${title}`,
                                     contents: {
                                         type: "bubble",
+                                        size: "mega",
                                         header: {
                                             type: "box",
                                             layout: "vertical",
+                                            backgroundColor: "#F59E0B",
+                                            paddingAll: "20px",
                                             contents: [
-                                                { type: "text", text: "📸 งานถ่ายภาพใหม่", weight: "bold", color: "#EAB308", size: "lg" }
+                                                {
+                                                    type: "box",
+                                                    layout: "horizontal",
+                                                    contents: [
+                                                        {
+                                                            type: "text",
+                                                            text: "PHOTOGRAPHY",
+                                                            color: "#ffffff",
+                                                            weight: "bold",
+                                                            size: "xs"
+                                                        },
+                                                        {
+                                                            type: "text",
+                                                            text: "📸 NEW JOB",
+                                                            color: "#ffffff",
+                                                            weight: "bold",
+                                                            size: "xs",
+                                                            align: "end"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    type: "text",
+                                                    text: "งานถ่ายภาพใหม่",
+                                                    weight: "bold",
+                                                    size: "xl",
+                                                    color: "#ffffff",
+                                                    margin: "md"
+                                                },
+                                                {
+                                                    type: "text",
+                                                    text: "คุณได้รับมอบหมายงานถ่ายภาพ",
+                                                    size: "xs",
+                                                    color: "#FEF3C7",
+                                                    margin: "xs"
+                                                }
                                             ]
                                         },
                                         body: {
                                             type: "box",
                                             layout: "vertical",
+                                            paddingAll: "20px",
+                                            spacing: "md",
                                             contents: [
-                                                { type: "text", text: title, weight: "bold", size: "xl", wrap: true },
-                                                { type: "text", text: `📍 ${location}`, size: "sm", margin: "md" },
-                                                { type: "text", text: `🗓 ${date} | ${startTime} - ${endTime}`, size: "sm" },
-                                                { type: "text", text: `👥 ทีมงาน: ${assigneeNames.join(', ')}`, size: "sm", margin: "md" },
-                                                { type: "text", text: description || "-", size: "sm", color: "#aaaaaa", wrap: true, margin: "md" }
+                                                {
+                                                    type: "text",
+                                                    text: title,
+                                                    weight: "bold",
+                                                    size: "lg",
+                                                    color: "#1F2937",
+                                                    wrap: true
+                                                },
+                                                {
+                                                    type: "separator",
+                                                    margin: "lg",
+                                                    color: "#E5E7EB"
+                                                },
+                                                {
+                                                    type: "box",
+                                                    layout: "vertical",
+                                                    margin: "lg",
+                                                    spacing: "sm",
+                                                    contents: [
+                                                        {
+                                                            type: "box",
+                                                            layout: "baseline",
+                                                            spacing: "sm",
+                                                            contents: [
+                                                                { type: "text", text: "📍", size: "sm", flex: 1 },
+                                                                { type: "text", text: "สถานที่", color: "#9CA3AF", size: "sm", flex: 2 },
+                                                                { type: "text", text: location, color: "#374151", size: "sm", flex: 4, wrap: true }
+                                                            ]
+                                                        },
+                                                        {
+                                                            type: "box",
+                                                            layout: "baseline",
+                                                            spacing: "sm",
+                                                            contents: [
+                                                                { type: "text", text: "📅", size: "sm", flex: 1 },
+                                                                { type: "text", text: "วันที่", color: "#9CA3AF", size: "sm", flex: 2 },
+                                                                { type: "text", text: date, color: "#374151", size: "sm", flex: 4 }
+                                                            ]
+                                                        },
+                                                        {
+                                                            type: "box",
+                                                            layout: "baseline",
+                                                            spacing: "sm",
+                                                            contents: [
+                                                                { type: "text", text: "⏰", size: "sm", flex: 1 },
+                                                                { type: "text", text: "เวลา", color: "#9CA3AF", size: "sm", flex: 2 },
+                                                                { type: "text", text: `${startTime} - ${endTime}`, color: "#374151", size: "sm", flex: 4 }
+                                                            ]
+                                                        },
+                                                        {
+                                                            type: "box",
+                                                            layout: "baseline",
+                                                            spacing: "sm",
+                                                            contents: [
+                                                                { type: "text", text: "👥", size: "sm", flex: 1 },
+                                                                { type: "text", text: "ทีมงาน", color: "#9CA3AF", size: "sm", flex: 2 },
+                                                                { type: "text", text: assigneeNames.join(', '), color: "#374151", size: "sm", flex: 4, wrap: true }
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                ...(description ? [{
+                                                    type: "box" as const,
+                                                    layout: "vertical" as const,
+                                                    margin: "lg" as const,
+                                                    paddingAll: "12px",
+                                                    backgroundColor: "#F9FAFB",
+                                                    cornerRadius: "8px",
+                                                    contents: [
+                                                        { type: "text" as const, text: "📝 รายละเอียด", size: "xs" as const, color: "#6B7280" },
+                                                        { type: "text" as const, text: description, size: "sm" as const, color: "#374151", wrap: true, margin: "sm" as const }
+                                                    ]
+                                                }] : [])
+                                            ]
+                                        },
+                                        footer: {
+                                            type: "box",
+                                            layout: "vertical",
+                                            paddingAll: "12px",
+                                            contents: [
+                                                {
+                                                    type: "button",
+                                                    style: "primary",
+                                                    color: "#F59E0B",
+                                                    action: {
+                                                        type: "uri",
+                                                        label: "เปิดดูงานในระบบ",
+                                                        uri: process.env.NEXT_PUBLIC_APP_URL || "https://crms6it.vercel.app"
+                                                    }
+                                                }
                                             ]
                                         }
                                     }
