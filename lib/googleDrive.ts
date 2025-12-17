@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { Readable } from 'stream';
+
 
 // Initialize Drive API Client (OAuth 2.0)
 const getDriveClient = () => {
@@ -139,41 +139,4 @@ export const initiateResumableUpload = async ({
     };
 };
 
-export const uploadFileToDriveHierarchy = async ({
-    fileBuffer,
-    fileName,
-    mimeType,
-    rootFolderId,
-    year,
-    semester,
-    month,
-    eventName
-}: UploadParams) => {
-    // Keep this for backward compatibility or server-side usage if needed
-    const drive = getDriveClient();
-    const yearFolder = await getOrCreateFolder(drive, rootFolderId, `ปีการศึกษา ${year}`);
-    const semesterFolder = await getOrCreateFolder(drive, yearFolder.id, `ภาคเรียนที่ ${semester}`);
-    const monthFolder = await getOrCreateFolder(drive, semesterFolder.id, month);
-    const eventFolder = await getOrCreateFolder(drive, monthFolder.id, eventName);
 
-    const stream = Readable.from(fileBuffer);
-    const media = {
-        mimeType: mimeType,
-        body: stream,
-    };
-
-    const res = await drive.files.create({
-        requestBody: {
-            name: fileName,
-            parents: [eventFolder.id],
-        },
-        media: media,
-        fields: 'id, name, webViewLink, webContentLink',
-        supportsAllDrives: true
-    });
-
-    return {
-        file: res.data,
-        folderLink: eventFolder.webViewLink
-    };
-};
