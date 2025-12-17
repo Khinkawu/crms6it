@@ -192,6 +192,14 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                     body: formData,
                 });
 
+                // Check if response is JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Non-JSON response:', text);
+                    throw new Error('เซิร์ฟเวอร์ไม่ตอบสนอง กรุณาลองใหม่อีกครั้ง');
+                }
+
                 const result = await response.json();
 
                 if (!response.ok) {
