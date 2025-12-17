@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
         const fullMonthFolderName = monthName;
         const fullEventFolderName = `${buddhistYear}-${monthNum}-${dayNum} ${eventName}`;
 
+        // Get Client Origin for CORS
+        const origin = req.headers.get('origin') || req.headers.get('referer') || '';
+
         // 2. Initiate Resumable Upload
         const result = await initiateResumableUpload({
             // These params are not used for initiation but required by interface type
@@ -42,7 +45,8 @@ export async function POST(req: NextRequest) {
             year: academicYear.toString(),
             semester: semester.toString(),
             month: fullMonthFolderName,
-            eventName: fullEventFolderName
+            eventName: fullEventFolderName,
+            origin: origin // Pass origin for CORS
         });
 
         return NextResponse.json({

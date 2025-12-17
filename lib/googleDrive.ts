@@ -63,6 +63,7 @@ interface UploadParams {
     semester: string;
     month: string;
     eventName: string;
+    origin?: string; // Add origin parameter for CORS
 }
 
 // Helper: Initiate Resumable Upload (Returns Session URI)
@@ -73,7 +74,8 @@ export const initiateResumableUpload = async ({
     year,
     semester,
     month,
-    eventName
+    eventName,
+    origin
 }: UploadParams) => {
     const drive = getDriveClient();
 
@@ -91,16 +93,33 @@ export const initiateResumableUpload = async ({
     };
 
     // 3. Request Session URI explicitly using the auth client
-    // We use the underlying transporter to make a request that returns the location header
-    const accessToken = await drive.context._options.auth.getAccessToken();
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+    if (!clientId || !clientSecret || !refreshToken) {
+        throw new Error('Google OAuth credentials missing');
+    }
+
+    const auth = new google.auth.OAuth2(clientId, clientSecret);
+    auth.setCredentials({ refresh_token: refreshToken });
+    const accessToken = await auth.getAccessToken();
+
+    // Pass the Origin header if provided, otherwise default to wildcard or omit
+    const headers: HeadersInit = {
+        'Authorization': `Bearer ${accessToken.token}`,
+        'Content-Type': 'application/json',
+    };
+
+    if (origin) {
+        headers['X-Upload-Content-Type'] = mimeType;
+        // headers['X-Upload-Content-Length'] = ''; // Optional
+        headers['Origin'] = origin;
+    }
 
     const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${accessToken.token}`,
-            'Content-Type': 'application/json',
-            // 'X-Upload-Content-Type': mimeType, // Optional but good practice
-        },
+        headers: headers,
         body: JSON.stringify(requestBody)
     });
 
