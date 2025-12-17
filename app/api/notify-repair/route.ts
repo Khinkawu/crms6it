@@ -42,12 +42,10 @@ export async function POST(req: Request) {
 
         // Fallback to default technician if no one found (optional, but good for safety)
         if (targetUserIds.length === 0 && process.env.LINE_TECHNICIAN_ID) {
-            console.log("No specific technicians found, using fallback ID.");
             targetUserIds.push(process.env.LINE_TECHNICIAN_ID);
         }
 
         if (targetUserIds.length === 0) {
-            console.log("No technicians found to notify.");
             return NextResponse.json({ status: 'skipped', reason: 'No technicians found' });
         }
 

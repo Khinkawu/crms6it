@@ -14,7 +14,6 @@ export async function POST(request: Request) {
         const querySnapshot = await usersRef.where('email', '==', email).get();
 
         if (querySnapshot.empty) {
-            console.log(`No user found for email: ${email}`);
             return NextResponse.json({ message: 'User not found, notification skipped' });
         }
 
@@ -22,7 +21,6 @@ export async function POST(request: Request) {
         const lineUserId = userDoc.lineUserId;
 
         if (!lineUserId) {
-            console.log(`User ${email} has no linked LINE account.`);
             return NextResponse.json({ message: 'User not linked to LINE, notification skipped' });
         }
 
