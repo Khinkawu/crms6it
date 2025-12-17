@@ -563,7 +563,7 @@ function InventoryContent() {
                                                             e.stopPropagation();
                                                             handleAction('borrow', product);
                                                         }}
-                                                        className="tap-scale px-3 py-1.5 bg-cyan-50 text-cyan-600 hover:bg-cyan-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
+                                                        className="tap-scale px-3 py-1.5 bg-white dark:bg-card text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                                     >
                                                         <Download size={16} /> ยืม
                                                     </button>
@@ -572,7 +572,7 @@ function InventoryContent() {
                                                             e.stopPropagation();
                                                             handleAction('requisition', product);
                                                         }}
-                                                        className="tap-scale px-3 py-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
+                                                        className="tap-scale px-3 py-1.5 bg-white dark:bg-card text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                                     >
                                                         <Upload size={16} /> เบิก
                                                     </button>
@@ -585,7 +585,7 @@ function InventoryContent() {
                                                         e.stopPropagation();
                                                         handleAction('return', product);
                                                     }}
-                                                    className="px-3 py-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
+                                                    className="px-3 py-1.5 bg-white dark:bg-card text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                                 >
                                                     <RotateCcw size={16} /> คืน
                                                 </button>
@@ -596,7 +596,7 @@ function InventoryContent() {
                                                     e.stopPropagation();
                                                     handleAction('edit', product);
                                                 }}
-                                                className="px-3 py-1.5 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
+                                                className="px-3 py-1.5 bg-white dark:bg-card text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1"
                                             >
                                                 <Edit size={16} /> แก้ไข
                                             </button>
@@ -672,7 +672,7 @@ function InventoryContent() {
                                                                         e.stopPropagation();
                                                                         handleAction('borrow', product);
                                                                     }}
-                                                                    className="p-1.5 text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
+                                                                    className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                                                                     title="ยืม"
                                                                 >
                                                                     <Download size={16} />
@@ -682,7 +682,7 @@ function InventoryContent() {
                                                                         e.stopPropagation();
                                                                         handleAction('requisition', product);
                                                                     }}
-                                                                    className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                                                    className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                                                                     title="เบิก"
                                                                 >
                                                                     <Upload size={16} />
@@ -695,7 +695,7 @@ function InventoryContent() {
                                                                     e.stopPropagation();
                                                                     handleAction('return', product);
                                                                 }}
-                                                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                                                                 title="คืน"
                                                             >
                                                                 <RotateCcw size={16} />
@@ -706,7 +706,7 @@ function InventoryContent() {
                                                                 e.stopPropagation();
                                                                 handleAction('edit', product);
                                                             }}
-                                                            className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                                                            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                                                             title="แก้ไข"
                                                         >
                                                             <Edit size={16} />

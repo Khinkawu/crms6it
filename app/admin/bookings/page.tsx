@@ -8,33 +8,13 @@ import { db } from "../../../lib/firebase";
 import { toast } from "react-hot-toast";
 import {
     Calendar, CheckCircle, XCircle, Clock, Trash2,
-    Search, MapPin, User, Phone, FileText, Edit, ChevronRight, Users as UsersIcon
+    Search, MapPin, User, Phone, FileText, Edit, ChevronRight, Users as UsersIcon, Camera
 } from "lucide-react";
+import { Booking } from "../../../types";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import EditBookingModal from "../../components/EditBookingModal";
 
-interface Booking {
-    id: string;
-    roomId: string;
-    roomName: string;
-    title: string;
-    description: string;
-    requesterName: string;
-    position: string;
-    department: string;
-    phoneNumber: string;
-    startTime: Timestamp;
-    endTime: Timestamp;
-    status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-    equipment: string[];
-    attendees?: string;
-    roomLayout?: string;
-    roomLayoutDetails?: string;
-    micCount?: string;
-    attachments?: string[];
-    ownEquipment?: string;
-    createdAt: Timestamp;
-}
+// Local definition removed in favor of global type
 
 export default function BookingManagement() {
     const { user, role, loading } = useAuth();
@@ -137,7 +117,7 @@ export default function BookingManagement() {
         .filter(b =>
             b.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             b.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            b.roomName.toLowerCase().includes(searchTerm.toLowerCase())
+            (b.roomName || "").toLowerCase().includes(searchTerm.toLowerCase())
         );
 
     const formatDate = (ts: Timestamp) => {
@@ -313,11 +293,28 @@ export default function BookingManagement() {
                                                             booking.roomLayout === 'empty' ? 'โล่ง' : 'อื่นๆ'}
                                                 </span>
                                             )}
-                                            {booking.equipment.filter(eq => !eq.includes('ไมค์')).slice(0, 3).map((eq, i) => (
+                                            {booking.equipment?.filter(eq => !eq.includes('ไมค์')).slice(0, 3).map((eq, i) => (
                                                 <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                                                     {eq}
                                                 </span>
                                             ))}
+
+                                            {/* Photographer Toggle Badge */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    updateDoc(doc(db, "bookings", booking.id), {
+                                                        needsPhotographer: !booking.needsPhotographer
+                                                    }).then(() => toast.success(booking.needsPhotographer ? "Removed Photographer Request" : "Requested Photographer"));
+                                                }}
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${booking.needsPhotographer
+                                                    ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100'
+                                                    : 'bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-gray-100 hover:text-gray-700'
+                                                    }`}
+                                            >
+                                                <Camera size={12} />
+                                                {booking.needsPhotographer ? 'Needs Photographer' : 'No Photographer'}
+                                            </button>
                                         </div>
                                     </div>
 
@@ -385,7 +382,21 @@ export default function BookingManagement() {
                 <EditBookingModal
                     isOpen={isEditModalOpen}
                     onClose={() => setIsEditModalOpen(false)}
-                    booking={editingBooking}
+                    booking={{
+                        ...editingBooking,
+                        roomId: editingBooking.roomId || editingBooking.room || '', // Ensure string
+                        id: editingBooking.id, // Explicitly pass required fields
+                        title: editingBooking.title,
+                        requesterName: editingBooking.requesterName,
+                        department: editingBooking.department,
+                        startTime: editingBooking.startTime,
+                        endTime: editingBooking.endTime,
+                        roomName: editingBooking.roomName || '',
+                        description: editingBooking.description || '',
+                        phoneNumber: editingBooking.phoneNumber || '',
+                        status: editingBooking.status,
+                        equipment: editingBooking.equipment || []
+                    } as any}
                     onUpdate={() => { }}
                 />
             )}

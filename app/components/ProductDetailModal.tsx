@@ -62,7 +62,7 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                 className="bg-white dark:bg-card w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-scale-in overscroll-contain overflow-y-auto md:overflow-hidden"
             >
                 {/* Header with Image Background Effect */}
-                <div className="relative h-48 bg-gray-100 overflow-hidden">
+                <div className="relative h-48 bg-gray-100 dark:bg-gray-800 overflow-hidden">
                     {/* Blurred Background */}
                     {product.imageUrl && (
                         <div className="absolute inset-0 blur-xl opacity-50 transform scale-110">
@@ -70,6 +70,8 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                                 src={product.imageUrl}
                                 alt=""
                                 fill
+                                priority
+                                sizes="100vw"
                                 className="object-cover"
                             />
                         </div>
@@ -103,12 +105,14 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                     <div className="flex flex-col md:flex-row gap-8">
                         {/* Left: Main Image */}
                         <div className="w-full md:w-1/3 flex-shrink-0">
-                            <div className="aspect-square relative rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shadow-inner group cursor-pointer" onClick={() => window.open(product.imageUrl, '_blank')}>
+                            <div className="aspect-square relative rounded-2xl overflow-hidden bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-700 shadow-inner group cursor-pointer" onClick={() => window.open(product.imageUrl, '_blank')}>
                                 {product.imageUrl ? (
                                     <Image
                                         src={product.imageUrl}
                                         alt={product.name}
                                         fill
+                                        priority
+                                        sizes="(max-width: 768px) 100vw, 33vw"
                                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                                     />
                                 ) : (
@@ -126,10 +130,10 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                         {/* Right: Details Grid */}
                         <div className="flex-1 space-y-6">
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
                                     {product.name}
                                     {product.stockId && (
-                                        <span className="text-base font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">
+                                        <span className="text-base font-normal text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600">
                                             #{product.stockId}
                                         </span>
                                     )}
@@ -137,28 +141,27 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                             </div>
                             <div className="grid grid-cols-2 gap-y-6 gap-x-4">
                                 <div className="space-y-1">
-                                    <span className="text-xs text-gray-500 flex items-center gap-1"><Tag size={12} /> แบรนด์/ยี่ห้อ</span>
-                                    <p className="font-semibold text-gray-900 line-clamp-1">{product.brand || "-"}</p>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><Tag size={12} /> แบรนด์/ยี่ห้อ</span>
+                                    <p className="font-semibold text-gray-900 dark:text-white line-clamp-1">{product.brand || "-"}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-xs text-gray-500 flex items-center gap-1"><Hash size={12} /> หมวดหมู่/Category</span>
-                                    <p className="font-semibold text-gray-900 line-clamp-1">{product.category || "-"}</p>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><Hash size={12} /> หมวดหมู่/Category</span>
+                                    <p className="font-semibold text-gray-900 dark:text-white line-clamp-1">{product.category || "-"}</p>
                                 </div>
 
                                 {/* Serial Number */}
                                 <div className="space-y-1">
-                                    <span className="text-xs text-gray-500 flex items-center gap-1"><Hash size={12} /> Serial Number (S/N)</span>
-                                    <p className="font-mono text-sm bg-gray-50 px-2 py-1 rounded border border-gray-100 inline-block text-gray-700 break-all">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><Hash size={12} /> Serial Number (S/N)</span>
+                                    <p className="font-mono text-sm bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded border border-gray-100 dark:border-gray-600 inline-block text-gray-700 dark:text-gray-200 break-all">
                                         {product.serialNumber || "-"}
                                     </p>
                                 </div>
 
-                                {/* Compact QR Code Section */}
                                 <div className="space-y-1">
-                                    <span className="text-xs text-gray-500 flex items-center gap-1"><Printer size={12} /> QR Code</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><Printer size={12} /> QR Code</span>
 
                                     <div className="flex items-center gap-3">
-                                        <div className="bg-white p-1 rounded border border-gray-100 shrink-0">
+                                        <div className="bg-white p-1 rounded border border-gray-100 items-center justify-center flex shrink-0">
                                             <QRCode
                                                 value={`${typeof window !== 'undefined' ? window.location.origin : ''}/product/${product.id || ''}`}
                                                 size={48}
@@ -224,12 +227,12 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                                 </div>
 
                                 <div className="space-y-1">
-                                    <span className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={12} /> สถานที่จัดเก็บ</span>
-                                    <p className="font-semibold text-gray-900">{product.location || "-"}</p>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><MapPin size={12} /> สถานที่จัดเก็บ</span>
+                                    <p className="font-semibold text-gray-900 dark:text-white">{product.location || "-"}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-xs text-gray-500 flex items-center gap-1"><Package size={12} /> จำนวนคงเหลือ</span>
-                                    <p className={`font-bold text-lg ${availableStock > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><Package size={12} /> จำนวนคงเหลือ</span>
+                                    <p className={`font-bold text-lg ${availableStock > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
                                         {availableStock} <span className="text-sm text-gray-400 font-normal">/ {product.quantity || 1}</span>
                                     </p>
                                 </div>
@@ -237,7 +240,7 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                         </div>
                     </div>
 
-                    <hr className="border-gray-100" />
+                    <hr className="border-gray-100 dark:border-gray-700" />
 
                     {/* Additional Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -245,25 +248,25 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                         <div className="space-y-6">
                             {/* History */}
                             <div className="space-y-2">
-                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                     <Clock size={16} className="text-blue-500" /> ประวัติและรายละเอียด
                                 </h3>
-                                <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-600 space-y-2">
-                                    <p><span className="font-medium text-gray-700">วันที่เพิ่ม:</span> {product.createdAt?.toDate ? product.createdAt.toDate().toLocaleDateString('th-TH') : '-'}</p>
-                                    <p><span className="font-medium text-gray-700">อัปเดตล่าสุด:</span> {product.updatedAt?.toDate ? product.updatedAt.toDate().toLocaleDateString('th-TH') : '-'}</p>
+                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                                    <p><span className="font-medium text-gray-700 dark:text-gray-200">วันที่เพิ่ม:</span> {product.createdAt?.toDate ? product.createdAt.toDate().toLocaleDateString('th-TH') : '-'}</p>
+                                    <p><span className="font-medium text-gray-700 dark:text-gray-200">อัปเดตล่าสุด:</span> {product.updatedAt?.toDate ? product.updatedAt.toDate().toLocaleDateString('th-TH') : '-'}</p>
                                 </div>
                             </div>
 
                             {/* Actions (Moved here) */}
                             <div className="space-y-2">
-                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                     <Download size={16} className="text-purple-500" /> จัดการรายการ
                                 </h3>
                                 <div className="flex gap-2">
                                     {isAvailable && (
                                         <button
                                             onClick={() => onAction('borrow', product)}
-                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-cyan-50 text-cyan-600 text-sm font-bold hover:bg-cyan-100 transition-all border border-cyan-100"
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white dark:bg-card text-gray-700 dark:text-gray-200 text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all border border-gray-200 dark:border-gray-700"
                                         >
                                             <Download size={16} /> ยืม
                                         </button>
@@ -271,7 +274,7 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                                     {isAvailable && (
                                         <button
                                             onClick={() => onAction('requisition', product)}
-                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-purple-50 text-purple-600 text-sm font-bold hover:bg-purple-100 transition-all border border-purple-100"
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white dark:bg-card text-gray-700 dark:text-gray-200 text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all border border-gray-200 dark:border-gray-700"
                                         >
                                             <Upload size={16} /> เบิก
                                         </button>
@@ -279,14 +282,14 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                                     {isBorrowed && (
                                         <button
                                             onClick={() => onAction('return', product)}
-                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-50 text-amber-600 text-sm font-bold hover:bg-amber-100 transition-all border border-amber-100"
+                                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white dark:bg-card text-gray-700 dark:text-gray-200 text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all border border-gray-200 dark:border-gray-700"
                                         >
                                             <RotateCcw size={16} /> คืน
                                         </button>
                                     )}
                                     <button
                                         onClick={() => onAction('edit', product)}
-                                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-gray-50 text-gray-600 text-sm font-bold hover:bg-gray-100 transition-all border border-gray-200"
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-bold hover:bg-gray-100 dark:hover:bg-gray-600 transition-all border border-gray-200 dark:border-gray-600"
                                     >
                                         <Edit size={16} /> แก้ไข
                                     </button>
@@ -296,12 +299,12 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
 
                         {/* Right Column: Description (Moved here) */}
                         <div className="space-y-2">
-                            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                            <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <Tag size={16} className="text-emerald-500" /> รายละเอียดเพิ่มเติม
                             </h3>
-                            <div className="bg-gray-50 rounded-xl p-6 text-sm text-gray-600 min-h-[200px] border border-gray-100">
+                            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-sm text-gray-600 dark:text-gray-300 min-h-[200px] border border-gray-100 dark:border-gray-700">
                                 {product.description ? (
-                                    <p className="leading-relaxed whitespace-pre-line text-gray-700">{product.description}</p>
+                                    <p className="leading-relaxed whitespace-pre-line text-gray-700 dark:text-gray-200">{product.description}</p>
                                 ) : (
                                     <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-50 space-y-2">
                                         <Box size={32} />

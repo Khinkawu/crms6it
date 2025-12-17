@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { collection, doc, updateDoc, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import toast from "react-hot-toast";
-import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Save } from "lucide-react";
+import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Save, Camera } from "lucide-react";
 
 
 // Manually defining Booking interface here to avoid import issues for now if types file is separate
@@ -28,6 +28,7 @@ interface BookingData {
     roomLayoutDetails?: string;
     micCount?: string;
     attachments?: string[];
+    needsPhotographer?: boolean;
 }
 
 interface EditBookingModalProps {
@@ -197,6 +198,7 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
         roomLayout: "classroom",
         roomLayoutDetails: "",
         micCount: "",
+        needsPhotographer: false,
     });
 
     const [hasAttachments, setHasAttachments] = useState(false);
@@ -238,6 +240,7 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                 roomLayout: booking.roomLayout || "classroom",
                 roomLayoutDetails: booking.roomLayoutDetails || "",
                 micCount: booking.micCount || "",
+                needsPhotographer: booking.needsPhotographer || false,
             });
 
             if (booking.attachments && booking.attachments.length > 0) {
@@ -332,6 +335,7 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                 roomLayout: formData.roomLayout,
                 roomLayoutDetails: formData.roomLayout === 'other' ? formData.roomLayoutDetails : '',
                 micCount: formData.equipment.some(e => e.includes("ไมค์")) ? formData.micCount : "",
+                needsPhotographer: formData.needsPhotographer,
                 attachments: validLinks,
                 updatedAt: Timestamp.now()
             });
@@ -467,6 +471,36 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                             {formData.equipment.some(e => e.includes("ไมค์")) && (
                                 <input type="number" name="micCount" value={formData.micCount} onChange={handleInputChange} placeholder="จำนวนไมค์" className="w-full p-2 mt-2 rounded-lg border border-gray-200 text-sm" />
                             )}
+                        </div>
+
+                        {/* Needs Photographer Toggle */}
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                            <label className="flex items-center gap-4 cursor-pointer">
+                                <div className={`
+                                    relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                                    ${formData.needsPhotographer ? 'bg-amber-500' : 'bg-gray-200 dark:bg-gray-700'}
+                                `}>
+                                    <span
+                                        className={`
+                                            inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                                            ${formData.needsPhotographer ? 'translate-x-6' : 'translate-x-1'}
+                                        `}
+                                    />
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.needsPhotographer}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, needsPhotographer: e.target.checked }))}
+                                        className="hidden"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Camera size={20} className="text-amber-600 dark:text-amber-400" />
+                                    <div>
+                                        <span className="font-medium text-amber-700 dark:text-amber-300">ต้องการช่างภาพ</span>
+                                        <p className="text-xs text-amber-600/70 dark:text-amber-400/70">แจ้งงานโสตฯ เพื่อมอบหมายช่างภาพถ่ายกิจกรรม</p>
+                                    </div>
+                                </div>
+                            </label>
                         </div>
 
                         {/* Attachments */}

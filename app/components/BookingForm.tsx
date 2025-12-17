@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { collection, addDoc, query, where, getDocs, Timestamp, serverTimestamp } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import toast from "react-hot-toast";
-import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X } from "lucide-react";
+import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Camera } from "lucide-react";
 
 interface BookingFormProps {
     onSuccess?: () => void;
@@ -194,6 +194,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
         roomLayout: "u_shape", // Default to classroom
         roomLayoutDetails: "",
         micCount: "",
+        needsPhotographer: false,
     });
 
     // Attachment State
@@ -354,6 +355,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                 // Check if any mic type is selected
                 micCount: formData.equipment.some(e => e.includes("ไมค์")) ? formData.micCount : "",
                 attachments: validLinks, // Save links instead of file URLs
+                needsPhotographer: formData.needsPhotographer, // Photography request
                 status: 'pending', // Default to pending
                 createdAt: serverTimestamp(),
             });
@@ -583,16 +585,48 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                             </div>
                         )}
 
-                        <div className="mt-2">
-                            <input
-                                type="text"
-                                name="ownEquipment"
-                                value={formData.ownEquipment}
-                                onChange={handleInputChange}
-                                placeholder="อื่น ๆ (ถ้ามี) , หรืออุปกรณ์ที่นำมาเอง"
-                                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
-                        </div>
+
+                    </div>
+
+
+                    <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                        <label className="flex items-center gap-4 cursor-pointer">
+                            <div className={`
+                                relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                                ${formData.needsPhotographer ? 'bg-amber-500' : 'bg-gray-200 dark:bg-gray-700'}
+                            `}>
+                                <span
+                                    className={`
+                                        inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                                        ${formData.needsPhotographer ? 'translate-x-6' : 'translate-x-1'}
+                                    `}
+                                />
+                                <input
+                                    type="checkbox"
+                                    checked={formData.needsPhotographer}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, needsPhotographer: e.target.checked }))}
+                                    className="hidden"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Camera size={20} className="text-amber-600 dark:text-amber-400" />
+                                <div>
+                                    <span className="font-medium text-amber-700 dark:text-amber-300">ต้องการช่างภาพ</span>
+                                    <p className="text-xs text-amber-600/70 dark:text-amber-400/70">แจ้งงานโสตฯ เพื่อมอบหมายช่างภาพถ่ายกิจกรรม</p>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div className="mt-2">
+                        <input
+                            type="text"
+                            name="ownEquipment"
+                            value={formData.ownEquipment}
+                            onChange={handleInputChange}
+                            placeholder="อื่น ๆ (ถ้ามี) , หรืออุปกรณ์ที่นำมาเอง"
+                            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
                     </div>
 
                     <div className="border-t border-gray-100 dark:border-gray-800 pt-4"></div>
@@ -736,6 +770,8 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                             </div>
                         )}
                     </div>
+
+
 
                     {/* Footer Actions */}
                     <div className="pt-4 flex gap-3">

@@ -8,7 +8,7 @@ import { useState } from "react";
 import {
     Home, Wrench, Calendar, User,
     Plus, Package, ClipboardList, MoreHorizontal,
-    Settings, X, LogOut, Sun, Moon, Camera
+    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PhotographyJobModal from "../PhotographyJobModal";
@@ -51,13 +51,25 @@ export default function BottomNavigation() {
     // More menu items for admin
     const moreMenuItems = [
         { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician"] },
-        { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "admin", "moderator", "technician"] },
-        { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
-        { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["admin", "moderator"] },
-        { name: "จัดการอุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
+        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator"] },
+        // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
+        { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician"] },
+        { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
+        { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "moderator"] },
+        { name: "จัดการอุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["technician"], allowPhotographer: true }, // Admin removed from here for mobile menu simplicity
         { name: "จัดการผู้ใช้", icon: Settings, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
         if (item.allowPhotographer && isPhotographer) return true;
+        // Special case: If admin, exclusively show ONLY the requested items despite the roles array
+        // actually, let's just tune the roles array above to achieve this cleanly.
+        // Wait, if I remove "admin" from "จัดการงานซ่อม", admins won't see it here. That's what I want.
+        // But I need to be careful not to break other roles.
+        // Let's verify:
+        // Admin sees: Profile, Command Center, Photography, User Management.
+        // Moderator sees: Profile, Command Center, Gallery, Repairs, Bookings, Photography.
+        // Technician sees: Profile, Gallery, Repairs, Inventory.
+        // User sees: Profile, Gallery.
         return role && item.roles.includes(role);
     });
 

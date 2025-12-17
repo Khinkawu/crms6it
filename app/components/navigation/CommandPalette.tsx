@@ -6,7 +6,7 @@ import { useAuth } from "../../../context/AuthContext";
 import {
     Search, Home, Wrench, Calendar, Package,
     Users, User, Settings, ClipboardList, X,
-    ArrowRight, Command
+    ArrowRight, Command, LayoutDashboard, Camera
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -44,8 +44,10 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         { id: "booking", name: "จองห้องประชุม", description: "จองห้องและอุปกรณ์", icon: Calendar, path: "/booking", category: "Services", keywords: ["booking", "room", "ห้อง", "จอง"] },
 
         // Admin
+        { id: "admin-dashboard", name: "Command Center", description: "Admin Dashboard Overview", icon: LayoutDashboard, path: "/admin/dashboard", category: "Admin", keywords: ["dashboard", "admin", "overview"], roles: ["admin", "moderator"] },
         { id: "admin-repairs", name: "จัดการงานซ่อม", description: "ดูและจัดการงานซ่อมทั้งหมด", icon: ClipboardList, path: "/admin/repairs", category: "Admin", keywords: ["manage", "repairs", "จัดการ"], roles: ["admin", "moderator", "technician"] },
         { id: "admin-bookings", name: "จัดการการจอง", description: "อนุมัติและจัดการการจอง", icon: Calendar, path: "/admin/bookings", category: "Admin", keywords: ["manage", "bookings"], roles: ["admin", "moderator"] },
+        { id: "admin-photography", name: "งานตากล้อง", description: "จัดการงานตากล้องและประมวลภาพ", icon: Camera, path: "/admin/photography", category: "Admin", keywords: ["photo", "ตากล้อง", "camera"], roles: ["admin", "moderator"] },
         { id: "admin-inventory", name: "คลังอุปกรณ์", description: "จัดการอุปกรณ์และสินค้า", icon: Package, path: "/admin/inventory", category: "Admin", keywords: ["inventory", "stock", "อุปกรณ์"], roles: ["admin", "technician"], allowPhotographer: true },
         { id: "admin-users", name: "จัดการผู้ใช้", description: "จัดการบัญชีและสิทธิ์", icon: Users, path: "/admin/users", category: "Admin", keywords: ["users", "manage", "ผู้ใช้"], roles: ["admin"] },
     ];

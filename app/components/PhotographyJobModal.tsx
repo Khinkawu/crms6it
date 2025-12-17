@@ -68,7 +68,8 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
         const bookingTitle = booking.title.split(' (')[0];
         const bookingDate = moment(booking.start).format('YYYY-MM-DD');
         const bookingKey = `${bookingTitle}_${bookingDate}`;
-        return !existingJobBookingIds.has(bookingKey);
+        // Filter: Must not have existing job AND must have requested a photographer
+        return !existingJobBookingIds.has(bookingKey) && booking.needsPhotographer;
     });
 
     const handleImportBooking = (bookingId: string) => {

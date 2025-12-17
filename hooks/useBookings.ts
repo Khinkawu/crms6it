@@ -15,6 +15,7 @@ export interface BookingEvent {
     roomName: string;
     requesterName: string;
     status: string;
+    needsPhotographer?: boolean;
 }
 
 interface UseBookingsOptions {
@@ -69,6 +70,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                     roomName: data.roomName,
                     requesterName: data.requesterName,
                     status: data.status,
+                    needsPhotographer: data.needsPhotographer || false,
                     resource: data
                 };
             });

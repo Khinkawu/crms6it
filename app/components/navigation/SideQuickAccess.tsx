@@ -28,9 +28,11 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
     ];
 
     const adminItems = [
-        { name: "งานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
-        { name: "การจอง", icon: Calendar, path: "/admin/bookings", roles: ["admin", "moderator"] },
-        { name: "อุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
+        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator"] },
+        { name: "งานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
+        { name: "การจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "moderator"] },
+        { name: "อุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["technician"], allowPhotographer: true },
         { name: "ผู้ใช้", icon: Users, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
         if (item.allowPhotographer && isPhotographer) return true;

@@ -113,3 +113,31 @@ export interface PhotographyJob {
     createdAt: Timestamp;
     isManualEntry?: boolean; // Flag for manually entered activities
 }
+
+export interface Booking {
+    id: string;
+    title: string;
+    requesterName: string;
+    department: string;
+    startTime: Timestamp;
+    endTime: Timestamp;
+    room: string; // Use 'room' to match usage in some places, map from 'roomName' if needed
+    roomId?: string; // Optional if derived
+    roomName?: string; // Optional if derived, but used in page.tsx
+    layout?: string;
+    roomLayout?: string; // Alias for layout to catch legacy usage
+    attendees?: number | string; // Could be string in form input
+    description?: string;
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled'; // Added cancelled
+    createdAt: Timestamp;
+    phoneNumber?: string;
+    position?: string; // Required by page.tsx
+    equipment?: string[];
+    roomLayoutDetails?: string;
+    micCount?: string;
+    attachments?: string[];
+    ownEquipment?: string;
+    needsPhotographer?: boolean; // Integration flag
+}
+
+export type InventoryItem = Product; // Alias for Dashboard usage

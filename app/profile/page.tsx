@@ -87,12 +87,13 @@ function ProfileContent() {
         fetchUserData();
     }, [user]);
 
-    // Handle Linking Callback
+    // Handle Linking Callback or LIFF Auto-Link
     useEffect(() => {
         const action = searchParams.get('action');
         const newLineUserId = searchParams.get('lineUserId');
         const error = searchParams.get('error');
 
+        // 1. Handle Web Redirect Callback
         if (error) {
             setLinkingStatus('error');
             setErrorMessage("ไม่สามารถเชื่อมต่อบัญชี LINE ได้ กรุณาลองใหม่อีกครั้ง");
@@ -107,7 +108,6 @@ function ProfileContent() {
                     });
                     setLineUserId(newLineUserId);
                     setLinkingStatus('success');
-                    // Clean URL
                     router.replace('/profile');
                 } catch (err) {
                     console.error("Error linking account:", err);
@@ -117,7 +117,54 @@ function ProfileContent() {
             };
             linkAccount();
         }
-    }, [searchParams, user, router]);
+
+        // 2. Handle LIFF Auto-Link (only if not already bound)
+        const checkLiffStatus = async () => {
+            if (!user || lineUserId) return; // Skip if no user or already bound
+
+            // Check if running in LINE App (Basic check to avoid LIFF init warnings on Web)
+            if (typeof navigator !== 'undefined' && !/LINE|Line/i.test(navigator.userAgent)) {
+                return;
+            }
+
+            try {
+                // Dynamically import LIFF to avoid SSR issues
+                const liffModule = await import('@line/liff');
+                const liff = liffModule.default;
+
+                // Use an available LIFF ID (prefer REPAIR as it's likely main)
+                const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || process.env.NEXT_PUBLIC_LIFF_ID;
+                if (!liffId) return;
+
+                // Only init if we are likely in LINE environment to avoid "path mismatch" warnings on localhost/web
+                await liff.init({ liffId });
+
+                // Only proceed if running inside LINE App
+                if (liff.isInClient() && liff.isLoggedIn()) {
+                    const profile = await liff.getProfile();
+                    const currentLineId = profile.userId;
+
+                    if (currentLineId) {
+                        setLinkingStatus('linking');
+                        await updateDoc(doc(db, "users", user.uid), {
+                            lineUserId: currentLineId
+                        });
+                        setLineUserId(currentLineId);
+                        setLinkingStatus('success');
+                        toast.success("เชื่อมต่อกับ LINE ปัจจุบันเรียบร้อยแล้ว");
+                    }
+                }
+            } catch (err) {
+                // Silent fail for LIFF init errors in normal web
+                console.log("LIFF Auto-bind skipped:", err);
+            }
+        };
+
+        if (user && !lineUserId) {
+            checkLiffStatus();
+        }
+
+    }, [searchParams, user, router, lineUserId]);
 
     const handleConnectLine = () => {
         if (!user) return;

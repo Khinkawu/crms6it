@@ -611,7 +611,10 @@ export default function Dashboard() {
                             action={role === 'admin' ? {
                                 label: "มอบหมายงาน",
                                 action: () => setIsJobModalOpen(true)
-                            } : undefined}
+                            } : {
+                                label: "ดูทั้งหมด",
+                                href: "/gallery"
+                            }}
                         >
                             {photoJobs.length === 0 ? (
                                 <div className="text-center py-12 text-gray-400">
