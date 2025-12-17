@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { uploadFileToDriveHierarchy } from '@/lib/googleDrive';
 import { getThaiAcademicYear, getThaiMonthName, getThaiMonthNumber } from '@/lib/academicYear';
 
+// Route segment config for App Router
+export const maxDuration = 60; // Max 60 seconds for Vercel Hobby
+export const dynamic = 'force-dynamic';
+
+
 export async function POST(req: NextRequest) {
     try {
         // 1. Check OAuth Credentials

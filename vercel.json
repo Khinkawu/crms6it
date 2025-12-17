@@ -1,0 +1,7 @@
+{
+    "functions": {
+        "api/drive/upload": {
+            "maxDuration": 60
+        }
+    }
+}
