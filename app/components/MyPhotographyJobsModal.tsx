@@ -159,6 +159,8 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         setIsUploadComplete(prev => ({ ...prev, [jobId]: false }));
     };
 
+
+
     const handleUpload = async (jobId: string) => {
         const cover = coverFiles[jobId];
         const files = jobFiles[jobId] || [];
@@ -179,36 +181,45 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
             const totalFiles = files.length;
             let driveFolderLink = "";
 
-            // Upload Files to Drive API
+            // Upload Files to Drive API (Resumable Flow)
             for (let i = 0; i < totalFiles; i++) {
                 const file = files[i];
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('eventName', job.title); // Use job title for folder name
-                formData.append('jobDate', job.startTime ? job.startTime.toDate().toISOString() : new Date().toISOString());
 
-                const response = await fetch('/api/drive/upload', {
+                // 1. Initiate Upload Session (Get URL)
+                const initResponse = await fetch('/api/drive/upload', {
                     method: 'POST',
-                    body: formData,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: file.name,
+                        mimeType: file.type,
+                        eventName: job.title,
+                        jobDate: job.startTime ? job.startTime.toDate().toISOString() : new Date().toISOString()
+                    }),
                 });
 
-                // Check if response is JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await response.text();
-                    console.error('Non-JSON response:', text);
-                    throw new Error('เซิร์ฟเวอร์ไม่ตอบสนอง กรุณาลองใหม่อีกครั้ง');
+                if (!initResponse.ok) {
+                    const error = await initResponse.json();
+                    throw new Error(error.error || 'Failed to initiate upload');
                 }
 
-                const result = await response.json();
+                const { uploadUrl, folderLink } = await initResponse.json();
 
-                if (!response.ok) {
-                    throw new Error(result.error || 'Upload failed');
+                // 2. Direct Upload to Google Drive
+                const uploadResponse = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    body: file,
+                    headers: {
+                        'Content-Type': file.type, // Important for Drive to recognize type
+                    },
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('Failed to upload file to Google Drive');
                 }
 
-                // Capture the folder link from the first successful upload (they all go to same folder)
-                if (!driveFolderLink && result.folderLink) {
-                    driveFolderLink = result.folderLink;
+                // Capture the folder link from the first successful upload
+                if (!driveFolderLink && folderLink) {
+                    driveFolderLink = folderLink;
                 }
 
                 completedCount++;

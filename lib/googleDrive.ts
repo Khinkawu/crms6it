@@ -65,8 +65,8 @@ interface UploadParams {
     eventName: string;
 }
 
-export const uploadFileToDriveHierarchy = async ({
-    fileBuffer,
+// Helper: Initiate Resumable Upload (Returns Session URI)
+export const initiateResumableUpload = async ({
     fileName,
     mimeType,
     rootFolderId,
@@ -77,19 +77,66 @@ export const uploadFileToDriveHierarchy = async ({
 }: UploadParams) => {
     const drive = getDriveClient();
 
-    // 1. Academic Year Folder (e.g. "ปีการศึกษา 2567")
+    // 1. Prepare Folder Hierarchy (Same as before)
     const yearFolder = await getOrCreateFolder(drive, rootFolderId, `ปีการศึกษา ${year}`);
-
-    // 2. Semester Folder (e.g. "ภาคเรียนที่ 1")
     const semesterFolder = await getOrCreateFolder(drive, yearFolder.id, `ภาคเรียนที่ ${semester}`);
-
-    // 3. Month Folder (e.g. "12_ธันวาคม")
     const monthFolder = await getOrCreateFolder(drive, semesterFolder.id, month);
-
-    // 4. Event Folder (e.g. "15 กีฬาสี")
     const eventFolder = await getOrCreateFolder(drive, monthFolder.id, eventName);
 
-    // 5. Upload File
+    // 2. Prepare Metadata
+    const requestBody = {
+        name: fileName,
+        mimeType: mimeType,
+        parents: [eventFolder.id],
+    };
+
+    // 3. Request Session URI explicitly using the auth client
+    // We use the underlying transporter to make a request that returns the location header
+    const accessToken = await drive.context._options.auth.getAccessToken();
+
+    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken.token}`,
+            'Content-Type': 'application/json',
+            // 'X-Upload-Content-Type': mimeType, // Optional but good practice
+        },
+        body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to initiate upload: ${response.statusText}`);
+    }
+
+    const uploadUrl = response.headers.get('Location');
+    if (!uploadUrl) {
+        throw new Error('No upload URL received from Google Drive');
+    }
+
+    return {
+        uploadUrl,
+        folderLink: eventFolder.webViewLink,
+        fileId: '' // File ID is not available yet
+    };
+};
+
+export const uploadFileToDriveHierarchy = async ({
+    fileBuffer,
+    fileName,
+    mimeType,
+    rootFolderId,
+    year,
+    semester,
+    month,
+    eventName
+}: UploadParams) => {
+    // Keep this for backward compatibility or server-side usage if needed
+    const drive = getDriveClient();
+    const yearFolder = await getOrCreateFolder(drive, rootFolderId, `ปีการศึกษา ${year}`);
+    const semesterFolder = await getOrCreateFolder(drive, yearFolder.id, `ภาคเรียนที่ ${semester}`);
+    const monthFolder = await getOrCreateFolder(drive, semesterFolder.id, month);
+    const eventFolder = await getOrCreateFolder(drive, monthFolder.id, eventName);
+
     const stream = Readable.from(fileBuffer);
     const media = {
         mimeType: mimeType,
@@ -108,6 +155,6 @@ export const uploadFileToDriveHierarchy = async ({
 
     return {
         file: res.data,
-        folderLink: eventFolder.webViewLink // Return the link to the Event Folder so we can save it for the whole job
+        folderLink: eventFolder.webViewLink
     };
 };
