@@ -15,10 +15,10 @@ interface PhotographyJobModalProps {
     isOpen: boolean;
     onClose: () => void;
     requesterId: string;
-    photographers: UserProfile[];
+    photographers?: UserProfile[]; // Made optional - will fetch internally if not provided
 }
 
-export default function PhotographyJobModal({ isOpen, onClose, requesterId, photographers }: PhotographyJobModalProps) {
+export default function PhotographyJobModal({ isOpen, onClose, requesterId, photographers: externalPhotographers }: PhotographyJobModalProps) {
     const [title, setTitle] = useState("");
     const [location, setLocation] = useState("");
     const [date, setDate] = useState("");
@@ -27,6 +27,40 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
     const [description, setDescription] = useState("");
     const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Internal photographers state for when prop is not provided
+    const [internalPhotographers, setInternalPhotographers] = useState<UserProfile[]>([]);
+    const [loadingPhotographers, setLoadingPhotographers] = useState(false);
+
+    // Use external photographers if provided, otherwise use internal
+    const photographers = externalPhotographers || internalPhotographers;
+
+    // Fetch photographers internally if not provided via props
+    useEffect(() => {
+        if (!isOpen || externalPhotographers) return;
+
+        const fetchPhotographers = async () => {
+            setLoadingPhotographers(true);
+            try {
+                const usersRef = collection(db, "users");
+                const snapshot = await getDocs(usersRef);
+                const users: UserProfile[] = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.isPhotographer) {
+                        users.push({ uid: doc.id, ...data } as UserProfile);
+                    }
+                });
+                setInternalPhotographers(users);
+            } catch (error) {
+                console.error("Error fetching photographers:", error);
+                toast.error("ไม่สามารถโหลดรายชื่อช่างภาพได้");
+            } finally {
+                setLoadingPhotographers(false);
+            }
+        };
+        fetchPhotographers();
+    }, [isOpen, externalPhotographers]);
 
     // Import from Booking - extend range to 6 months to include more bookings
     const { events: bookings, loading: bookingsLoading } = useBookings({ filterApprovedOnly: true, monthsRange: 6 });
