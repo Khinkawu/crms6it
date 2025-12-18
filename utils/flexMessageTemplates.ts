@@ -108,7 +108,7 @@ export function createFlexBubble(options: FlexMessageOptions) {
                         endColor: '#00000000'
                     }
                 },
-                // Badge in corner
+                // Badge in corner (pill style)
                 ...(badge ? [{
                     type: 'box',
                     layout: 'horizontal',
@@ -125,10 +125,11 @@ export function createFlexBubble(options: FlexMessageOptions) {
                     offsetTop: '12px',
                     offsetStart: '12px',
                     backgroundColor: badgeColor,
-                    cornerRadius: '6px',
-                    paddingAll: '6px',
-                    paddingStart: '10px',
-                    paddingEnd: '10px'
+                    cornerRadius: '20px',
+                    paddingTop: '4px',
+                    paddingBottom: '4px',
+                    paddingStart: '12px',
+                    paddingEnd: '12px'
                 }] : [])
             ],
             paddingAll: '0px'
