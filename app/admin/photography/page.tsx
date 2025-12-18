@@ -29,6 +29,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { PhotographyJob, UserProfile } from "@/types";
 import toast from "react-hot-toast";
 import PhotographyJobModal from "@/app/components/PhotographyJobModal";
+import ConfirmationModal from "@/app/components/ConfirmationModal";
 import { compressImage } from "@/utils/imageCompression";
 
 export default function PhotographyManagement() {
@@ -44,6 +45,8 @@ export default function PhotographyManagement() {
     const [editingJob, setEditingJob] = useState<PhotographyJob | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+    const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const photographers = allUsers.filter(u => u.isPhotographer);
 
     // Redirect non-admin users
@@ -162,15 +165,20 @@ export default function PhotographyManagement() {
     };
 
     // Handle delete
-    const handleDelete = async (jobId: string) => {
-        if (!confirm("ต้องการลบงานนี้หรือไม่?")) return;
+    const openDeleteModal = (jobId: string) => {
+        setDeleteJobId(jobId);
+        setIsDeleteModalOpen(true);
+    };
 
+    const handleConfirmDelete = async () => {
+        if (!deleteJobId) return;
         try {
-            await deleteDoc(doc(db, "photography_jobs", jobId));
+            await deleteDoc(doc(db, "photography_jobs", deleteJobId));
             toast.success("ลบงานสำเร็จ");
         } catch (error) {
             toast.error("เกิดข้อผิดพลาด");
         }
+        setDeleteJobId(null);
     };
 
     if (loading) {
@@ -434,7 +442,7 @@ export default function PhotographyManagement() {
                                                     </a>
                                                 )}
                                                 <button
-                                                    onClick={() => handleDelete(job.id!)}
+                                                    onClick={() => openDeleteModal(job.id!)}
                                                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-red-200 dark:border-red-800"
                                                 >
                                                     <Trash2 size={14} />
@@ -466,6 +474,21 @@ export default function PhotographyManagement() {
                 }}
                 job={editingJob}
                 photographers={photographers}
+            />
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setDeleteJobId(null);
+                }}
+                onConfirm={handleConfirmDelete}
+                title="ยืนยันการลบงาน"
+                message="คุณต้องการลบงานถ่ายภาพนี้หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้"
+                confirmText="ลบงาน"
+                cancelText="ยกเลิก"
+                isDangerous={true}
             />
         </div>
     );
