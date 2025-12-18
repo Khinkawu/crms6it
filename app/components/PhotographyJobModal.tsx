@@ -151,7 +151,9 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
                 assigneeNames,
                 requesterId,
                 status: 'assigned',
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
+                bookingId: selectedBookingId || undefined,
+                isManualEntry: !selectedBookingId
             };
 
             await addDoc(collection(db, "photography_jobs"), jobData);

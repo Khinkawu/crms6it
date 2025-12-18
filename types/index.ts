@@ -112,6 +112,7 @@ export interface PhotographyJob {
     coverImage?: string;
     createdAt: Timestamp;
     isManualEntry?: boolean; // Flag for manually entered activities
+    bookingId?: string; // Optional link to a booking
 }
 
 export interface Booking {

@@ -37,6 +37,7 @@ export default function PhotographyManagement() {
     const [loadingJobs, setLoadingJobs] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState<'all' | 'assigned' | 'completed' | 'cancelled'>('all');
+    const [filterSource, setFilterSource] = useState<'all' | 'direct' | 'booking'>('all');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingJob, setEditingJob] = useState<PhotographyJob | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -62,7 +63,6 @@ export default function PhotographyManagement() {
             });
             setJobs(jobsData);
             setLoadingJobs(false);
-            setLoadingJobs(false);
         });
 
         return () => unsubscribe();
@@ -78,7 +78,6 @@ export default function PhotographyManagement() {
             snapshot.forEach((doc) => {
                 users.push({ ...doc.data(), uid: doc.id } as UserProfile);
             });
-            setAllUsers(users);
             setAllUsers(users);
         });
 
@@ -104,6 +103,12 @@ export default function PhotographyManagement() {
     // Filter jobs
     const filteredJobs = jobs
         .filter(job => filterStatus === 'all' || job.status === filterStatus)
+        .filter(job => {
+            if (filterSource === 'all') return true;
+            if (filterSource === 'booking') return !!job.bookingId;
+            if (filterSource === 'direct') return !job.bookingId;
+            return true;
+        })
         .filter(job => {
             const assigneeNames = resolveAssigneeNames(job);
             return (
@@ -256,6 +261,37 @@ export default function PhotographyManagement() {
                         />
                     </div>
                     <div className="flex gap-2 flex-wrap">
+                        {/* Source Filter */}
+                        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+                            <button
+                                onClick={() => setFilterSource('all')}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterSource === 'all'
+                                    ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                                    }`}
+                            >
+                                ทั้งหมด
+                            </button>
+                            <button
+                                onClick={() => setFilterSource('direct')}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterSource === 'direct'
+                                    ? 'bg-white dark:bg-gray-600 shadow-sm text-purple-600 dark:text-purple-300'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                                    }`}
+                            >
+                                งานตรง
+                            </button>
+                            <button
+                                onClick={() => setFilterSource('booking')}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterSource === 'booking'
+                                    ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-300'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                                    }`}
+                            >
+                                จากการจอง
+                            </button>
+                        </div>
+
                         {(['all', 'assigned', 'completed', 'cancelled'] as const).map((status) => (
                             <button
                                 key={status}
@@ -265,7 +301,7 @@ export default function PhotographyManagement() {
                                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                                     }`}
                             >
-                                {status === 'all' ? 'ทั้งหมด' :
+                                {status === 'all' ? 'ทุกสถานะ' :
                                     status === 'assigned' ? 'รอส่งงาน' :
                                         status === 'completed' ? 'เสร็จแล้ว' : 'ยกเลิก'}
                             </button>
@@ -305,7 +341,16 @@ export default function PhotographyManagement() {
                                             </div>
                                         )}
                                         {/* Mobile Badge Overlay */}
-                                        <div className="absolute top-2 right-2 sm:hidden shadow-sm">
+                                        <div className="absolute top-2 right-2 sm:hidden flex flex-col items-end gap-1 shadow-sm">
+                                            {job.bookingId ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-900/80 text-blue-700 dark:text-blue-300 backdrop-blur-sm">
+                                                    จากการจอง
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 dark:bg-purple-900/80 text-purple-700 dark:text-purple-300 backdrop-blur-sm">
+                                                    งานตรง
+                                                </span>
+                                            )}
                                             {getStatusBadge(job.status)}
                                         </div>
                                     </div>
@@ -318,7 +363,16 @@ export default function PhotographyManagement() {
                                                     {job.title}
                                                 </h3>
                                                 {/* Desktop Badge */}
-                                                <div className="hidden sm:block flex-shrink-0">
+                                                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                                                    {job.bookingId ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 whitespace-nowrap">
+                                                            จากการจอง
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 whitespace-nowrap">
+                                                            งานตรง
+                                                        </span>
+                                                    )}
                                                     {getStatusBadge(job.status)}
                                                 </div>
                                             </div>
