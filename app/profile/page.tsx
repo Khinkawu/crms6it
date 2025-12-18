@@ -185,7 +185,6 @@ function ProfileContent() {
                 }
             } catch (err) {
                 // Silent fail for LIFF init errors in normal web
-                console.log("LIFF Auto-bind skipped:", err);
             }
         };
 

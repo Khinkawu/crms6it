@@ -114,6 +114,8 @@ export interface PhotographyJob {
     createdAt: Timestamp;
     isManualEntry?: boolean; // Flag for manually entered activities
     bookingId?: string; // Optional link to a booking
+    facebookPostId?: string;
+    facebookPostedAt?: any; // Firestore Timestamp
 }
 
 export interface Booking {

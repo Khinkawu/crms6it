@@ -624,11 +624,8 @@ export default function Dashboard() {
                             ) : (
                                 <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-1">
                                     {photoJobs.slice(0, 5).map((job) => (
-                                        <a
+                                        <div
                                             key={job.id}
-                                            href={job.driveLink}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
                                             className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
                                         >
                                             {/* Thumbnail */}
@@ -647,7 +644,7 @@ export default function Dashboard() {
                                             </div>
                                             {/* Info */}
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="font-medium text-sm text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                                <h4 className="font-medium text-sm text-gray-900 dark:text-white transition-colors truncate">
                                                     {job.title}
                                                 </h4>
                                                 <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -655,9 +652,34 @@ export default function Dashboard() {
                                                     <span>{job.endTime?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
                                                 </div>
                                             </div>
-                                            {/* Arrow */}
-                                            <ExternalLink size={14} className="text-gray-400 group-hover:text-blue-500 transition-colors flex-shrink-0" />
-                                        </a>
+                                            {/* Action Icons */}
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                {job.driveLink && (
+                                                    <a
+                                                        href={job.driveLink}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        title="เปิด Google Drive"
+                                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <img src="/Google_Drive_icon.png" alt="Drive" className="w-5 h-5 object-contain" />
+                                                    </a>
+                                                )}
+                                                {job.facebookPostId && (
+                                                    <a
+                                                        href={`https://www.facebook.com/${job.facebookPostId}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        title="เปิดโพส Facebook"
+                                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <img src="/facebook-logo.png" alt="Facebook" className="w-5 h-5 object-contain" />
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             )}

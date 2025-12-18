@@ -29,7 +29,6 @@ export async function compressImage(
 
     // Skip if file is already small enough
     if (file.size <= maxSizeMB * 1024 * 1024) {
-        console.log(`Image already small (${(file.size / 1024 / 1024).toFixed(2)}MB), skipping compression`);
         return file;
     }
 
@@ -77,15 +76,10 @@ export async function compressImage(
                             return;
                         }
 
-                        // Create new file with same name but compressed
                         const compressedFile = new File(
                             [blob],
                             file.name.replace(/\.[^/.]+$/, '.jpg'), // Convert to jpg
                             { type: 'image/jpeg' }
-                        );
-
-                        console.log(
-                            `Image compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB -> ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`
                         );
 
                         resolve(compressedFile);

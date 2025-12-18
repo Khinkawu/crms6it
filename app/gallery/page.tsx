@@ -241,11 +241,8 @@ export default function GalleryPage() {
                     <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {paginatedJobs.map((job, index) => (
-                                <motion.a
+                                <motion.div
                                     key={job.id}
-                                    href={job.driveLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
@@ -264,18 +261,11 @@ export default function GalleryPage() {
                                                 <Camera size={48} className="text-gray-300 dark:text-gray-600" />
                                             </div>
                                         )}
-                                        {/* Overlay */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <div className="p-2 rounded-lg bg-white/90 backdrop-blur shadow-lg">
-                                                <ExternalLink size={18} className="text-gray-700" />
-                                            </div>
-                                        </div>
                                     </div>
 
                                     {/* Content */}
                                     <div className="p-4">
-                                        <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">
+                                        <h3 className="font-semibold text-gray-900 dark:text-white transition-colors line-clamp-2">
                                             {job.title}
                                         </h3>
 
@@ -296,15 +286,42 @@ export default function GalleryPage() {
                                             </div>
                                         </div>
 
-                                        {job.location && (
-                                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs text-gray-600 dark:text-gray-400">
-                                                    📍 {job.location}
-                                                </span>
+                                        {/* Location & Links Row */}
+                                        {(job.location || job.driveLink || job.facebookPostId) && (
+                                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
+                                                {job.location ? (
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs text-gray-600 dark:text-gray-400">
+                                                        📍 {job.location}
+                                                    </span>
+                                                ) : <span />}
+                                                <div className="flex items-center gap-1.5">
+                                                    {job.driveLink && (
+                                                        <a
+                                                            href={job.driveLink}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            title="เปิด Google Drive"
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                                        >
+                                                            <img src="/Google_Drive_icon.png" alt="Drive" className="w-5 h-5 object-contain" />
+                                                        </a>
+                                                    )}
+                                                    {job.facebookPostId && (
+                                                        <a
+                                                            href={`https://www.facebook.com/${job.facebookPostId}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            title="เปิดโพส Facebook"
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                                        >
+                                                            <img src="/facebook-logo.png" alt="Facebook" className="w-5 h-5 object-contain" />
+                                                        </a>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
-                                </motion.a>
+                                </motion.div>
                             ))}
                         </div>
 

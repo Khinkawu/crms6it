@@ -8,6 +8,5 @@
 .env
 .env.local
 .vercel
-README.md
 project_summary.md
 SYSTEM_DOCUMENTATION.md

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Calendar, MapPin, ExternalLink, Save, CheckCircle2, UploadCloud, Image as ImageIcon } from "lucide-react";
+import { X, Calendar, MapPin, ExternalLink, Save, CheckCircle2, UploadCloud, Image as ImageIcon, Facebook } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db, storage } from "../../lib/firebase";
@@ -30,6 +30,15 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
     const [isUploadComplete, setIsUploadComplete] = useState<Record<string, boolean>>({});
     const [isUploading, setIsUploading] = useState<Record<string, boolean>>({});
+
+    // Facebook State
+    const [facebookEnabled, setFacebookEnabled] = useState<Record<string, boolean>>({});
+    const [facebookSent, setFacebookSent] = useState<Record<string, boolean>>({});
+    const [facebookCaption, setFacebookCaption] = useState<Record<string, string>>({});
+    const [facebookSelectedOrder, setFacebookSelectedOrder] = useState<Record<string, number[]>>({}); // Array to preserve order
+    const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string[]>>({});
+    const [lastClickedIndex, setLastClickedIndex] = useState<Record<string, number>>({}); // For Shift+Click
+
 
     useEffect(() => {
         if (!isOpen || !userId) return;
@@ -117,6 +126,111 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         setIsUploadComplete(prev => ({ ...prev, [jobId]: false }));
     };
 
+    // Facebook Helpers
+    const handleFacebookToggle = (jobId: string) => {
+        setFacebookEnabled(prev => ({ ...prev, [jobId]: !prev[jobId] }));
+    };
+
+    const handleFacebookPhotoClick = (jobId: string, index: number, shiftKey: boolean) => {
+        setFacebookSelectedOrder(prev => {
+            const current = [...(prev[jobId] || [])];
+
+            if (shiftKey && lastClickedIndex[jobId] !== undefined) {
+                // Shift+Click: select range (append in order)
+                const start = Math.min(lastClickedIndex[jobId], index);
+                const end = Math.max(lastClickedIndex[jobId], index);
+                for (let i = start; i <= end; i++) {
+                    if (!current.includes(i)) {
+                        current.push(i);
+                    }
+                }
+            } else {
+                // Normal click: toggle
+                const existingIdx = current.indexOf(index);
+                if (existingIdx !== -1) {
+                    current.splice(existingIdx, 1); // Remove
+                } else {
+                    current.push(index); // Add at end
+                }
+            }
+
+            return { ...prev, [jobId]: current };
+        });
+        setLastClickedIndex(prev => ({ ...prev, [jobId]: index }));
+    };
+
+    const selectFirstN = (jobId: string, n: number) => {
+        const totalPhotos = previews[jobId]?.length || 0;
+        const indices: number[] = [];
+        for (let i = 0; i < Math.min(n, totalPhotos); i++) {
+            indices.push(i);
+        }
+        setFacebookSelectedOrder(prev => ({ ...prev, [jobId]: indices }));
+    };
+
+    const selectAll = (jobId: string) => {
+        const totalPhotos = previews[jobId]?.length || 0;
+        const indices: number[] = [];
+        for (let i = 0; i < totalPhotos; i++) {
+            indices.push(i);
+        }
+        setFacebookSelectedOrder(prev => ({ ...prev, [jobId]: indices }));
+    };
+
+    const selectNone = (jobId: string) => {
+        setFacebookSelectedOrder(prev => ({ ...prev, [jobId]: [] }));
+    };
+
+    const postToFacebook = async (jobId: string) => {
+        const selectedOrder = facebookSelectedOrder[jobId];
+        const fileIds = uploadedFileIds[jobId];
+
+        if (!selectedOrder || selectedOrder.length === 0) {
+            toast.error('กรุณาเลือกรูปสำหรับโพส Facebook');
+            throw new Error('No photos selected');
+        }
+
+        if (!fileIds || fileIds.length === 0) {
+            toast.error('กรุณาอัปโหลดรูปขึ้น Drive ก่อนโพส Facebook');
+            throw new Error('No uploaded files');
+        }
+
+        const loadingId = toast.loading('กำลังโพสลง Facebook...', { id: `fb-${jobId}` });
+        try {
+            // Convert file IDs to Drive URLs (preserving click order)
+            const photoUrls = selectedOrder
+                .filter(idx => fileIds[idx]) // Ensure file ID exists
+                .map(idx => `https://drive.google.com/file/d/${fileIds[idx]}/view`);
+
+            if (photoUrls.length === 0) {
+                throw new Error('ไม่พบ URL ของรูปที่เลือก');
+            }
+
+            const res = await fetch('/api/facebook/post', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jobId,
+                    caption: facebookCaption[jobId] || '',
+                    photoUrls
+                })
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.error || 'Failed to post');
+            }
+
+            setFacebookSent(prev => ({ ...prev, [jobId]: true }));
+            toast.success('โพสลง Facebook เรียบร้อย!', { id: `fb-${jobId}` });
+
+        } catch (error: any) {
+            console.error('Facebook Post Error', error);
+            toast.error(`โพส Facebook ไม่สำเร็จ: ${error.message}`, { id: `fb-${jobId}` });
+            throw error;
+        }
+    };
+
 
 
     const handleUpload = async (jobId: string) => {
@@ -167,12 +281,21 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                     method: 'PUT',
                     body: file,
                     headers: {
-                        'Content-Type': file.type, // Important for Drive to recognize type
+                        'Content-Type': file.type,
                     },
                 });
 
                 if (!uploadResponse.ok) {
                     throw new Error('Failed to upload file to Google Drive');
+                }
+
+                // Capture file ID from Google's response
+                const uploadResult = await uploadResponse.json();
+                if (uploadResult.id) {
+                    setUploadedFileIds(prev => ({
+                        ...prev,
+                        [jobId]: [...(prev[jobId] || []), uploadResult.id]
+                    }));
                 }
 
                 // Capture the folder link from the first successful upload
@@ -235,7 +358,12 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                 coverUrl = await getDownloadURL(storageRef);
             }
 
-            // 2. Update Firestore
+            // 2. Facebook Post (if enabled and not already sent)
+            if (facebookEnabled[jobId] && !facebookSent[jobId]) {
+                await postToFacebook(jobId);
+            }
+
+            // 3. Update Firestore (Drive link updated here again to be safe, but main status update)
             await updateDoc(doc(db, "photography_jobs", jobId), {
                 driveLink: finalDriveLink,
                 coverImage: coverUrl,
@@ -248,6 +376,13 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
             setCoverFiles(prev => { const n = { ...prev }; delete n[jobId]; return n; });
             setJobFiles(prev => { const n = { ...prev }; delete n[jobId]; return n; });
             setIsUploadComplete(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+            // Reset Facebook state
+            setFacebookEnabled(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+            setFacebookSent(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+            setFacebookSelectedOrder(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+            setUploadedFileIds(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+
+
 
         } catch (error) {
             console.error("Error submitting job:", error);
@@ -446,12 +581,112 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                                                         />
                                                     </div>
 
+                                                    {/* 4. Facebook Integration Section */}
+                                                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                                                        <label className="flex items-center gap-2 cursor-pointer mb-3 select-none">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={facebookEnabled[job.id!] || false}
+                                                                onChange={() => handleFacebookToggle(job.id!)}
+                                                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                                            />
+                                                            <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 font-medium">
+                                                                <Facebook size={18} />
+                                                                โพสลงเพจ Facebook โรงเรียน
+                                                            </div>
+                                                        </label>
+
+                                                        {facebookEnabled[job.id!] && (
+                                                            <div className="space-y-4 pl-6 border-l-2 border-blue-100 dark:border-blue-900/50 ml-2">
+                                                                {/* Caption Input */}
+                                                                <div>
+                                                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                                        Caption
+                                                                    </label>
+                                                                    <textarea
+                                                                        value={facebookCaption[job.id!] || ''}
+                                                                        onChange={(e) => setFacebookCaption(prev => ({ ...prev, [job.id!]: e.target.value }))}
+                                                                        rows={4}
+                                                                        className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500"
+                                                                        placeholder="เขียนข้อความสำหรับโพส..."
+                                                                    />
+                                                                </div>
+
+                                                                {/* Photo Selection from Main Preview */}
+                                                                <div>
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                                            เลือกรูปสำหรับโพส ({facebookSelectedOrder[job.id!]?.length || 0} รูป)
+                                                                        </label>
+                                                                        <div className="flex gap-1">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => selectFirstN(job.id!, 50)}
+                                                                                className="px-2 py-0.5 text-[10px] rounded bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400"
+                                                                            >
+                                                                                50 รูปแรก
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => selectAll(job.id!)}
+                                                                                className="px-2 py-0.5 text-[10px] rounded bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400"
+                                                                            >
+                                                                                ทั้งหมด
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => selectNone(job.id!)}
+                                                                                className="px-2 py-0.5 text-[10px] rounded bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400"
+                                                                            >
+                                                                                ยกเลิก
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {isUploadComplete[job.id!] ? (
+                                                                        <div className="grid grid-cols-6 gap-1.5 max-h-40 overflow-y-auto p-1 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                                            {previews[job.id!]?.map((src: string, index: number) => {
+                                                                                const orderIndex = facebookSelectedOrder[job.id!]?.indexOf(index);
+                                                                                const isSelected = orderIndex !== undefined && orderIndex !== -1;
+                                                                                const orderNumber = isSelected ? orderIndex + 1 : null;
+                                                                                return (
+                                                                                    <div
+                                                                                        key={index}
+                                                                                        onClick={(e) => handleFacebookPhotoClick(job.id!, index, e.shiftKey)}
+                                                                                        className={`relative aspect-square rounded-md overflow-hidden cursor-pointer border-2 transition-all ${isSelected
+                                                                                            ? 'border-blue-500 ring-2 ring-blue-300'
+                                                                                            : 'border-transparent hover:border-gray-300'
+                                                                                            }`}
+                                                                                    >
+                                                                                        <img src={src} className="w-full h-full object-cover" alt={`select-${index}`} />
+                                                                                        {isSelected && (
+                                                                                            <div className="absolute inset-0 bg-blue-500/40 flex items-center justify-center">
+                                                                                                <span className="text-white font-bold text-lg drop-shadow-lg">{orderNumber}</span>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-center py-4 text-xs text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                                            กรุณาอัปโหลดรูปขึ้น Drive ก่อน<br />
+                                                                            <span className="text-[10px]">(Shift+Click เพื่อเลือกเป็นช่วง)</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
                                                     <button
                                                         onClick={() => handleSubmit(job.id!)}
                                                         disabled={submittingId === job.id}
-                                                        className="w-full sm:w-auto self-end px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                                                        className={`w-full sm:w-auto self-end px-6 py-2 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 shadow-sm disabled:opacity-50
+                                                            ${(facebookEnabled[job.id!] && !facebookSent[job.id!]) ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}
+                                                        `}
                                                     >
-                                                        {submittingId === job.id ? 'กำลังส่ง...' : 'ส่งงาน'}
+                                                        {submittingId === job.id ? 'กำลังส่ง...' : (facebookEnabled[job.id!] ? 'ส่งงาน + โพส Facebook' : 'ส่งงาน')}
                                                     </button>
                                                 </div>
                                             </div>
