@@ -91,6 +91,7 @@ export default function BottomNavigation() {
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
                         onClick={() => setFabOpen(false)}
+                        onTouchEnd={(e) => { e.preventDefault(); setFabOpen(false); }}
                     />
                 )}
             </AnimatePresence>
@@ -104,6 +105,7 @@ export default function BottomNavigation() {
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
                         onClick={() => setMoreMenuOpen(false)}
+                        onTouchEnd={(e) => { e.preventDefault(); setMoreMenuOpen(false); }}
                     />
                 )}
             </AnimatePresence>
@@ -227,7 +229,13 @@ export default function BottomNavigation() {
                                         setFabOpen(!fabOpen);
                                         setMoreMenuOpen(false);
                                     }}
+                                    onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        setFabOpen(!fabOpen);
+                                        setMoreMenuOpen(false);
+                                    }}
                                     className="relative -mt-6"
+                                    style={{ WebkitTapHighlightColor: 'transparent' }}
                                 >
                                     <motion.div
                                         animate={{ rotate: fabOpen ? 45 : 0 }}
@@ -248,7 +256,13 @@ export default function BottomNavigation() {
                                         setMoreMenuOpen(!moreMenuOpen);
                                         setFabOpen(false);
                                     }}
+                                    onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        setMoreMenuOpen(!moreMenuOpen);
+                                        setFabOpen(false);
+                                    }}
                                     className="flex flex-col items-center gap-0.5 px-3 py-2 group"
+                                    style={{ WebkitTapHighlightColor: 'transparent' }}
                                 >
                                     <div className="relative">
                                         <item.icon

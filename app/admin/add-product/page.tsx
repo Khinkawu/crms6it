@@ -356,8 +356,10 @@ const AddProductPage = () => {
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={handleBulkToggle}
+                                        onClick={(e) => { e.preventDefault(); handleBulkToggle(); }}
+                                        onTouchEnd={(e) => { e.preventDefault(); handleBulkToggle(); }}
                                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isBulk ? 'bg-emerald-500' : 'bg-gray-200 dark:bg-white/20'}`}
+                                        style={{ WebkitTapHighlightColor: 'transparent' }}
                                     >
                                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isBulk ? 'translate-x-6' : 'translate-x-1'}`} />
                                     </button>

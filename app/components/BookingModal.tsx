@@ -362,12 +362,18 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialDate }
                             </label>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 {EQUIPMENT_OPTIONS.map(item => (
-                                    <label key={item} className={`
-                                        flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all
-                                        ${formData.equipment.includes(item)
-                                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
-                                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}
-                                    `}>
+                                    <label
+                                        key={item}
+                                        onClick={(e) => { e.preventDefault(); handleCheckboxChange(item); }}
+                                        onTouchEnd={(e) => { e.preventDefault(); handleCheckboxChange(item); }}
+                                        className={`
+                                            flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all
+                                            ${formData.equipment.includes(item)
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100'}
+                                        `}
+                                        style={{ WebkitTapHighlightColor: 'transparent' }}
+                                    >
                                         <div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.equipment.includes(item) ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`}>
                                             {formData.equipment.includes(item) && <CheckSquare size={14} className="text-white" />}
                                         </div>
@@ -375,7 +381,7 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialDate }
                                             type="checkbox"
                                             className="hidden"
                                             checked={formData.equipment.includes(item)}
-                                            onChange={() => handleCheckboxChange(item)}
+                                            readOnly
                                         />
                                         <span className="text-sm font-medium">{item}</span>
                                     </label>

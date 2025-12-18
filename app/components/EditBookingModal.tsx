@@ -90,6 +90,7 @@ const CustomSelect = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const dropdownRef = React.useRef<HTMLDivElement>(null);
 
     const getLabel = (opt: string | SelectOption) => typeof opt === 'string' ? opt : opt.label;
     const getValue = (opt: string | SelectOption) => typeof opt === 'string' ? opt : opt.value;
@@ -98,35 +99,63 @@ const CustomSelect = ({
         ? getLabel(options.find(opt => getValue(opt) === value)!)
         : placeholder;
 
+    // Close on click/touch outside - iOS PWA compatible
     React.useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
+        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
             }
         };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+
+        if (isOpen) {
+            document.addEventListener("touchstart", handleClickOutside, { passive: true });
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener("touchstart", handleClickOutside);
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isOpen]);
 
     React.useEffect(() => {
-        if (isOpen && containerRef.current) {
-            const selectedEl = containerRef.current.querySelector(`[data-value="${value}"]`);
+        if (isOpen && dropdownRef.current) {
+            const selectedEl = dropdownRef.current.querySelector(`[data-value="${value}"]`);
             if (selectedEl) {
                 selectedEl.scrollIntoView({ block: "center" });
             }
         }
     }, [isOpen, value]);
 
+    const handleToggle = (e: React.MouseEvent | React.TouchEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsOpen(!isOpen);
+    };
+
+    const handleSelect = (optValue: string) => (e: React.MouseEvent | React.TouchEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onChange(optValue);
+        setIsOpen(false);
+    };
+
     return (
         <div className="relative w-full" ref={containerRef}>
             <div
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={handleToggle}
+                onTouchEnd={handleToggle}
                 className={`w-full h-[46px] px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-center cursor-pointer hover:border-blue-500 transition-colors select-none flex items-center justify-center ${!value ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
             >
                 {selectedLabel}
             </div>
             {isOpen && (
-                <div className="absolute top-full left-0 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 no-scrollbar">
+                <div
+                    ref={dropdownRef}
+                    className="absolute top-full left-0 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 no-scrollbar"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                >
                     {options.map((opt) => {
                         const optValue = getValue(opt);
                         const optLabel = getLabel(opt);
@@ -134,11 +163,10 @@ const CustomSelect = ({
                             <div
                                 key={optValue}
                                 data-value={optValue}
-                                onClick={() => {
-                                    onChange(optValue);
-                                    setIsOpen(false);
-                                }}
-                                className={`py-2 px-3 text-sm text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${optValue === value ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300'}`}
+                                onClick={handleSelect(optValue)}
+                                onTouchEnd={handleSelect(optValue)}
+                                className={`py-3 px-3 text-sm text-center cursor-pointer transition-colors ${optValue === value ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100'}`}
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
                             >
                                 {optLabel}
                             </div>
@@ -457,11 +485,17 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                             ) : (
                                 <div className="grid grid-cols-2 gap-3">
                                     {availableEquipment.map(item => (
-                                        <label key={item} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${formData.equipment.includes(item) ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-600'}`}>
+                                        <label
+                                            key={item}
+                                            onClick={(e) => { e.preventDefault(); handleCheckboxChange(item); }}
+                                            onTouchEnd={(e) => { e.preventDefault(); handleCheckboxChange(item); }}
+                                            className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${formData.equipment.includes(item) ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-600 active:bg-gray-100'}`}
+                                            style={{ WebkitTapHighlightColor: 'transparent' }}
+                                        >
                                             <div className={`w-4 h-4 rounded border flex items-center justify-center ${formData.equipment.includes(item) ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-300'}`}>
                                                 {formData.equipment.includes(item) && <CheckSquare size={12} className="text-white" />}
                                             </div>
-                                            <input type="checkbox" className="hidden" checked={formData.equipment.includes(item)} onChange={() => handleCheckboxChange(item)} />
+                                            <input type="checkbox" className="hidden" checked={formData.equipment.includes(item)} readOnly />
                                             <span className="text-sm">{item}</span>
                                         </label>
                                     ))}
@@ -475,7 +509,12 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
 
                         {/* Needs Photographer Toggle */}
                         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-                            <label className="flex items-center gap-4 cursor-pointer">
+                            <label
+                                className="flex items-center gap-4 cursor-pointer"
+                                onClick={(e) => { e.preventDefault(); setFormData(prev => ({ ...prev, needsPhotographer: !prev.needsPhotographer })); }}
+                                onTouchEnd={(e) => { e.preventDefault(); setFormData(prev => ({ ...prev, needsPhotographer: !prev.needsPhotographer })); }}
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
+                            >
                                 <div className={`
                                     relative inline-flex h-6 w-11 items-center rounded-full transition-colors
                                     ${formData.needsPhotographer ? 'bg-amber-500' : 'bg-gray-200 dark:bg-gray-700'}
@@ -486,12 +525,7 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                                             ${formData.needsPhotographer ? 'translate-x-6' : 'translate-x-1'}
                                         `}
                                     />
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.needsPhotographer}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, needsPhotographer: e.target.checked }))}
-                                        className="hidden"
-                                    />
+                                    <input type="checkbox" checked={formData.needsPhotographer} readOnly className="hidden" />
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Camera size={20} className="text-amber-600 dark:text-amber-400" />
@@ -507,7 +541,13 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
                                 <label className="text-sm font-bold flex items-center gap-2"><Paperclip size={18} className="text-blue-500" /> เอกสารแนบ</label>
-                                <button type="button" onClick={() => setHasAttachments(!hasAttachments)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hasAttachments ? 'bg-blue-600' : 'bg-gray-200'}`}>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); setHasAttachments(!hasAttachments); }}
+                                    onTouchEnd={(e) => { e.preventDefault(); setHasAttachments(!hasAttachments); }}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hasAttachments ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                                >
                                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hasAttachments ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>

@@ -17,22 +17,24 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
     const modalRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+                onClose();
+            }
+        };
+
         if (isOpen) {
             document.body.style.overflow = 'hidden';
-            // Add event listener for click outside
+            // Add both touch and mouse events for iOS PWA compatibility
+            document.addEventListener("touchstart", handleClickOutside, { passive: true });
             document.addEventListener("mousedown", handleClickOutside);
         }
         return () => {
             document.body.style.overflow = '';
+            document.removeEventListener("touchstart", handleClickOutside);
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [isOpen]);
-
-    const handleClickOutside = (event: MouseEvent) => {
-        if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-            onClose();
-        }
-    };
+    }, [isOpen, onClose]);
 
     if (!isOpen) return null;
 

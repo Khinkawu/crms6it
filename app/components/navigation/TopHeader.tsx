@@ -83,7 +83,9 @@ export default function TopHeader({ onOpenCommandPalette }: TopHeaderProps) {
                     <div className="relative">
                         <button
                             onClick={() => setUserMenuOpen(!userMenuOpen)}
+                            onTouchEnd={(e) => { e.preventDefault(); setUserMenuOpen(!userMenuOpen); }}
                             className="flex items-center gap-2 p-1.5 pr-3 rounded-xl bg-gray-100/80 dark:bg-gray-800/50 hover:bg-gray-200/80 dark:hover:bg-gray-700/50 transition-colors"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
                         >
                             <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${badge.color} p-0.5`}>
                                 <div className="w-full h-full rounded-md bg-white dark:bg-gray-900 overflow-hidden">
@@ -103,7 +105,11 @@ export default function TopHeader({ onOpenCommandPalette }: TopHeaderProps) {
                         <AnimatePresence>
                             {userMenuOpen && (
                                 <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setUserMenuOpen(false)}
+                                        onTouchEnd={(e) => { e.preventDefault(); setUserMenuOpen(false); }}
+                                    />
                                     <motion.div
                                         initial={{ opacity: 0, y: 8, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
