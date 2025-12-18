@@ -178,7 +178,7 @@ function StatCard({ label, value, icon: Icon, color, trend }: StatCardProps) {
 }
 
 export default function Dashboard() {
-    const { user, role, isPhotographer, loading } = useAuth();
+    const { user, role, isPhotographer, loading, getDisplayName } = useAuth();
     const router = useRouter();
 
     // Custom hooks for data fetching
@@ -280,7 +280,7 @@ export default function Dashboard() {
                                 <span>{today}</span>
                             </div>
                             <h1 className="text-2xl md:text-3xl font-bold text-white">
-                                {getGreeting()}, {user.displayName?.split(' ')[0] || "User"}! 👋
+                                {getGreeting()}, {getDisplayName().split(' ')[0] || "User"}! 👋
                             </h1>
                         </div>
                     </div>

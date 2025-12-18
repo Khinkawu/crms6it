@@ -16,7 +16,7 @@ interface TopHeaderProps {
 }
 
 export default function TopHeader({ onOpenCommandPalette }: TopHeaderProps) {
-    const { user, role, isPhotographer, signOut } = useAuth();
+    const { user, role, isPhotographer, signOut, getDisplayName } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -120,7 +120,7 @@ export default function TopHeader({ onOpenCommandPalette }: TopHeaderProps) {
                                         {/* User Info */}
                                         <div className="px-3 py-2 mb-1">
                                             <p className="font-semibold text-gray-900 dark:text-white text-sm">
-                                                {user.displayName || "User"}
+                                                {getDisplayName()}
                                             </p>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                                 {user.email}

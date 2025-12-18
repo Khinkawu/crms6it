@@ -59,11 +59,12 @@ export async function GET(request: Request) {
 
         const profileData = await profileResponse.json();
         const lineUserId = profileData.userId;
+        const lineDisplayName = profileData.displayName || '';
 
-        // 3. Redirect to Profile Page with lineUserId to be saved by client
+        // 3. Redirect to Profile Page with lineUserId and displayName to be saved by client
         // Note: In a production app with firebase-admin, we would save it here.
         // For this setup, we pass it back to the client to save.
-        return NextResponse.redirect(`${appUrl}/profile?action=link_line&lineUserId=${lineUserId}`);
+        return NextResponse.redirect(`${appUrl}/profile?action=link_line&lineUserId=${lineUserId}&lineDisplayName=${encodeURIComponent(lineDisplayName)}`);
 
     } catch (err) {
         console.error('LINE Callback Error:', err);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import {
     onAuthStateChanged,
     signInWithPopup,
@@ -16,18 +16,22 @@ interface AuthContextType {
     user: User | null;
     role: UserRole | null;
     isPhotographer: boolean;
+    lineDisplayName: string | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
     signOut: () => Promise<void>;
+    getDisplayName: () => string; // Helper to get appropriate display name
 }
 
 const AuthContext = createContext<AuthContextType>({
     user: null,
     role: null,
     isPhotographer: false,
+    lineDisplayName: null,
     loading: true,
     signInWithGoogle: async () => { },
     signOut: async () => { },
+    getDisplayName: () => "",
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -36,6 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [role, setRole] = useState<UserRole | null>(null);
     const [isPhotographer, setIsPhotographer] = useState(false);
+    const [lineDisplayName, setLineDisplayName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -100,15 +105,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         const userData = docSnap.data();
                         setRole(userData.role as UserRole);
                         setIsPhotographer(userData.isPhotographer || false);
+                        setLineDisplayName(userData.lineDisplayName || null);
                     } else {
                         setRole('user');
                         setIsPhotographer(false);
+                        setLineDisplayName(null);
                     }
                     setLoading(false);
                 }, (error) => {
                     console.error("Error listening to user doc:", error);
                     setRole('user');
                     setIsPhotographer(false);
+                    setLineDisplayName(null);
                     setLoading(false);
                 });
 
@@ -117,6 +125,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setUser(null);
                 setRole(null);
                 setIsPhotographer(false);
+                setLineDisplayName(null);
                 setLoading(false);
             }
         });
@@ -145,13 +154,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(null);
             setRole(null);
             setIsPhotographer(false);
+            setLineDisplayName(null);
         } catch (error) {
             console.error("Error signing out", error);
         }
     };
 
+    // Helper function to get the appropriate display name
+    // For photographers with LINE display name, use that; otherwise use Google name
+    const getDisplayName = useCallback(() => {
+        if (isPhotographer && lineDisplayName) {
+            return lineDisplayName;
+        }
+        return user?.displayName || "User";
+    }, [isPhotographer, lineDisplayName, user?.displayName]);
+
     return (
-        <AuthContext.Provider value={{ user, role, isPhotographer, loading, signInWithGoogle, signOut }}>
+        <AuthContext.Provider value={{ user, role, isPhotographer, lineDisplayName, loading, signInWithGoogle, signOut, getDisplayName }}>
             {children}
         </AuthContext.Provider>
     );

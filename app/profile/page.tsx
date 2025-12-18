@@ -100,12 +100,15 @@ function ProfileContent() {
         }
 
         if (action === 'link_line' && newLineUserId && user) {
+            const newLineDisplayName = searchParams.get('lineDisplayName') || '';
+
             const linkAccount = async () => {
                 setLinkingStatus('linking');
                 try {
-                    // Save to users collection
+                    // Save to users collection (include LINE display name)
                     await updateDoc(doc(db, "users", user.uid), {
-                        lineUserId: newLineUserId
+                        lineUserId: newLineUserId,
+                        lineDisplayName: newLineDisplayName
                     });
 
                     // Also save to line_bindings for LIFF login compatibility
@@ -114,6 +117,7 @@ function ProfileContent() {
                         uid: user.uid,
                         email: user.email,
                         displayName: user.displayName,
+                        lineDisplayName: newLineDisplayName,
                         photoURL: user.photoURL,
                         linkedAt: serverTimestamp()
                     });

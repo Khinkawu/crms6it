@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../lib/firebase";
 import { RepairTicket, RepairStatus, Product } from "../types";
 import { logActivity } from "../utils/logger";
+import { compressImage } from "../utils/imageCompression";
 import toast from "react-hot-toast";
 
 interface UseRepairAdminOptions {
@@ -182,8 +183,16 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
             let completionImageUrl = selectedTicket.completionImage;
 
             if (completionImage) {
-                const storageRef = ref(storage, `repair_completion/${Date.now()}_${completionImage.name}`);
-                const snapshot = await uploadBytes(storageRef, completionImage);
+                // Compress image before upload
+                const compressedImage = await compressImage(completionImage, {
+                    maxWidth: 1920,
+                    maxHeight: 1080,
+                    quality: 0.8,
+                    maxSizeMB: 1
+                });
+
+                const storageRef = ref(storage, `repair_completion/${Date.now()}_${compressedImage.name}`);
+                const snapshot = await uploadBytes(storageRef, compressedImage);
                 completionImageUrl = await getDownloadURL(snapshot.ref);
             }
 

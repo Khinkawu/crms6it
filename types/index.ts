@@ -54,6 +54,7 @@ export interface UserProfile {
     createdAt?: Timestamp;
     isPhotographer?: boolean;
     lineUserId?: string; // LINE User ID
+    lineDisplayName?: string; // LINE Display Name (used for photographers)
 }
 
 export type RepairStatus = 'pending' | 'in_progress' | 'waiting_parts' | 'completed' | 'cancelled';
