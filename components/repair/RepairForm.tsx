@@ -8,6 +8,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../lib/firebase";
 import { Toaster, toast } from 'react-hot-toast';
 import { logActivity } from "../../utils/logger";
+import { compressImage } from "../../utils/imageCompression";
 import {
     User, MapPin, Image as ImageIcon, FileText,
     Send, Loader2, X, Plus, Wrench, Phone, Building
@@ -79,10 +80,19 @@ export default function RepairForm() {
         const toastId = toast.loading("กำลังบันทึกข้อมูล...");
 
         try {
+            // Compress and upload images
             const imageUrls: string[] = [];
             for (const image of images) {
-                const storageRef = ref(storage, `repair_images/${Date.now()}_${image.name}`);
-                const snapshot = await uploadBytes(storageRef, image);
+                // Compress image before upload (max 1920x1080, quality 0.8, target 1MB)
+                const compressedImage = await compressImage(image, {
+                    maxWidth: 1920,
+                    maxHeight: 1080,
+                    quality: 0.8,
+                    maxSizeMB: 1
+                });
+
+                const storageRef = ref(storage, `repair_images/${Date.now()}_${compressedImage.name}`);
+                const snapshot = await uploadBytes(storageRef, compressedImage);
                 const url = await getDownloadURL(snapshot.ref);
                 imageUrls.push(url);
             }

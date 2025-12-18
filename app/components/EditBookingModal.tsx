@@ -40,7 +40,7 @@ interface EditBookingModalProps {
 
 const ROOMS = {
     junior_high: [
-        { id: "jh_phaya", name: "ห้องพญาสตบรรณ" },
+        { id: "jh_phaya", name: "ห้องพญาสัตบรรณ" },
         { id: "jh_gym", name: "โรงยิม" },
         { id: "jh_chamchuri", name: "ห้องจามจุรี" },
     ],
