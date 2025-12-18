@@ -103,9 +103,21 @@ function ProfileContent() {
             const linkAccount = async () => {
                 setLinkingStatus('linking');
                 try {
+                    // Save to users collection
                     await updateDoc(doc(db, "users", user.uid), {
                         lineUserId: newLineUserId
                     });
+
+                    // Also save to line_bindings for LIFF login compatibility
+                    const { setDoc, serverTimestamp } = await import("firebase/firestore");
+                    await setDoc(doc(db, "line_bindings", newLineUserId), {
+                        uid: user.uid,
+                        email: user.email,
+                        displayName: user.displayName,
+                        photoURL: user.photoURL,
+                        linkedAt: serverTimestamp()
+                    });
+
                     setLineUserId(newLineUserId);
                     setLinkingStatus('success');
                     router.replace('/profile');
@@ -146,9 +158,22 @@ function ProfileContent() {
 
                     if (currentLineId) {
                         setLinkingStatus('linking');
+
+                        // Save to users collection
                         await updateDoc(doc(db, "users", user.uid), {
                             lineUserId: currentLineId
                         });
+
+                        // Also save to line_bindings for LIFF login compatibility
+                        const { setDoc, serverTimestamp } = await import("firebase/firestore");
+                        await setDoc(doc(db, "line_bindings", currentLineId), {
+                            uid: user.uid,
+                            email: user.email,
+                            displayName: user.displayName,
+                            photoURL: user.photoURL,
+                            linkedAt: serverTimestamp()
+                        });
+
                         setLineUserId(currentLineId);
                         setLinkingStatus('success');
                         toast.success("เชื่อมต่อกับ LINE ปัจจุบันเรียบร้อยแล้ว");
@@ -413,9 +438,17 @@ function ProfileContent() {
                 onClose={() => setIsDisconnectConfirmOpen(false)}
                 onConfirm={async () => {
                     try {
+                        // Delete from line_bindings if lineUserId exists
+                        if (lineUserId) {
+                            const { deleteDoc } = await import("firebase/firestore");
+                            await deleteDoc(doc(db, "line_bindings", lineUserId));
+                        }
+
+                        // Clear from users collection
                         await updateDoc(doc(db, "users", user.uid), {
                             lineUserId: null
                         });
+
                         setLineUserId(null);
                         setIsDisconnectConfirmOpen(false);
                         toast.success("ยกเลิกการเชื่อมต่อ LINE เรียบร้อยแล้ว");

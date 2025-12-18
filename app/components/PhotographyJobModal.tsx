@@ -3,29 +3,28 @@
 import React, { useState, useEffect } from "react";
 import { X, Calendar, Clock, MapPin, User, Save, Check, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { collection, addDoc, serverTimestamp, getDocs, query, where, doc, getDoc } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { collection, addDoc, serverTimestamp, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
-import { UserProfile } from "../../types";
-import { useBookings, BookingEvent } from "../../hooks/useBookings";
+import { UserProfile } from "@/types";
+import { useBookings } from "@/hooks/useBookings";
 import moment from "moment";
 
 interface PhotographyJobModalProps {
     isOpen: boolean;
     onClose: () => void;
     requesterId: string;
+    photographers: UserProfile[];
 }
 
-export default function PhotographyJobModal({ isOpen, onClose, requesterId }: PhotographyJobModalProps) {
+export default function PhotographyJobModal({ isOpen, onClose, requesterId, photographers }: PhotographyJobModalProps) {
     const [title, setTitle] = useState("");
     const [location, setLocation] = useState("");
     const [date, setDate] = useState("");
     const [startTime, setStartTime] = useState("");
     const [endTime, setEndTime] = useState("");
     const [description, setDescription] = useState("");
-    const [assigneeIds, setAssigneeIds] = useState<string[]>([]); // Changed to array
-
-    const [photographers, setPhotographers] = useState<UserProfile[]>([]);
+    const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Import from Booking - extend range to 6 months to include more bookings
@@ -76,7 +75,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
         setSelectedBookingId(bookingId);
         const booking = availableBookings.find(b => b.id === bookingId);
         if (booking) {
-            setTitle(booking.title.split(' (')[0]); // Remove room name if appended in hook
+            setTitle(booking.title.split(' (')[0]);; // Remove room name if appended in hook
             setLocation(booking.roomName);
             setDate(moment(booking.start).format('YYYY-MM-DD'));
             setStartTime(moment(booking.start).format('HH:mm'));
@@ -85,32 +84,6 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
             toast.success("นำเข้าข้อมูลเรียบร้อย");
         }
     };
-
-    // Fetch potential photographers (Technicians, Admins, Moderators)
-    // Ideally we filter by isPhotographer, but for now we fetch likely candidates
-    useEffect(() => {
-        if (isOpen) {
-            const fetchUsers = async () => {
-                try {
-                    // Fetch all users and filter client-side for flexibility (or simplified query)
-                    const usersRef = collection(db, "users");
-                    const snapshot = await getDocs(usersRef);
-                    const users: UserProfile[] = [];
-                    snapshot.forEach(doc => {
-                        const data = doc.data() as UserProfile;
-                        // Filter: MUST be isPhotographer
-                        if (data.isPhotographer) {
-                            users.push({ ...data, uid: doc.id });
-                        }
-                    });
-                    setPhotographers(users);
-                } catch (error) {
-                    console.error("Error fetching users:", error);
-                }
-            };
-            fetchUsers();
-        }
-    }, [isOpen]);
 
     // Lock body scroll when modal is open
     useEffect(() => {
@@ -141,7 +114,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
             const selectedPhotographers = photographers.filter(p => assigneeIds.includes(p.uid));
             const assigneeNames = selectedPhotographers.map(p => p.displayName);
 
-            const jobData = {
+            const jobData: Record<string, any> = {
                 title,
                 location,
                 description,
@@ -152,9 +125,13 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
                 requesterId,
                 status: 'assigned',
                 createdAt: serverTimestamp(),
-                bookingId: selectedBookingId || undefined,
                 isManualEntry: !selectedBookingId
             };
+
+            // Only add bookingId if it exists (Firebase doesn't accept undefined)
+            if (selectedBookingId) {
+                jobData.bookingId = selectedBookingId;
+            }
 
             await addDoc(collection(db, "photography_jobs"), jobData);
 
@@ -340,8 +317,6 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId }: Ph
             setIsSubmitting(false);
         }
     };
-
-    if (!isOpen) return null;
 
     return (
         <AnimatePresence>

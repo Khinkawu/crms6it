@@ -6,49 +6,7 @@ import { db, storage } from "../../lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import toast from "react-hot-toast";
 import { PhotographyJob } from "../../types";
-
-// Utility: Compress and resize image for cover (max 800px width, 0.7 quality)
-const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.7): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target?.result as string;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                // Resize if wider than maxWidth
-                if (width > maxWidth) {
-                    height = (height * maxWidth) / width;
-                    width = maxWidth;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-
-                const ctx = canvas.getContext('2d');
-                ctx?.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob(
-                    (blob) => {
-                        if (blob) {
-                            resolve(blob);
-                        } else {
-                            reject(new Error('Canvas to Blob failed'));
-                        }
-                    },
-                    'image/jpeg',
-                    quality
-                );
-            };
-            img.onerror = reject;
-        };
-        reader.onerror = reject;
-    });
-};
+import { compressImage } from "@/utils/imageCompression";
 
 interface MyPhotographyJobsModalProps {
     isOpen: boolean;
@@ -263,9 +221,17 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
 
             // 1. If cover file exists, compress and upload to Firebase Storage
             if (coverFiles[jobId]) {
-                const compressedBlob = await compressImage(coverFiles[jobId], 800, 0.7);
+                toast.loading('กำลังบีบอัดภาพปก...', { id: 'compress-cover' });
+                const compressedFile = await compressImage(coverFiles[jobId], {
+                    maxWidth: 1200,
+                    maxHeight: 800,
+                    quality: 0.8,
+                    maxSizeMB: 0.3
+                });
+                toast.dismiss('compress-cover');
+
                 const storageRef = ref(storage, `covers/${jobId}_${Date.now()}.jpg`);
-                await uploadBytes(storageRef, compressedBlob);
+                await uploadBytes(storageRef, compressedFile);
                 coverUrl = await getDownloadURL(storageRef);
             }
 

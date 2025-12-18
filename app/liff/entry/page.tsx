@@ -84,7 +84,7 @@ export default function LIFFEntryPage() {
                 return;
             }
 
-            // Create Binding
+            // Create Binding in line_bindings collection
             await setDoc(doc(db, "line_bindings", lineUserId), {
                 uid: user.uid,
                 email: user.email,
@@ -92,6 +92,11 @@ export default function LIFFEntryPage() {
                 photoURL: user.photoURL,
                 linkedAt: serverTimestamp()
             });
+
+            // Also save to users collection for unified data
+            await setDoc(doc(db, "users", user.uid), {
+                lineUserId: lineUserId
+            }, { merge: true });
 
             toast.success("ผูกบัญชีสำเร็จ!");
 

@@ -24,10 +24,12 @@ import {
     Image as ImageIcon
 } from "lucide-react";
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { PhotographyJob, UserProfile } from "@/types";
 import toast from "react-hot-toast";
 import PhotographyJobModal from "@/app/components/PhotographyJobModal";
+import { compressImage } from "@/utils/imageCompression";
 
 export default function PhotographyManagement() {
     const { user, role, loading } = useAuth();
@@ -452,6 +454,7 @@ export default function PhotographyManagement() {
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 requesterId={user?.uid || ''}
+                photographers={photographers}
             />
 
             {/* Edit Modal */}
@@ -485,27 +488,63 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
         endTime: '',
         assigneeIds: [] as string[],
         driveLink: '',
-        status: 'assigned' as 'assigned' | 'completed' | 'cancelled'
+        status: 'assigned' as 'assigned' | 'completed' | 'cancelled',
+        coverImage: ''
     });
     const [saving, setSaving] = useState(false);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string>('');
+    const [uploadingImage, setUploadingImage] = useState(false);
 
     useEffect(() => {
         if (job) {
             const startDate = job.startTime?.toDate?.() || new Date();
             const endDate = job.endTime?.toDate?.() || new Date();
 
+            // Format date to local timezone for datetime-local input
+            const formatLocalDateTime = (date: Date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            };
+
             setFormData({
                 title: job.title || '',
                 description: job.description || '',
                 location: job.location || '',
-                startTime: startDate.toISOString().slice(0, 16),
-                endTime: endDate.toISOString().slice(0, 16),
+                startTime: formatLocalDateTime(startDate),
+                endTime: formatLocalDateTime(endDate),
                 assigneeIds: job.assigneeIds || [],
                 driveLink: job.driveLink || '',
-                status: job.status || 'assigned'
+                status: job.status || 'assigned',
+                coverImage: job.coverImage || ''
             });
+            setImagePreview(job.coverImage || '');
+            setImageFile(null);
         }
     }, [job]);
+
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+                return;
+            }
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleRemoveImage = () => {
+        setImageFile(null);
+        setImagePreview('');
+        setFormData(prev => ({ ...prev, coverImage: '' }));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -513,6 +552,31 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
 
         setSaving(true);
         try {
+            let coverImageUrl = formData.coverImage;
+
+            // Upload new image if selected
+            if (imageFile) {
+                setUploadingImage(true);
+                toast.loading('กำลังบีบอัดและอัปโหลดรูปภาพ...', { id: 'upload-image' });
+
+                // Compress image before upload
+                const compressedFile = await compressImage(imageFile, {
+                    maxWidth: 1920,
+                    maxHeight: 1080,
+                    quality: 0.8,
+                    maxSizeMB: 0.5
+                });
+
+                const fileName = `photography_jobs/${job.id}/cover_${Date.now()}.jpg`;
+                const storageRef = ref(storage, fileName);
+
+                await uploadBytes(storageRef, compressedFile);
+                coverImageUrl = await getDownloadURL(storageRef);
+
+                toast.success(`อัปโหลดสำเร็จ (${(compressedFile.size / 1024).toFixed(0)} KB)`, { id: 'upload-image' });
+                setUploadingImage(false);
+            }
+
             const assigneeNames = formData.assigneeIds.map(id => {
                 const p = photographers.find(ph => ph.uid === id);
                 return p?.displayName || '';
@@ -527,7 +591,8 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
                 assigneeIds: formData.assigneeIds,
                 assigneeNames,
                 driveLink: formData.driveLink,
-                status: formData.status
+                status: formData.status,
+                coverImage: coverImageUrl
             });
 
             toast.success("บันทึกสำเร็จ");
@@ -537,6 +602,7 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
             toast.error("เกิดข้อผิดพลาด");
         } finally {
             setSaving(false);
+            setUploadingImage(false);
         }
     };
 
@@ -591,6 +657,60 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
                                 className="w-full px-4 py-2.5 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                                 required
                             />
+                        </div>
+
+                        {/* Cover Image */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                ภาพปก
+                            </label>
+                            <div className="space-y-3">
+                                {/* Image Preview */}
+                                {imagePreview ? (
+                                    <div className="relative group">
+                                        <img
+                                            src={imagePreview}
+                                            alt="Cover preview"
+                                            className="w-full h-48 object-cover rounded-xl border border-gray-200 dark:border-gray-700"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
+                                            <label className="p-2 bg-white/90 rounded-lg cursor-pointer hover:bg-white transition-colors">
+                                                <Edit2 size={18} className="text-gray-700" />
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleImageChange}
+                                                    className="hidden"
+                                                />
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={handleRemoveImage}
+                                                className="p-2 bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+                                            >
+                                                <X size={18} className="text-white" />
+                                            </button>
+                                        </div>
+                                        {uploadingImage && (
+                                            <div className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center">
+                                                <div className="animate-spin h-8 w-8 border-3 border-white rounded-full border-t-transparent" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition-colors">
+                                        <ImageIcon size={32} className="text-gray-400 mb-2" />
+                                        <span className="text-sm text-gray-500 dark:text-gray-400">คลิกเพื่อเลือกภาพปก</span>
+                                        <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">PNG, JPG สูงสุด 5MB</span>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageChange}
+                                            className="hidden"
+                                        />
+                                    </label>
+                                )}
+                            </div>
                         </div>
 
                         {/* Description */}
