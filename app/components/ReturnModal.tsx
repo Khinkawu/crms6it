@@ -8,7 +8,6 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
-import { logActivity } from "../../utils/logger";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
 
 interface ReturnModalProps {
@@ -157,16 +156,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onS
                 timestamp: serverTimestamp(),
                 signatureUrl: signatureUrl,
                 status: "completed"
-            });
-
-            // 4. Log Activity with Signature
-            await logActivity({
-                action: 'return',
-                productName: product.name,
-                userName: user?.displayName || "Admin", // Action performed by Admin
-                details: `Returned by ${formData.returnerName}. Receiver: ${user?.displayName}. Notes: ${formData.notes}`,
-                imageUrl: product.imageUrl,
-                signatureUrl: signatureUrl
             });
 
             toast.success("คืนวัสดุเรียบร้อยแล้ว");

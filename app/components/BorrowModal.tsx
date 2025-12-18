@@ -8,7 +8,6 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
-import { logActivity } from "../../utils/logger";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
 
 interface BorrowModalProps {
@@ -146,16 +145,6 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                     await updateStatsOnStatusChange('available', 'borrowed');
                 }
             }
-
-            // 4. Log Activity with Signature
-            await logActivity({
-                action: 'borrow',
-                productName: product.name,
-                userName: formData.borrowerName, // Use borrower name for log
-                details: `Borrowed by ${formData.borrowerName}. Reason: ${formData.reason} (Recorded by ${user?.displayName})`,
-                imageUrl: product.imageUrl,
-                signatureUrl: signatureUrl
-            });
 
             toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
             onSuccess();

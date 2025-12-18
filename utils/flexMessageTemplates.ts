@@ -108,28 +108,36 @@ export function createFlexBubble(options: FlexMessageOptions) {
                         endColor: '#00000000'
                     }
                 },
-                // Badge in corner (pill style)
+                // Badge in corner (pill style - does not stretch)
                 ...(badge ? [{
                     type: 'box',
-                    layout: 'horizontal',
-                    contents: [
-                        {
-                            type: 'text',
-                            text: badge,
-                            size: 'xxs',
-                            color: '#ffffff',
-                            weight: 'bold'
-                        }
-                    ],
+                    layout: 'vertical',
                     position: 'absolute',
                     offsetTop: '12px',
                     offsetStart: '12px',
-                    backgroundColor: badgeColor,
-                    cornerRadius: '20px',
-                    paddingTop: '4px',
-                    paddingBottom: '4px',
-                    paddingStart: '12px',
-                    paddingEnd: '12px'
+                    contents: [
+                        {
+                            type: 'box',
+                            layout: 'horizontal',
+                            backgroundColor: badgeColor,
+                            cornerRadius: '20px',
+                            paddingTop: '4px',
+                            paddingBottom: '4px',
+                            paddingStart: '12px',
+                            paddingEnd: '12px',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: badge,
+                                    size: 'xxs',
+                                    color: '#ffffff',
+                                    weight: 'bold',
+                                    flex: 0,
+                                    wrap: false
+                                }
+                            ]
+                        }
+                    ]
                 }] : [])
             ],
             paddingAll: '0px'

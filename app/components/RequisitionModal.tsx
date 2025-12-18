@@ -7,7 +7,6 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from "
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
-import { logActivity } from "../../utils/logger";
 import { decrementStats } from "../../utils/aggregation";
 
 interface RequisitionModalProps {
@@ -129,16 +128,6 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                 signatureUrl: signatureUrl,
                 timestamp: serverTimestamp(),
                 status: "completed"
-            });
-
-            // 4. Log Activity
-            await logActivity({
-                action: 'requisition',
-                productName: product.name,
-                userName: formData.requesterName,
-                details: `${isBulk ? `Qty: ${quantity}` : ''} Reason: ${formData.reason} (Recorded by ${user?.displayName})`,
-                imageUrl: product.imageUrl,
-                signatureUrl: signatureUrl
             });
 
             // 5. Update Stats

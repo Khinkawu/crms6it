@@ -277,14 +277,6 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
                 updatedAt: serverTimestamp()
             });
 
-            await logActivity({
-                action: 'requisition',
-                productName: part.name,
-                userName: userName || "Technician",
-                details: `เบิก ${useQuantity} ชิ้น สำหรับงานซ่อม #${selectedTicket.id?.slice(0, 5)}`,
-                imageUrl: part.imageUrl
-            });
-
             toast.success(`เบิก ${useQuantity} x ${part.name} สำเร็จ`);
             setSelectedPartId("");
             setUseQuantity(1);
