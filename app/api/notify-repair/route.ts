@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { createRepairNewFlexMessage } from '@/utils/flexMessageTemplates';
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { requesterName, room, description, imageOneUrl, zone } = body;
+        const { requesterName, room, description, imageOneUrl, zone, ticketId } = body;
         const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
         if (!token) {
@@ -50,135 +51,17 @@ export async function POST(req: Request) {
         }
 
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
-        const deepLink = `${appUrl}/admin/repairs?ticketId=${body.ticketId}`; // Ensure ticketId is passed in body
+        const deepLink = `${appUrl}/admin/repairs?ticketId=${ticketId}`;
 
-        const messages: any[] = [
-            {
-                type: "flex",
-                altText: `🔧 งานซ่อมใหม่: ${room}`,
-                contents: {
-                    type: "bubble",
-                    header: {
-                        type: "box",
-                        layout: "vertical",
-                        backgroundColor: "#1d9befff", // Red for urgency
-                        paddingAll: "lg",
-                        contents: [
-                            {
-                                type: "text",
-                                text: "NEW REPAIR REQUEST",
-                                color: "#ffffff",
-                                weight: "bold",
-                                size: "xs",
-                                align: "center"
-                            },
-                            {
-                                type: "text",
-                                text: "มีงานซ่อมใหม่!",
-                                color: "#ffffff",
-                                weight: "bold",
-                                size: "xl",
-                                margin: "md",
-                                align: "center"
-                            }
-                        ]
-                    },
-                    hero: imageOneUrl ? {
-                        type: "image",
-                        url: imageOneUrl,
-                        size: "full",
-                        aspectRatio: "20:13",
-                        aspectMode: "cover",
-                        action: {
-                            type: "uri",
-                            uri: imageOneUrl
-                        }
-                    } : undefined,
-                    body: {
-                        type: "box",
-                        layout: "vertical",
-                        contents: [
-                            {
-                                type: "text",
-                                text: description,
-                                weight: "bold",
-                                size: "lg",
-                                wrap: true
-                            },
-                            {
-                                type: "box",
-                                layout: "vertical",
-                                margin: "lg",
-                                spacing: "sm",
-                                contents: [
-                                    {
-                                        type: "box",
-                                        layout: "baseline",
-                                        spacing: "sm",
-                                        contents: [
-                                            {
-                                                type: "text",
-                                                text: "📍 สถานที่",
-                                                color: "#aaaaaa",
-                                                size: "sm",
-                                                flex: 2
-                                            },
-                                            {
-                                                type: "text",
-                                                text: room,
-                                                wrap: true,
-                                                color: "#666666",
-                                                size: "sm",
-                                                flex: 4
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        type: "box",
-                                        layout: "baseline",
-                                        spacing: "sm",
-                                        contents: [
-                                            {
-                                                type: "text",
-                                                text: "👤 ผู้แจ้ง",
-                                                color: "#aaaaaa",
-                                                size: "sm",
-                                                flex: 2
-                                            },
-                                            {
-                                                type: "text",
-                                                text: requesterName,
-                                                wrap: true,
-                                                color: "#666666",
-                                                size: "sm",
-                                                flex: 4
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    footer: {
-                        type: "box",
-                        layout: "vertical",
-                        spacing: "sm",
-                        contents: [
-                            {
-                                type: "button",
-                                style: "primary",
-                                color: "#1d9befff", // Red button
-                                action: {
-                                    type: "uri",
-                                    label: "รับงานซ่อม",
-                                    uri: deepLink
-                                }
-                            }
-                        ]
-                    }
-                }
-            }
-        ];
+        // Use new professional Flex Message template
+        const flexMessage = createRepairNewFlexMessage({
+            description,
+            room,
+            requesterName,
+            imageUrl: imageOneUrl,
+            ticketId,
+            deepLink
+        });
 
         // Use Multicast API
         await fetch('https://api.line.me/v2/bot/message/multicast', {
@@ -189,7 +72,7 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({
                 to: targetUserIds,
-                messages: messages,
+                messages: [flexMessage],
             }),
         });
 
