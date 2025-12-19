@@ -215,7 +215,17 @@ export default function Dashboard() {
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setPendingPhotoJobsCount(snapshot.size);
+            const count = snapshot.size;
+            setPendingPhotoJobsCount(count);
+
+            // Update PWA app badge for supported platforms (Chrome, Edge on Windows/macOS/Android)
+            if ('setAppBadge' in navigator) {
+                if (count > 0) {
+                    (navigator as any).setAppBadge(count).catch(() => { });
+                } else {
+                    (navigator as any).clearAppBadge().catch(() => { });
+                }
+            }
         });
 
         return () => unsubscribe();
