@@ -107,13 +107,21 @@ interface QuickActionProps {
     onClick?: () => void;
     gradient: string;
     delay: number;
+    badge?: number; // Optional badge count
 }
 
-function QuickAction({ icon: Icon, title, description, href, onClick, gradient, delay }: QuickActionProps) {
+function QuickAction({ icon: Icon, title, description, href, onClick, gradient, delay, badge }: QuickActionProps) {
     const content = (
         <>
-            <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg mb-3`}>
-                <Icon size={22} className="text-white" />
+            <div className="relative inline-flex">
+                <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${gradient} shadow-lg mb-3`}>
+                    <Icon size={22} className="text-white" />
+                </div>
+                {badge !== undefined && badge > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full shadow-lg animate-pulse">
+                        {badge > 99 ? '99+' : badge}
+                    </span>
+                )}
             </div>
             <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                 {title}
@@ -194,6 +202,24 @@ export default function Dashboard() {
     const [photoJobs, setPhotoJobs] = useState<PhotographyJob[]>([]);
     const [isJobModalOpen, setIsJobModalOpen] = useState(false);
     const [isMyJobsModalOpen, setIsMyJobsModalOpen] = useState(false);
+    const [pendingPhotoJobsCount, setPendingPhotoJobsCount] = useState(0);
+
+    // Fetch pending photography jobs count for photographer
+    useEffect(() => {
+        if (!user || !isPhotographer) return;
+
+        const q = query(
+            collection(db, "photography_jobs"),
+            where("assigneeIds", "array-contains", user.uid),
+            where("status", "==", "assigned")
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setPendingPhotoJobsCount(snapshot.size);
+        });
+
+        return () => unsubscribe();
+    }, [user, isPhotographer]);
 
     // Fetch Completed Photography Jobs
     useEffect(() => {
@@ -356,6 +382,7 @@ export default function Dashboard() {
                                 href="/my-work"
                                 gradient="from-indigo-500 to-purple-600"
                                 delay={0.35}
+                                badge={pendingPhotoJobsCount}
                             />
                         )}
                         {/* อุปกรณ์ - admin or photographer */}

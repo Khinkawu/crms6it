@@ -319,3 +319,116 @@ const getThaiAction = (action: string) => {
         default: return action;
     }
 };
+
+// --- 5. Photography Job Report Function ---
+export const generatePhotographyJobReport = async (
+    jobs: any[],
+    action: 'download' | 'print' = 'download'
+) => {
+    const doc = new jsPDF();
+    const fontName = 'THSarabunIT9';
+
+    // A. โหลด Assets
+    await Promise.all([
+        addFontToDoc(doc, '/font/THSarabunIT9.ttf', fontName, 'normal'),
+        addFontToDoc(doc, '/font/THSarabunIT9 Bold.ttf', fontName, 'bold'),
+    ]);
+
+    const logoBase64 = await getImageBase64('/logo_2.png');
+    doc.setFont(fontName, 'normal');
+
+    // B. Header Helper
+    const drawHeader = (doc: jsPDF) => {
+        const width = doc.internal.pageSize.width;
+        if (logoBase64) doc.addImage(logoBase64, 'PNG', 15, 10, 20, 20);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(fontName, 'bold');
+        doc.setFontSize(22);
+        doc.text("โรงเรียนเทศบาล 6 นครเชียงราย", 40, 18);
+
+        doc.setFont(fontName, 'normal');
+        doc.setFontSize(16);
+        doc.text("รายงานประวัติงานถ่ายภาพ (Photography Job Report)", 40, 25);
+
+        doc.setFontSize(14);
+        doc.text(`วันที่พิมพ์: ${moment().add(543, 'years').format('D MMMM YYYY')}`, width - 15, 18, { align: 'right' });
+
+        doc.setDrawColor(200, 200, 200);
+        doc.line(15, 35, width - 15, 35);
+    };
+
+    // C. Data Prep
+    const getThaiStatus = (status: string) => {
+        switch (status) {
+            case 'assigned': return 'รอส่งงาน';
+            case 'completed': return 'เสร็จสิ้น';
+            case 'cancelled': return 'ยกเลิก';
+            default: return status;
+        }
+    };
+
+    const tableColumn = ["ลำดับ", "ชื่องาน", "สถานที่", "วัน/เวลา", "สถานะ", "ช่างภาพ"];
+    const tableRows = jobs.map((job, index) => {
+        const dateObj = job.startTime?.toDate ? job.startTime.toDate() : new Date(job.startTime);
+        const thaiDate = moment(dateObj).add(543, 'years').format('DD/MM/YY HH:mm');
+
+        return [
+            index + 1,
+            job.title || '-',
+            job.location || '-',
+            thaiDate,
+            getThaiStatus(job.status),
+            job.assigneeNames?.join(', ') || '-'
+        ];
+    });
+
+    // D. Table
+    autoTable(doc, {
+        startY: 40,
+        head: [tableColumn],
+        body: tableRows,
+        styles: {
+            font: fontName,
+            fontStyle: 'normal',
+            fontSize: 12,
+            cellPadding: 2,
+            valign: 'middle',
+            lineColor: [200, 200, 200],
+            lineWidth: 0.1,
+        },
+        headStyles: {
+            font: fontName,
+            fontStyle: 'bold',
+            fillColor: [75, 0, 130], // Indigo color for photography
+            textColor: [255, 255, 255],
+            halign: 'center',
+            valign: 'middle',
+            fontSize: 14
+        },
+        columnStyles: {
+            0: { halign: 'center', cellWidth: 12 },  // ลำดับ
+            1: { cellWidth: 'auto' },                 // ชื่องาน
+            2: { cellWidth: 35 },                     // สถานที่
+            3: { halign: 'center', cellWidth: 25 },   // วัน/เวลา
+            4: { halign: 'center', cellWidth: 22 },   // สถานะ
+            5: { cellWidth: 30 }                      // ช่างภาพ
+        },
+        didDrawPage: (data) => {
+            drawHeader(doc);
+            doc.setFont(fontName, 'normal');
+            doc.setFontSize(10);
+            doc.text(`หน้า ${data.pageNumber}`, doc.internal.pageSize.width - 20, doc.internal.pageSize.height - 10);
+        },
+        margin: { top: 40 }
+    });
+
+    // E. Final Action
+    if (action === 'print') {
+        doc.autoPrint();
+        const blob = doc.output('bloburl');
+        window.open(blob, '_blank');
+    } else {
+        doc.save(`PhotographyReport_${moment().format('YYYYMMDD_HHmm')}.pdf`);
+    }
+};

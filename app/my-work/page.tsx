@@ -129,8 +129,49 @@ export default function MyWorkPage() {
         toast.success("ส่งออก Excel สำเร็จ");
     };
 
-    const handlePrint = () => {
-        window.print();
+    const handlePrintPhoto = async () => {
+        if (filteredPhotoJobs.length === 0) {
+            toast.error("ไม่มีข้อมูลให้พิมพ์");
+            return;
+        }
+        toast.loading("กำลังเตรียมพิมพ์...", { id: 'print-photo' });
+        try {
+            const { generatePhotographyJobReport } = await import('@/lib/generateReport');
+            await generatePhotographyJobReport(filteredPhotoJobs, 'print');
+            toast.dismiss('print-photo');
+        } catch (error) {
+            console.error(error);
+            toast.error("พิมพ์ไม่สำเร็จ", { id: 'print-photo' });
+        }
+    };
+
+    const handlePrintRepair = async () => {
+        if (allRepairs.length === 0) {
+            toast.error("ไม่มีข้อมูลให้พิมพ์");
+            return;
+        }
+        toast.loading("กำลังเตรียมพิมพ์...", { id: 'print-repair' });
+        try {
+            const { generateStockReport } = await import('@/lib/generateReport');
+            const reportData = {
+                ticketId: '',
+                reportDate: new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }),
+                requester: getDisplayName() || 'ช่างเทคนิค',
+                items: allRepairs.map(ticket => ({
+                    requestDate: ticket.createdAt?.toDate().toLocaleString('th-TH') || '-',
+                    requesterName: ticket.requesterName || '-',
+                    code: ticket.id || '-',
+                    name: ticket.description || '-',
+                    zone: ticket.room || '-',
+                    status: getThaiStatus(ticket.status)
+                }))
+            };
+            await generateStockReport(reportData, 'print');
+            toast.dismiss('print-repair');
+        } catch (error) {
+            console.error(error);
+            toast.error("พิมพ์ไม่สำเร็จ", { id: 'print-repair' });
+        }
     };
 
     return (
@@ -241,7 +282,7 @@ export default function MyWorkPage() {
                                         <button onClick={handleExportRepairExcel} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-emerald-600" title="Export Excel">
                                             <FileSpreadsheet size={18} />
                                         </button>
-                                        <button onClick={handlePrint} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600" title="Print">
+                                        <button onClick={handlePrintRepair} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600" title="Print">
                                             <Printer size={18} />
                                         </button>
                                     </div>
@@ -363,7 +404,7 @@ export default function MyWorkPage() {
                                         <button onClick={handleExportPhotoExcel} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-emerald-600" title="Export Excel">
                                             <FileSpreadsheet size={18} />
                                         </button>
-                                        <button onClick={handlePrint} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600" title="Print">
+                                        <button onClick={handlePrintPhoto} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600" title="Print">
                                             <Printer size={18} />
                                         </button>
                                     </div>
