@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { Camera, Search, Calendar, ExternalLink, User, Filter, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Camera, Search, Calendar, ExternalLink, User, Filter, X, ChevronLeft, ChevronRight, Pencil, Link, Save, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PhotographyJob } from "../../types";
+import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
 
 // Thai months for filter
 const THAI_MONTHS = [
@@ -32,6 +34,7 @@ const YEARS = [
 ];
 
 export default function GalleryPage() {
+    const { user, role } = useAuth();
     const [jobs, setJobs] = useState<PhotographyJob[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -42,9 +45,60 @@ export default function GalleryPage() {
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
     const [showFilters, setShowFilters] = useState(false);
 
+    // Edit Modal State
+    const [editingJob, setEditingJob] = useState<PhotographyJob | null>(null);
+    const [editTitle, setEditTitle] = useState("");
+    const [editDriveLink, setEditDriveLink] = useState("");
+    const [editFacebookLink, setEditFacebookLink] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
+
+    // Check if user can edit (admin, moderator, or assigned photographer)
+    const canEditJob = (job: PhotographyJob): boolean => {
+        if (!user) return false;
+        if (role === 'admin' || role === 'moderator') return true;
+        return job.assigneeIds?.includes(user.uid) || false;
+    };
+
+    // Open edit modal
+    const openEditModal = (job: PhotographyJob) => {
+        setEditingJob(job);
+        setEditTitle(job.title || "");
+        setEditDriveLink(job.driveLink || "");
+        setEditFacebookLink(job.facebookPermalink || "");
+    };
+
+    // Close edit modal
+    const closeEditModal = () => {
+        setEditingJob(null);
+        setEditTitle("");
+        setEditDriveLink("");
+        setEditFacebookLink("");
+    };
+
+    // Save edit
+    const handleSaveEdit = async () => {
+        if (!editingJob?.id) return;
+
+        setIsSaving(true);
+        try {
+            await updateDoc(doc(db, "photography_jobs", editingJob.id), {
+                title: editTitle,
+                driveLink: editDriveLink || null,
+                facebookPermalink: editFacebookLink || null,
+            });
+            toast.success("บันทึกสำเร็จ");
+            closeEditModal();
+        } catch (error) {
+            console.error("Error updating job:", error);
+            toast.error("เกิดข้อผิดพลาดในการบันทึก");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     // Fetch completed jobs
     useEffect(() => {
@@ -306,9 +360,9 @@ export default function GalleryPage() {
                                                             <img src="/Google_Drive_icon.png" alt="Drive" className="w-5 h-5 object-contain" />
                                                         </a>
                                                     )}
-                                                    {job.facebookPostId && (
+                                                    {(job.facebookPostId || job.facebookPermalink) && (
                                                         <a
-                                                            href={`https://www.facebook.com/${job.facebookPostId}`}
+                                                            href={job.facebookPermalink || (job.facebookPostId ? `https://www.facebook.com/permalink.php?story_fbid=${job.facebookPostId.split('_')[1] || job.facebookPostId}&id=${job.facebookPostId.split('_')[0]}` : '#')}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             title="เปิดโพส Facebook"
@@ -316,6 +370,15 @@ export default function GalleryPage() {
                                                         >
                                                             <img src="/facebook-logo.png" alt="Facebook" className="w-5 h-5 object-contain" />
                                                         </a>
+                                                    )}
+                                                    {canEditJob(job) && (
+                                                        <button
+                                                            onClick={() => openEditModal(job)}
+                                                            title="แก้ไขข้อมูล"
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-800/50 text-amber-600 dark:text-amber-400 transition-colors"
+                                                        >
+                                                            <Pencil size={16} />
+                                                        </button>
                                                     )}
                                                 </div>
                                             </div>
@@ -363,6 +426,115 @@ export default function GalleryPage() {
                     </>
                 )}
             </div>
+
+            {/* Edit Modal */}
+            <AnimatePresence>
+                {editingJob && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                        onClick={closeEditModal}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Modal Header */}
+                            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Pencil size={20} className="text-amber-500" />
+                                    แก้ไขข้อมูลกิจกรรม
+                                </h3>
+                                <button
+                                    onClick={closeEditModal}
+                                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-6 space-y-4">
+                                {/* Title */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        หัวข้อกิจกรรม
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editTitle}
+                                        onChange={(e) => setEditTitle(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                        placeholder="ชื่อกิจกรรม"
+                                    />
+                                </div>
+
+                                {/* Google Drive Link */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                                        <img src="/Google_Drive_icon.png" alt="Drive" className="w-4 h-4" />
+                                        Google Drive Link
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={editDriveLink}
+                                        onChange={(e) => setEditDriveLink(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                        placeholder="https://drive.google.com/..."
+                                    />
+                                </div>
+
+                                {/* Facebook Link */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                                        <img src="/facebook-logo.png" alt="Facebook" className="w-4 h-4" />
+                                        Facebook Post Link
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={editFacebookLink}
+                                        onChange={(e) => setEditFacebookLink(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                        placeholder="https://www.facebook.com/..."
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3">
+                                <button
+                                    onClick={closeEditModal}
+                                    className="px-4 py-2 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    ยกเลิก
+                                </button>
+                                <button
+                                    onClick={handleSaveEdit}
+                                    disabled={isSaving}
+                                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" />
+                                            กำลังบันทึก...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save size={16} />
+                                            บันทึก
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

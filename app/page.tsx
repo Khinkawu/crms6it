@@ -703,9 +703,9 @@ export default function Dashboard() {
                                                         <img src="/Google_Drive_icon.png" alt="Drive" className="w-5 h-5 object-contain" />
                                                     </a>
                                                 )}
-                                                {job.facebookPostId && (
+                                                {(job.facebookPostId || job.facebookPermalink) && (
                                                     <a
-                                                        href={`https://www.facebook.com/${job.facebookPostId}`}
+                                                        href={job.facebookPermalink || (job.facebookPostId ? `https://www.facebook.com/permalink.php?story_fbid=${job.facebookPostId.split('_')[1] || job.facebookPostId}&id=${job.facebookPostId.split('_')[0]}` : '#')}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         title="เปิดโพส Facebook"

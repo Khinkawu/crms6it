@@ -462,9 +462,9 @@ export default function MyWorkPage() {
                                                             <Image src="/Google_Drive_icon.png" alt="Drive" width={18} height={18} className="object-contain" />
                                                         </a>
                                                     )}
-                                                    {job.facebookPostId && (
+                                                    {(job.facebookPostId || job.facebookPermalink) && (
                                                         <a
-                                                            href={`https://www.facebook.com/${job.facebookPostId}`}
+                                                            href={job.facebookPermalink || (job.facebookPostId ? `https://www.facebook.com/permalink.php?story_fbid=${job.facebookPostId.split('_')[1] || job.facebookPostId}&id=${job.facebookPostId.split('_')[0]}` : '#')}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"

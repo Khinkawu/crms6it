@@ -53,63 +53,110 @@ export async function POST(request: NextRequest) {
         console.log('[Facebook Post] Caption received:', caption);
         console.log('[Facebook Post] Photo URLs:', photoUrls.length);
 
-        // 1. Upload photos to Facebook using URL (published=false)
-        const photoIds: string[] = [];
+        let postId: string;
 
-        for (const originalUrl of photoUrls) {
-            const directUrl = convertDriveUrl(originalUrl);
+        if (photoUrls.length === 1) {
+            // Single photo: Post directly with published=true (appears on timeline)
+            const directUrl = convertDriveUrl(photoUrls[0]);
 
             const params = new URLSearchParams({
                 url: directUrl,
-                published: 'false',
+                message: caption,
+                published: 'true',
                 access_token: ACCESS_TOKEN,
             });
+
+            console.log('[Facebook Post] Single photo - posting directly');
 
             const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/photos?${params}`, {
                 method: 'POST',
             });
 
+            const responseText = await uploadRes.text();
+            console.log('[Facebook Post] Single Photo Response Status:', uploadRes.status);
+            console.log('[Facebook Post] Single Photo Response:', responseText);
+
             if (!uploadRes.ok) {
-                const error = await uploadRes.json();
-                console.error('Facebook Photo Upload Error:', error);
-                throw new Error(`Failed to upload photo: ${error.error?.message}`);
+                throw new Error(`Failed to post photo: ${responseText}`);
             }
 
-            const data = await uploadRes.json();
-            photoIds.push(data.id);
+            const data = JSON.parse(responseText);
+            postId = data.post_id || data.id;
+
+        } else {
+            // Multiple photos: Upload unpublished, then create feed post
+            console.log('[Facebook Post] Multiple photos - using attached_media');
+
+            const photoIds: string[] = [];
+
+            for (const originalUrl of photoUrls) {
+                const directUrl = convertDriveUrl(originalUrl);
+
+                const params = new URLSearchParams({
+                    url: directUrl,
+                    published: 'false',
+                    access_token: ACCESS_TOKEN,
+                });
+
+                const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/photos?${params}`, {
+                    method: 'POST',
+                });
+
+                if (!uploadRes.ok) {
+                    const error = await uploadRes.json();
+                    console.error('Facebook Photo Upload Error:', error);
+                    throw new Error(`Failed to upload photo: ${error.error?.message}`);
+                }
+
+                const data = await uploadRes.json();
+                photoIds.push(data.id);
+            }
+
+            // Create Feed Post with attached media
+            const feedBody = {
+                message: caption,
+                attached_media: photoIds.map(id => ({ media_fbid: id })),
+                published: 'true',
+                access_token: ACCESS_TOKEN,
+            };
+
+            console.log('[Facebook Post] Creating feed post with attached_media');
+
+            const postRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/feed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(feedBody),
+            });
+
+            const postResponseText = await postRes.text();
+            console.log('[Facebook Post] Feed API Response Status:', postRes.status);
+            console.log('[Facebook Post] Feed API Response:', postResponseText);
+
+            if (!postRes.ok) {
+                throw new Error(`Failed to create post: ${postResponseText}`);
+            }
+
+            const postData = JSON.parse(postResponseText);
+            postId = postData.id;
         }
 
-        // 2. Create Feed Post with attached media
-        const feedBody = {
-            message: caption,
-            attached_media: photoIds.map(id => ({ media_fbid: id })),
-            access_token: ACCESS_TOKEN,
-        };
+        // 3. Generate shareable permalink URL
+        // postId format is "pageId_postId" - we need to extract the actual post ID
+        const actualPostId = postId.includes('_') ? postId.split('_')[1] : postId;
+        const permalinkUrl = `https://www.facebook.com/permalink.php?story_fbid=${actualPostId}&id=${PAGE_ID}`;
 
-        const postRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/feed`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(feedBody),
-        });
+        console.log('[Facebook Post] Permalink URL:', permalinkUrl);
 
-        if (!postRes.ok) {
-            const error = await postRes.json();
-            console.error('Facebook Feed Post Error:', error);
-            throw new Error(`Failed to create post: ${error.error?.message}`);
-        }
-
-        const postData = await postRes.json();
-        const postId = postData.id;
-
-        // 3. Update Firestore Job
+        // 4. Update Firestore Job
         if (jobId) {
             await adminDb.collection('photography_jobs').doc(jobId).update({
                 facebookPostId: postId,
+                facebookPermalink: permalinkUrl,
                 facebookPostedAt: FieldValue.serverTimestamp(),
             });
         }
 
-        return NextResponse.json({ success: true, postId });
+        return NextResponse.json({ success: true, postId, permalinkUrl });
 
     } catch (error: any) {
         console.error('Facebook API Route Error:', error);
