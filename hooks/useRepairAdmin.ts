@@ -200,6 +200,7 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
             await updateDoc(ticketRef, {
                 status,
                 technicianNote,
+                technicianId: userId || null,
                 technicianName: userName || 'Technician',
                 completionImage: completionImageUrl || null,
                 updatedAt: serverTimestamp()

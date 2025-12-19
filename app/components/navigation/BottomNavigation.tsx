@@ -51,6 +51,7 @@ export default function BottomNavigation() {
     // More menu items for admin
     const moreMenuItems = [
         { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician"] },
+        { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician"], allowPhotographer: true },
         { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator"] },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
         { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician"] },
@@ -68,7 +69,7 @@ export default function BottomNavigation() {
         // Let's verify:
         // Admin sees: Profile, Command Center, Photography, User Management.
         // Moderator sees: Profile, Command Center, Gallery, Repairs, Bookings, Photography.
-        // Technician sees: Profile, Gallery, Repairs, Inventory.
+        // Technician sees: Profile, My Work, Gallery, Repairs, Inventory.
         // User sees: Profile, Gallery.
         return role && item.roles.includes(role);
     });

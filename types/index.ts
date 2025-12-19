@@ -70,7 +70,8 @@ export interface RepairTicket {
     description: string;
     images: string[];
     status: RepairStatus;
-    technicianName?: string; // Added for report
+    technicianId?: string; // UID of assigned technician
+    technicianName?: string; // Display name for report
     technicianNote?: string;
     completionImage?: string;
     partsUsed?: {

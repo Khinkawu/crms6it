@@ -347,13 +347,13 @@ export default function Dashboard() {
                             />
                         )}
 
-                        {/* Photographer Job - Only for users with isPhotographer flag */}
+                        {/* งานของฉัน - Only for users with isPhotographer flag */}
                         {isPhotographer && (
                             <QuickAction
                                 icon={Camera}
-                                title="งานภาพ"
-                                description="งานที่ได้รับมอบหมาย"
-                                onClick={() => setIsMyJobsModalOpen(true)}
+                                title="งานของฉัน"
+                                description="ดูภาพรวมและประวัติงาน"
+                                href="/my-work"
                                 gradient="from-indigo-500 to-purple-600"
                                 delay={0.35}
                             />
