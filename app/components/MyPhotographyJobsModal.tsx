@@ -40,6 +40,10 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
     const [lastClickedIndex, setLastClickedIndex] = useState<Record<string, number>>({}); // For Shift+Click
 
 
+    // Drag and Drop State
+    const [isDraggingCover, setIsDraggingCover] = useState<Record<string, boolean>>({});
+    const [isDraggingFiles, setIsDraggingFiles] = useState<Record<string, boolean>>({});
+
     useEffect(() => {
         if (!isOpen || !userId) return;
 
@@ -81,31 +85,110 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         setDriveLinks(prev => ({ ...prev, [jobId]: value }));
     };
 
-    const handleCoverChange = (jobId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
+    // Helper to process cover file
+    const processCoverFile = (jobId: string, file: File) => {
+        if (file && file.type.startsWith('image/')) {
             setCoverFiles(prev => ({ ...prev, [jobId]: file }));
             const reader = new FileReader();
             reader.onloadend = () => {
                 setCoverPreviews(prev => ({ ...prev, [jobId]: reader.result as string }));
             };
             reader.readAsDataURL(file);
-            // Reset upload status if file changes
             setIsUploadComplete(prev => ({ ...prev, [jobId]: false }));
+        } else {
+            toast.error("กรุณาเลือกไฟล์รูปภาพเท่านั้น");
+        }
+    };
+
+    // Helper to process job files
+    const processJobFiles = (jobId: string, newFiles: File[]) => {
+        const validFiles = newFiles.filter(file => file.type.startsWith('image/'));
+
+        if (validFiles.length < newFiles.length) {
+            toast.error("กรุณาเลือกไฟล์รูปภาพเท่านั้น (ไฟล์ที่ไม่ใช่รูปภาพถูกข้าม)");
+        }
+
+        if (validFiles.length > 0) {
+            setJobFiles(prev => ({ ...prev, [jobId]: [...(prev[jobId] || []), ...validFiles] }));
+
+            const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+            setPreviews(prev => ({ ...prev, [jobId]: [...(prev[jobId] || []), ...newPreviews] }));
+
+            setIsUploadComplete(prev => ({ ...prev, [jobId]: false }));
+        }
+    };
+
+    const handleCoverChange = (jobId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            processCoverFile(jobId, file);
         }
     };
 
     const handleJobFilesChange = (jobId: string, e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
         if (files.length > 0) {
-            setJobFiles(prev => ({ ...prev, [jobId]: [...(prev[jobId] || []), ...files] }));
+            processJobFiles(jobId, files);
+        }
+    };
 
-            // Create previews
-            const newPreviews = files.map(file => URL.createObjectURL(file));
-            setPreviews(prev => ({ ...prev, [jobId]: [...(prev[jobId] || []), ...newPreviews] }));
+    // Drag Handlers for Cover
+    const handleCoverDragOver = (jobId: string, e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!isDraggingCover[jobId]) {
+            setIsDraggingCover(prev => ({ ...prev, [jobId]: true }));
+        }
+    };
 
-            // Reset upload status if files change
-            setIsUploadComplete(prev => ({ ...prev, [jobId]: false }));
+    const handleCoverDragLeave = (jobId: string, e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Only trigger if leaving the actual container, not entering a child
+        const relatedTarget = e.relatedTarget as Node;
+        if (!e.currentTarget.contains(relatedTarget)) {
+            setIsDraggingCover(prev => ({ ...prev, [jobId]: false }));
+        }
+    };
+
+    const handleCoverDrop = (jobId: string, e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingCover(prev => ({ ...prev, [jobId]: false }));
+
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            processCoverFile(jobId, file);
+        }
+    };
+
+    // Drag Handlers for Job Files
+    const handleJobFilesDragOver = (jobId: string, e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!isDraggingFiles[jobId]) {
+            setIsDraggingFiles(prev => ({ ...prev, [jobId]: true }));
+        }
+    };
+
+    const handleJobFilesDragLeave = (jobId: string, e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Only trigger if leaving the actual container, not entering a child
+        const relatedTarget = e.relatedTarget as Node;
+        if (!e.currentTarget.contains(relatedTarget)) {
+            setIsDraggingFiles(prev => ({ ...prev, [jobId]: false }));
+        }
+    };
+
+    const handleJobFilesDrop = (jobId: string, e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingFiles(prev => ({ ...prev, [jobId]: false }));
+
+        const files = Array.from(e.dataTransfer.files || []);
+        if (files.length > 0) {
+            processJobFiles(jobId, files);
         }
     };
 
@@ -467,13 +550,20 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                                                             1. รูปปกงาน (1 รูป)
                                                             <span className="text-xs text-gray-400 font-normal">*แสดงหน้า Feed</span>
                                                         </label>
-                                                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-pink-200 dark:border-pink-900 rounded-2xl cursor-pointer hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors relative overflow-hidden bg-white dark:bg-gray-800">
+                                                        <label
+                                                            onDragOver={(e) => handleCoverDragOver(job.id!, e)}
+                                                            onDragLeave={(e) => handleCoverDragLeave(job.id!, e)}
+                                                            onDrop={(e) => handleCoverDrop(job.id!, e)}
+                                                            className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 relative overflow-hidden ${isDraggingCover[job.id!]
+                                                                ? "border-pink-500 bg-pink-50 dark:bg-pink-900/30 ring-2 ring-pink-500 ring-offset-2 scale-[1.02]"
+                                                                : "border-pink-200 dark:border-pink-900 hover:bg-pink-50 dark:hover:bg-pink-900/20 bg-white dark:bg-gray-800"
+                                                                }`}>
                                                             {coverPreviews[job.id!] ? (
                                                                 <img src={coverPreviews[job.id!]} className="w-full h-full object-cover" alt="Cover Preview" />
                                                             ) : (
                                                                 <div className="flex flex-col items-center text-pink-400">
                                                                     <ImageIcon size={24} className="mb-1" />
-                                                                    <span className="text-xs">เลือกรูปปก</span>
+                                                                    <span className="text-xs">เลือกรูปปก (ลากวางได้)</span>
                                                                 </div>
                                                             )}
                                                             <input
@@ -493,11 +583,18 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                                                             <span className="text-xs text-gray-400 font-normal">*อัปโหลดเข้า Drive</span>
                                                         </label>
 
-                                                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors bg-white dark:bg-gray-800">
+                                                        <label
+                                                            onDragOver={(e) => handleJobFilesDragOver(job.id!, e)}
+                                                            onDragLeave={(e) => handleJobFilesDragLeave(job.id!, e)}
+                                                            onDrop={(e) => handleJobFilesDrop(job.id!, e)}
+                                                            className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 ${isDraggingFiles[job.id!]
+                                                                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500 ring-offset-2 scale-[1.02]"
+                                                                : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 bg-white dark:bg-gray-800"
+                                                                }`}>
                                                             <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                                                 <UploadCloud className="w-8 h-8 mb-2 text-gray-400" />
                                                                 <p className="mb-1 text-sm text-gray-500 dark:text-gray-400">
-                                                                    <span className="font-semibold">เพิ่มรูปภาพกิจกรรม</span>
+                                                                    <span className="font-semibold">เพิ่มรูปภาพกิจกรรม (ลากวางได้)</span>
                                                                 </p>
                                                             </div>
                                                             <input

@@ -50,6 +50,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No photo URLs provided' }, { status: 400 });
         }
 
+        console.log('[Facebook Post] Caption received:', caption);
+        console.log('[Facebook Post] Photo URLs:', photoUrls.length);
+
         // 1. Upload photos to Facebook using URL (published=false)
         const photoIds: string[] = [];
 
