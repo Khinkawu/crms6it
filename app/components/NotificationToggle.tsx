@@ -10,63 +10,54 @@ interface NotificationToggleProps {
 }
 
 export default function NotificationToggle({ className = "", showLabel = true }: NotificationToggleProps) {
-    const { isSupported, isEnabled, isLoading, permissionStatus, enableNotifications } = usePushNotifications();
+    const { isSupported, isEnabled, isLoading, permissionStatus, enableNotifications, disableNotifications } = usePushNotifications();
 
     // Don't render if not supported
     if (!isSupported) {
-        return null;
+        return null; // Or show message that it's not supported
     }
 
-    const handleClick = async () => {
+    const handleToggle = async () => {
+        if (isLoading) return;
+
         if (isEnabled) {
-            // Already enabled, maybe show info
-            return;
+            await disableNotifications();
+        } else {
+            await enableNotifications();
         }
-        await enableNotifications();
     };
 
-    const getStatusIcon = () => {
-        if (isLoading) {
-            return <Loader2 size={20} className="animate-spin" />;
-        }
-        if (isEnabled) {
-            return <BellRing size={20} />;
-        }
-        if (permissionStatus === "denied") {
-            return <BellOff size={20} />;
-        }
-        return <Bell size={20} />;
-    };
-
-    const getStatusText = () => {
-        if (isLoading) return "กำลังโหลด...";
-        if (isEnabled) return "เปิดการแจ้งเตือนแล้ว";
-        if (permissionStatus === "denied") return "การแจ้งเตือนถูกบล็อก";
-        return "เปิดการแจ้งเตือน";
-    };
-
-    const getButtonStyle = () => {
-        if (isEnabled) {
-            return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
-        }
-        if (permissionStatus === "denied") {
-            return "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 cursor-not-allowed";
-        }
-        return "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-200 dark:hover:bg-purple-900/50";
-    };
+    const isDisabled = isLoading || permissionStatus === "denied";
 
     return (
-        <motion.button
-            onClick={handleClick}
-            disabled={isLoading || isEnabled || permissionStatus === "denied"}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-medium transition-all ${getButtonStyle()} ${className}`}
-            whileTap={{ scale: 0.98 }}
-        >
-            {getStatusIcon()}
+        <div className={`flex items-center gap-3 ${className}`}>
             {showLabel && (
-                <span className="text-sm">{getStatusText()}</span>
+                <span className={`text-sm font-medium ${isEnabled ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {isLoading ? "กำลังโหลด..." : isEnabled ? "เปิดใช้งานแล้ว" : "ปิดใช้งาน"}
+                </span>
             )}
-        </motion.button>
+
+            <button
+                onClick={handleToggle}
+                disabled={isDisabled}
+                className={`
+                    relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+                    ${isEnabled ? 'bg-purple-600' : 'bg-gray-200 dark:bg-gray-700'}
+                    ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
+            >
+                <span
+                    className={`
+                        inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300
+                        ${isEnabled ? 'translate-x-6' : 'translate-x-1'}
+                    `}
+                />
+            </button>
+
+            {permissionStatus === "denied" && (
+                <span className="text-xs text-red-500">ถูกบล็อก</span>
+            )}
+        </div>
     );
 }
 
@@ -83,8 +74,8 @@ export function NotificationBell() {
             onClick={enableNotifications}
             disabled={isLoading || isEnabled}
             className={`relative p-2 rounded-lg transition-colors ${isEnabled
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}
             title={isEnabled ? "การแจ้งเตือนเปิดอยู่" : "เปิดการแจ้งเตือน"}
         >

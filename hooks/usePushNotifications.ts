@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { setupPushNotifications, onForegroundMessage, isFCMSupported } from "@/lib/fcm";
+import { setupPushNotifications, onForegroundMessage, isFCMSupported, unsubscribeFromPushNotifications } from "@/lib/fcm";
 import toast from "react-hot-toast";
 
 interface UsePushNotificationsReturn {
@@ -11,6 +11,7 @@ interface UsePushNotificationsReturn {
     isLoading: boolean;
     permissionStatus: NotificationPermission | "unsupported";
     enableNotifications: () => Promise<boolean>;
+    disableNotifications: () => Promise<boolean>;
 }
 
 export function usePushNotifications(): UsePushNotificationsReturn {
@@ -99,11 +100,34 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         }
     }, [user, isSupported]);
 
+    // Disable notifications
+    const disableNotifications = useCallback(async (): Promise<boolean> => {
+        if (!user) return false;
+
+        setIsLoading(true);
+        try {
+            const success = await unsubscribeFromPushNotifications(user.uid);
+            if (success) {
+                setIsEnabled(false);
+                toast.success("ปิดการแจ้งเตือนแล้ว");
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error("Error disabling notifications:", error);
+            toast.error("เกิดข้อผิดพลาดในการปิดการแจ้งเตือน");
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [user]);
+
     return {
         isSupported,
         isEnabled,
         isLoading,
         permissionStatus,
         enableNotifications,
+        disableNotifications,
     };
 }

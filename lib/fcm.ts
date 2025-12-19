@@ -1,6 +1,6 @@
 "use client";
 
-import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
+import { getMessaging, getToken, onMessage, isSupported, deleteToken } from "firebase/messaging";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { doc, setDoc, getDoc, arrayUnion, arrayRemove, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
@@ -60,6 +60,10 @@ export async function getFCMToken(userId: string): Promise<string | null> {
         // Register service worker
         const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
         console.log("Service Worker registered:", registration);
+
+        // Wait for service worker to be active to avoid "no active Service Worker" error
+        await navigator.serviceWorker.ready;
+        console.log("Service Worker is ready");
 
         // Get messaging instance
         const messaging = getMessaging(app);
@@ -153,4 +157,39 @@ export function onForegroundMessage(callback: (payload: any) => void): () => voi
 export async function setupPushNotifications(userId: string): Promise<boolean> {
     const token = await getFCMToken(userId);
     return token !== null;
+}
+
+/**
+ * Unsubscribe from push notifications
+ * Removes token from Firestore and deletes it from messaging
+ */
+export async function unsubscribeFromPushNotifications(userId: string): Promise<boolean> {
+    try {
+        const messaging = getMessaging(app);
+
+        // We need to get the current token first to remove it from Firestore
+        // We can't trust the one in local storage/state completely if we want to be thorough
+        // But getToken might re-register... 
+        // A better approach if we don't have the token stored in state is to just delete from messaging
+        // and maybe clean up Firestore later or assume it's stale. 
+        // However, standard flow: get current token -> remove from DB -> delete from Messaging
+
+        const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+        // Check if we can get a token without prompting or re-registering? 
+        // getToken will resolve if one exists.
+
+        const currentToken = await getToken(messaging, { vapidKey });
+
+        if (currentToken) {
+            await removeTokenFromUser(userId, currentToken);
+            await deleteToken(messaging);
+            console.log("FCM token deleted and removed from user");
+            return true;
+        }
+
+        return false;
+    } catch (error) {
+        console.error("Error unsubscribing from notifications:", error);
+        return false;
+    }
 }
