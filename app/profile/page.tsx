@@ -25,6 +25,7 @@ import {
     Camera
 } from "lucide-react";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import NotificationToggle from "../components/NotificationToggle";
 
 type HistoryType = "repair" | "booking" | "borrow" | "requisition";
 
@@ -272,6 +273,29 @@ function ProfileContent() {
                                 </p>
                             </div>
                             {getRoleBadge(role)}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Settings Section */}
+                <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white">การตั้งค่า</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">จัดการการแจ้งเตือนและการตั้งค่าอื่นๆ</p>
+                    </div>
+                    <div className="p-4 space-y-4">
+                        {/* Push Notifications */}
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/30">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                                    <Bell size={18} />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-gray-900 dark:text-white text-sm">Push Notifications</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">รับแจ้งเตือนเมื่อมีงานใหม่</p>
+                                </div>
+                            </div>
+                            <NotificationToggle showLabel={false} />
                         </div>
                     </div>
                 </div>

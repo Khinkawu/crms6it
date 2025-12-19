@@ -10,6 +10,7 @@ import {
     ChevronDown, LogOut, User, Settings, Camera
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { NotificationBell } from "../NotificationToggle";
 
 interface TopHeaderProps {
     onOpenCommandPalette: () => void;
@@ -67,6 +68,9 @@ export default function TopHeader({ onOpenCommandPalette }: TopHeaderProps) {
 
                 {/* Right: Actions */}
                 <div className="flex items-center gap-2">
+                    {/* Notification Bell */}
+                    <NotificationBell />
+
                     {/* Theme Toggle */}
                     <button
                         onClick={toggleTheme}

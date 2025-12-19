@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Calendar, Clock, MapPin, User, Save, Check, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { collection, addDoc, serverTimestamp, getDocs } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, getDocs, getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import { UserProfile } from "@/types";
@@ -193,6 +193,37 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                             messages: [flexMessage]
                         })
                     }).catch(e => console.error("LINE Notify Error", e));
+                }
+            }
+
+            // Send FCM Push Notifications to all assigned photographers
+            for (const photographerId of assigneeIds) {
+                try {
+                    // Get user's FCM tokens from Firestore
+                    const userDoc = await getDoc(doc(db, "users", photographerId));
+                    if (userDoc.exists()) {
+                        const fcmTokens = userDoc.data().fcmTokens || [];
+                        const formattedDate = new Date(date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+
+                        // Send to each registered device
+                        for (const token of fcmTokens) {
+                            await fetch('/api/fcm/send', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    token,
+                                    title: '📸 งานถ่ายภาพใหม่',
+                                    body: `${title} - ${location} (${formattedDate})`,
+                                    data: {
+                                        url: '/my-work',
+                                        tag: 'photography-job'
+                                    }
+                                })
+                            }).catch(e => console.error("FCM Send Error", e));
+                        }
+                    }
+                } catch (e) {
+                    console.error("FCM Error for user", photographerId, e);
                 }
             }
 
