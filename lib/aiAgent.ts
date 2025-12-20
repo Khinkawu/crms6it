@@ -36,6 +36,7 @@ interface UserProfile {
     uid: string;
     displayName: string;
     email: string;
+    role?: 'user' | 'technician' | 'moderator' | 'admin';
     isPhotographer?: boolean;
 }
 
@@ -131,14 +132,15 @@ async function clearPendingAction(lineUserId: string): Promise<void> {
 
 async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserProfile | null> {
     try {
-        const bindingsRef = collection(db, 'line_bindings');
-        const q = query(bindingsRef, where('lineUserId', '==', lineUserId));
-        const snapshot = await getDocs(q);
+        // line_bindings uses lineUserId as document ID
+        const bindingDoc = await getDoc(doc(db, 'line_bindings', lineUserId));
 
-        if (snapshot.empty) return null;
+        if (!bindingDoc.exists()) return null;
 
-        const binding = snapshot.docs[0].data();
+        const binding = bindingDoc.data();
         const uid = binding.uid;
+
+        if (!uid) return null;
 
         // Get user profile
         const userDoc = await getDoc(doc(db, 'users', uid));
@@ -149,6 +151,7 @@ async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserPr
             uid,
             displayName: userData.displayName || userData.name || 'ผู้ใช้',
             email: userData.email,
+            role: userData.role || 'user',
             isPhotographer: userData.isPhotographer || false,
         };
     } catch (error) {
@@ -331,20 +334,62 @@ async function handleGallerySearch(params: Record<string, unknown>): Promise<str
     return `🔍 ผลการค้นหา "${keyword}"\n\n${resultsList}\n\nต้องการ Link ไหนคะ? (Drive หรือ Facebook)`;
 }
 
-async function handleDailySummary(): Promise<string> {
+async function handleDailySummary(userProfile: UserProfile | null): Promise<string> {
     const summary = await getDailySummary();
 
-    return `📊 สรุปวันนี้
+    // If user is not logged in, show general summary
+    if (!userProfile) {
+        return `📊 สรุปวันนี้
 
 🔧 งานซ่อม: ${summary.repairs.total} รายการ
-   • รอดำเนินการ: ${summary.repairs.pending}
-   • กำลังซ่อม: ${summary.repairs.inProgress}
-
 📅 การจองห้อง: ${summary.bookings.total} รายการ
-   • รออนุมัติ: ${summary.bookings.pending}
-   • อนุมัติแล้ว: ${summary.bookings.approved}
+📸 งานถ่ายภาพ: ${summary.photoJobs.total} งาน
 
-📸 งานถ่ายภาพ: ${summary.photoJobs.total} งาน`;
+💡 ผูกบัญชีเพื่อดูงานของคุณโดยเฉพาะค่ะ`;
+    }
+
+    let response = `📊 สรุปงานวันนี้`;
+
+    // For technicians - show repair tasks
+    if (userProfile.role === 'technician' || userProfile.role === 'admin') {
+        response += `\n\n🔧 *งานซ่อม*
+• รอดำเนินการ: ${summary.repairs.pending} รายการ
+• กำลังซ่อม: ${summary.repairs.inProgress} รายการ`;
+    }
+
+    // For photographers - show photo jobs
+    if (userProfile.isPhotographer) {
+        const myJobs = await getPhotoJobsByPhotographer(userProfile.email);
+        response += `\n\n📸 *งานถ่ายภาพของคุณ*`;
+        if (myJobs.length > 0) {
+            response += `\n${myJobs.map(j => formatPhotoJobForDisplay(j)).join('\n')}`;
+        } else {
+            response += `\n• ไม่มีงานวันนี้ค่ะ`;
+        }
+    }
+
+    // For moderators/admins - show pending approvals
+    if (userProfile.role === 'moderator' || userProfile.role === 'admin') {
+        response += `\n\n📅 *การจองห้องรออนุมัติ*
+• รออนุมัติ: ${summary.bookings.pending} รายการ`;
+    }
+
+    // For regular users - show their bookings
+    if (userProfile.role === 'user') {
+        const myBookings = await getBookingsByEmail(userProfile.email);
+        const todayBookings = myBookings.filter(b => {
+            const bookingDate = b.startTime.toDate();
+            const today = new Date();
+            return bookingDate.toDateString() === today.toDateString();
+        });
+
+        if (todayBookings.length > 0) {
+            response += `\n\n� *การจองห้องของคุณวันนี้*
+${todayBookings.map(b => formatBookingForDisplay(b)).join('\n')}`;
+        }
+    }
+
+    return response + `\n\nค่ะ 😊`;
 }
 
 // ============================================
@@ -402,24 +447,56 @@ export async function processAIMessage(
     }
 
     // Handle image message for repair
-    if (imageBuffer && imageMimeType && context.pendingAction?.awaitingImage) {
-        const symptom = (context.pendingAction.params?.description as string) || 'อุปกรณ์มีปัญหา';
-        const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, symptom);
+    if (imageBuffer && imageMimeType) {
+        // If awaiting image for repair, analyze and continue flow
+        if (context.pendingAction?.awaitingImage) {
+            const symptom = (context.pendingAction.params?.description as string) || 'อุปกรณ์มีปัญหา';
+            const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, symptom);
 
-        // Update pending action
-        context.pendingAction = {
-            ...context.pendingAction,
-            awaitingImage: false,
-            awaitingConfirmation: true,
-            params: {
-                ...context.pendingAction.params,
-                imageAnalysis: analysis,
-            },
-        };
+            // Update pending action
+            context.pendingAction = {
+                ...context.pendingAction,
+                awaitingImage: false,
+                awaitingConfirmation: true,
+                params: {
+                    ...context.pendingAction.params,
+                    imageAnalysis: analysis,
+                },
+            };
 
-        await saveConversationContext(lineUserId, context);
+            await saveConversationContext(lineUserId, context);
 
-        return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "แจ้งซ่อม")`;
+            return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "แจ้งซ่อม")`;
+        }
+
+        // Image sent without context - analyze what the image is
+        try {
+            const imagePart = imageToGenerativePart(imageBuffer, imageMimeType);
+
+            const prompt = `วิเคราะห์รูปภาพนี้:
+
+1. ถ้าเป็นรูปอุปกรณ์ IT/คอมพิวเตอร์/โปรเจคเตอร์/เครื่องเสียงที่มีปัญหา:
+   - วิเคราะห์อาการ
+   - แนะนำวิธีแก้เบื้องต้น
+   - ถามว่าต้องการแจ้งซ่อมไหม
+
+2. ถ้าเป็นรูปอื่นๆ ที่ไม่เกี่ยวกับงานซ่อม IT:
+   - ตอบสั้นๆ ว่าน่าสนใจ
+   - บอกว่าฉันช่วยเรื่องงานโสตทัศนูปกรณ์ได้ เช่น แจ้งซ่อม จองห้อง
+
+ตอบเป็นภาษาไทย สุภาพ ใช้คำลงท้าย "ค่ะ" หรือ "นะคะ"`;
+
+            const result = await geminiVisionModel.generateContent([prompt, imagePart]);
+            const response = await result.response;
+            const analysis = response.text();
+
+            await saveConversationContext(lineUserId, context);
+
+            return analysis;
+        } catch (error) {
+            console.error('Error analyzing image:', error);
+            return 'ขออภัยค่ะ ไม่สามารถวิเคราะห์รูปภาพได้ในขณะนี้ กรุณาลองส่งใหม่อีกครั้งนะคะ 🙏';
+        }
     }
 
     // Handle confirmation responses
@@ -487,23 +564,25 @@ export async function processAIMessage(
 
     // If it's a plain message (GENERAL or no intent), return it
     if (aiResponse.message && !aiResponse.intent) {
-        // Add recommendation to link account if not linked
-        let reply = aiResponse.message;
-        if (!userProfile) {
-            reply += '\n\n💡 เคล็ดลับ: ผูกบัญชี LINE กับระบบที่ Profile → เชื่อมต่อ LINE เพื่อใช้งานได้เต็มที่ค่ะ';
-        }
         await saveConversationContext(lineUserId, context);
-        return reply;
+        return aiResponse.message;
     }
 
     // Check if action requires authentication
     if (aiResponse.intent && actionRequiresAuth(aiResponse.intent) && !userProfile) {
         await saveConversationContext(lineUserId, context);
-        return 'กรุณาผูกบัญชี LINE กับระบบก่อนนะคะ ไปที่ crms6it.vercel.app → Profile → เชื่อมต่อ LINE\n\nหรือถ้าต้องการใช้งานผ่าน LINE เลย กรุณาบอก Email ที่ใช้ในระบบค่ะ';
+        return `เพื่อใช้งานฟีเจอร์นี้ กรุณาผูกบัญชี LINE กับระบบก่อนนะคะ
+
+📱 วิธีที่ 1: กดปุ่ม "ผูกบัญชี" ใน Rich Menu ด้านล่าง
+🌐 วิธีที่ 2: เข้าเว็บ https://crms6it.vercel.app → Profile → เชื่อมต่อ LINE
+
+หลังผูกแล้วกลับมาทักใหม่ได้เลยค่ะ 😊`;
     }
 
     // Handle specific intents
-    if (aiResponse.intent && userProfile) {
+    const noAuthIntents = ['DAILY_SUMMARY', 'CHECK_AVAILABILITY', 'GALLERY_SEARCH'];
+
+    if (aiResponse.intent) {
         // If more info is needed
         if (aiResponse.needMoreInfo && aiResponse.needMoreInfo.length > 0) {
             context.pendingAction = {
@@ -514,45 +593,63 @@ export async function processAIMessage(
             return aiResponse.question || 'กรุณาให้ข้อมูลเพิ่มเติมค่ะ';
         }
 
-        // If ready to execute
+        // If ready to execute, handle no-auth intents first
         if (aiResponse.execute) {
-            switch (aiResponse.intent) {
-                case 'BOOK_ROOM':
-                    return handleBookRoom(aiResponse.params || {}, userProfile, true);
-                case 'CHECK_REPAIR':
-                    return handleCheckRepair(aiResponse.params || {}, userProfile);
-                case 'CHECK_AVAILABILITY':
-                    return handleCheckAvailability(aiResponse.params || {});
-                case 'MY_BOOKINGS':
-                    return handleMyBookings(userProfile);
-                case 'MY_PHOTO_JOBS':
-                    return handleMyPhotoJobs(userProfile);
-                case 'GALLERY_SEARCH':
-                    return handleGallerySearch(aiResponse.params || {});
-                case 'DAILY_SUMMARY':
-                    return handleDailySummary();
+            // Intents that don't require authentication
+            if (noAuthIntents.includes(aiResponse.intent)) {
+                switch (aiResponse.intent) {
+                    case 'CHECK_AVAILABILITY':
+                        await saveConversationContext(lineUserId, context);
+                        return handleCheckAvailability(aiResponse.params || {});
+                    case 'GALLERY_SEARCH':
+                        await saveConversationContext(lineUserId, context);
+                        return handleGallerySearch(aiResponse.params || {});
+                    case 'DAILY_SUMMARY':
+                        await saveConversationContext(lineUserId, context);
+                        return handleDailySummary(userProfile);
+                }
+            }
+
+            // Intents that require authentication
+            if (userProfile) {
+                switch (aiResponse.intent) {
+                    case 'BOOK_ROOM':
+                        await saveConversationContext(lineUserId, context);
+                        return handleBookRoom(aiResponse.params || {}, userProfile, true);
+                    case 'CHECK_REPAIR':
+                        await saveConversationContext(lineUserId, context);
+                        return handleCheckRepair(aiResponse.params || {}, userProfile);
+                    case 'MY_BOOKINGS':
+                        await saveConversationContext(lineUserId, context);
+                        return handleMyBookings(userProfile);
+                    case 'MY_PHOTO_JOBS':
+                        await saveConversationContext(lineUserId, context);
+                        return handleMyPhotoJobs(userProfile);
+                }
             }
         }
 
-        // Need confirmation
-        if (aiResponse.intent === 'BOOK_ROOM') {
-            context.pendingAction = {
-                intent: 'BOOK_ROOM',
-                params: aiResponse.params || {},
-                awaitingConfirmation: true,
-            };
-            await saveConversationContext(lineUserId, context);
-            return handleBookRoom(aiResponse.params || {}, userProfile, false);
-        }
+        // Need confirmation for specific intents (requires auth)
+        if (userProfile) {
+            if (aiResponse.intent === 'BOOK_ROOM') {
+                context.pendingAction = {
+                    intent: 'BOOK_ROOM',
+                    params: aiResponse.params || {},
+                    awaitingConfirmation: true,
+                };
+                await saveConversationContext(lineUserId, context);
+                return handleBookRoom(aiResponse.params || {}, userProfile, false);
+            }
 
-        if (aiResponse.intent === 'CREATE_REPAIR') {
-            context.pendingAction = {
-                intent: 'CREATE_REPAIR',
-                params: aiResponse.params || {},
-                awaitingImage: true,
-            };
-            await saveConversationContext(lineUserId, context);
-            return 'กรุณาส่งรูปภาพอุปกรณ์ที่มีปัญหาด้วยค่ะ เพื่อให้วิเคราะห์และแนะนำแก้ปัญหาเบื้องต้นได้นะคะ';
+            if (aiResponse.intent === 'CREATE_REPAIR') {
+                context.pendingAction = {
+                    intent: 'CREATE_REPAIR',
+                    params: aiResponse.params || {},
+                    awaitingImage: true,
+                };
+                await saveConversationContext(lineUserId, context);
+                return 'กรุณาส่งรูปภาพอุปกรณ์ที่มีปัญหาด้วยค่ะ เพื่อให้วิเคราะห์และแนะนำแก้ปัญหาเบื้องต้นได้นะคะ';
+            }
         }
     }
 
