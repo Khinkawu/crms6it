@@ -306,11 +306,11 @@ async function handleCheckAvailability(params: Record<string, unknown>): Promise
 
     try {
         const bookingsRef = collection(db, 'bookings');
+        // Query by date only - filter status in code to avoid composite index
         const q = query(
             bookingsRef,
             where('startTime', '>=', Timestamp.fromDate(startOfDay)),
-            where('startTime', '<=', Timestamp.fromDate(endOfDay)),
-            where('status', 'in', ['pending', 'approved'])
+            where('startTime', '<=', Timestamp.fromDate(endOfDay))
         );
 
         const snapshot = await getDocs(q);
@@ -318,15 +318,18 @@ async function handleCheckAvailability(params: Record<string, unknown>): Promise
         if (snapshot.empty) {
             return room
                 ? `ห้อง ${room} ว่างทั้งวันค่ะ (${dateDisplay})`
-                : `ไม่มีการจองห้อง${dateDisplay}ค่ะ ทุกห้องว่างนะคะ 😊`;
+                : `ไม่มีการจอง${dateDisplay}ค่ะ ทุกห้องว่างนะคะ 😊`;
         }
 
         const bookings: string[] = [];
-        snapshot.forEach((doc) => {
-            const data = doc.data();
+        snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            // Filter by status in code to avoid composite index
+            if (!['pending', 'approved'].includes(data.status)) return;
+
             if (!room || data.roomName?.includes(room) || data.room?.includes(room)) {
-                const startTime = data.startTime?.toDate?.()?.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) || data.startTime || '';
-                const endTime = data.endTime?.toDate?.()?.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) || data.endTime || '';
+                const startTime = data.startTime?.toDate?.()?.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) || '';
+                const endTime = data.endTime?.toDate?.()?.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) || '';
                 const status = data.status === 'approved' ? '✅' : '⏳';
                 bookings.push(`${status} ${data.roomName || data.room}: ${startTime}-${endTime}\n   ${data.title || 'ไม่ระบุหัวข้อ'}`);
             }
@@ -580,14 +583,14 @@ export async function analyzeRepairImage(
     try {
         const imagePart = imageToGenerativePart(imageBuffer, mimeType);
 
-        const prompt = `เป็นช่างซ่อมอุปกรณ์โสตทัศนูปกรณ์ ผู้ใช้แจ้งอาการ: "${symptomDescription}"
+        const prompt = `เป็นช่างซ่อมอุปกรณ์โสตทัศนูปกรณ์ อาการที่แจ้งมา: "${symptomDescription}"
 
-ดูจากรูปและอาการ ให้ตอบแบบนี้:
-1. วิเคราะห์สาเหตุที่เป็นไปได้ 
-2. วิธีแก้เบื้องต้นที่ทำได้เอง 2-3 ข้อ
+ดูจากรูปและอาการ ให้ตอบ:
+1. วิเคราะห์สาเหตุที่เป็นไปได้
+2. วิธีแก้เบื้องต้น 2-3 ข้อ
 3. จบด้วย "ถ้าทำแล้วยังมีปัญหา ตอบ 'แจ้งซ่อม' เพื่อส่งช่างไปดูค่ะ"
 
-ห้ามบอกว่า "เห็นอะไรในรูป" ไปตรงที่วิเคราะห์เลย
+ห้ามบอกว่า "เห็นอะไรในรูป" ห้ามใช้ ** หรือ markdown
 ตอบสั้น กระชับ ภาษาไทย ลงท้าย "ค่ะ"`;
 
         const result = await geminiVisionModel.generateContent([prompt, imagePart]);
