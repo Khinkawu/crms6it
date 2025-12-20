@@ -349,24 +349,47 @@ export async function getPhotoJobsByPhotographer(userId: string): Promise<Photog
 // GALLERY_SEARCH Functions
 // ============================================
 
-export async function searchGallery(keyword: string): Promise<PhotographyJob[]> {
+export async function searchGallery(keyword?: string, date?: string): Promise<PhotographyJob[]> {
     try {
         const jobsRef = collection(db, 'photography_jobs');
-        const q = query(
-            jobsRef,
-            where('status', '==', 'completed'),
-            orderBy('startTime', 'desc'),
-            limit(20)
-        );
+
+        // If date is specified, filter by that date
+        let q;
+        if (date) {
+            const searchDate = new Date(date);
+            const startOfDay = new Date(searchDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(searchDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            q = query(
+                jobsRef,
+                where('status', '==', 'completed'),
+                where('startTime', '>=', Timestamp.fromDate(startOfDay)),
+                where('startTime', '<=', Timestamp.fromDate(endOfDay)),
+                orderBy('startTime', 'desc'),
+                limit(20)
+            );
+        } else {
+            q = query(
+                jobsRef,
+                where('status', '==', 'completed'),
+                orderBy('startTime', 'desc'),
+                limit(20)
+            );
+        }
 
         const snapshot = await getDocs(q);
         const jobs: PhotographyJob[] = [];
 
-        // Filter by keyword (title, location, description)
-        const lowerKeyword = keyword.toLowerCase();
+        // Filter by keyword if provided (title, location, description)
+        const lowerKeyword = keyword?.toLowerCase() || '';
         snapshot.forEach((doc) => {
             const job = { id: doc.id, ...doc.data() } as PhotographyJob;
-            if (
+            // If no keyword, include all from date filter
+            if (!keyword) {
+                jobs.push(job);
+            } else if (
                 job.title.toLowerCase().includes(lowerKeyword) ||
                 job.location?.toLowerCase().includes(lowerKeyword) ||
                 job.description?.toLowerCase().includes(lowerKeyword)
@@ -375,7 +398,7 @@ export async function searchGallery(keyword: string): Promise<PhotographyJob[]> 
             }
         });
 
-        return jobs.slice(0, 5); // Return max 5 results
+        return jobs.slice(0, 10); // Return max 10 results
     } catch (error) {
         console.error('Error searching gallery:', error);
         return [];

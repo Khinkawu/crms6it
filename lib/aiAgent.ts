@@ -306,32 +306,78 @@ async function handleMyBookings(userProfile: UserProfile): Promise<string> {
     return `📅 รายการจองของคุณ\n\n${bookingsList}`;
 }
 
-async function handleMyPhotoJobs(userProfile: UserProfile): Promise<string> {
+async function handleMyPhotoJobs(userProfile: UserProfile, params?: Record<string, unknown>): Promise<string> {
     if (!userProfile.isPhotographer) {
         return 'คุณไม่ใช่ช่างภาพในระบบค่ะ หากต้องการเป็นช่างภาพ กรุณาติดต่อผู้ดูแลระบบนะคะ';
     }
 
     const jobs = await getPhotoJobsByPhotographer(userProfile.uid);
 
-    if (jobs.length === 0) {
+    // Filter by date if specified
+    const dateFilter = params?.date as string | undefined;
+    let filteredJobs = jobs;
+
+    if (dateFilter === 'today' || dateFilter === 'วันนี้') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        filteredJobs = jobs.filter(j => {
+            const jobDate = j.startTime instanceof Timestamp ? j.startTime.toDate() : new Date(j.startTime as unknown as string);
+            return jobDate >= today && jobDate < tomorrow;
+        });
+    }
+
+    if (filteredJobs.length === 0) {
+        if (dateFilter) {
+            return 'วันนี้ไม่มีงานถ่ายภาพที่มอบหมายให้คุณค่ะ 😊';
+        }
         return 'ไม่พบงานถ่ายภาพที่ได้รับมอบหมายค่ะ';
     }
 
-    const jobsList = jobs.map((j) => formatPhotoJobForDisplay(j)).join('\n\n');
-    return `📸 งานถ่ายภาพของคุณ\n\n${jobsList}`;
+    const jobsList = filteredJobs.map((j) => formatPhotoJobForDisplay(j)).join('\n\n');
+    const title = dateFilter ? '📸 งานถ่ายภาพวันนี้' : '📸 งานถ่ายภาพของคุณ';
+    return `${title}\n\n${jobsList}`;
 }
 
 async function handleGallerySearch(params: Record<string, unknown>): Promise<string> {
-    const { keyword } = params as { keyword: string };
+    const rawKeyword = params.keyword as string | undefined;
+    const rawDate = params.date as string | undefined;
 
-    const jobs = await searchGallery(keyword);
+    // Clean up undefined/null values
+    const keyword = rawKeyword && rawKeyword !== 'undefined' ? rawKeyword : undefined;
+    const date = rawDate && rawDate !== 'undefined' ? rawDate : undefined;
+
+    // Handle "today" as date
+    let searchDate = date;
+    if (date === 'today' || date === 'วันนี้') {
+        searchDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+
+    const jobs = await searchGallery(keyword, searchDate);
+
+    // Build search description
+    let searchDesc = '';
+    if (keyword && searchDate) {
+        searchDesc = `"${keyword}" วันที่ ${new Date(searchDate).toLocaleDateString('th-TH')}`;
+    } else if (keyword) {
+        searchDesc = `"${keyword}"`;
+    } else if (searchDate) {
+        searchDesc = `วันที่ ${new Date(searchDate).toLocaleDateString('th-TH')}`;
+    } else {
+        searchDesc = 'ล่าสุด';
+    }
 
     if (jobs.length === 0) {
-        return `ไม่พบรูปกิจกรรมที่ตรงกับ "${keyword}" ค่ะ ลองค้นหาคำอื่นนะคะ`;
+        if (!keyword && !searchDate) {
+            return 'ยังไม่มีภาพกิจกรรมในระบบค่ะ';
+        }
+        return `ไม่พบภาพกิจกรรม${searchDesc !== 'ล่าสุด' ? 'ที่ตรงกับ ' + searchDesc : ''} ค่ะ ลองค้นหาคำอื่นหรือวันอื่นนะคะ`;
     }
 
     const resultsList = jobs.map((j) => formatPhotoJobForDisplay(j)).join('\n\n');
-    return `🔍 ผลการค้นหา "${keyword}"\n\n${resultsList}\n\nต้องการ Link ไหนคะ? (Drive หรือ Facebook)`;
+    return `📸 พบ ${jobs.length} กิจกรรม${searchDesc !== 'ล่าสุด' ? ' ' + searchDesc : 'ล่าสุด'}\n\n${resultsList}\n\nต้องการ Link กิจกรรมไหนคะ?`;
 }
 
 async function handleDailySummary(userProfile: UserProfile | null): Promise<string> {
@@ -473,22 +519,25 @@ export async function processAIMessage(
         try {
             const imagePart = imageToGenerativePart(imageBuffer, imageMimeType);
 
-            const prompt = `วิเคราะห์รูปภาพนี้:
+            const prompt = `วิเคราะห์รูปภาพนี้และตอบครบใน reply เดียว:
 
-1. ถ้าเป็นรูปอุปกรณ์ IT/คอมพิวเตอร์/โปรเจคเตอร์/เครื่องเสียงที่มีปัญหา:
-   - วิเคราะห์อาการ
-   - แนะนำวิธีแก้เบื้องต้น
-   - ถามว่าต้องการแจ้งซ่อมไหม
+ถ้าเป็นอุปกรณ์โสตทัศนูปกรณ์/IT (คอม, โปรเจคเตอร์, เครื่องเสียง ฯลฯ):
+1. บอกว่าเห็นอะไรในรูป
+2. ถ้าเห็นปัญหา: วิเคราะห์อาการ + แนะนำวิธีแก้เบื้องต้น 2-3 ข้อ
+3. ถ้าแก้เองไม่ได้ ให้ตอบ "แจ้งซ่อม" เพื่อส่งช่าง
 
-2. ถ้าเป็นรูปอื่นๆ ที่ไม่เกี่ยวกับงานซ่อม IT:
-   - ตอบสั้นๆ ว่าน่าสนใจ
-   - บอกว่าฉันช่วยเรื่องงานโสตทัศนูปกรณ์ได้ เช่น แจ้งซ่อม จองห้อง
+ถ้าไม่ใช่อุปกรณ์ IT: ตอบสั้นๆ + บอกว่าช่วยเรื่องโสตฯ ได้
 
-ตอบเป็นภาษาไทย สุภาพ ใช้คำลงท้าย "ค่ะ" หรือ "นะคะ"`;
+ตอบภาษาไทย กระชับ ลงท้าย "ค่ะ"`;
 
             const result = await geminiVisionModel.generateContent([prompt, imagePart]);
             const response = await result.response;
-            const analysis = response.text();
+            let analysis = response.text();
+
+            // Ensure response is not too long for LINE (max 5000 chars)
+            if (analysis.length > 4500) {
+                analysis = analysis.substring(0, 4500) + '...';
+            }
 
             await saveConversationContext(lineUserId, context);
 
@@ -624,7 +673,7 @@ export async function processAIMessage(
                         return handleMyBookings(userProfile);
                     case 'MY_PHOTO_JOBS':
                         await saveConversationContext(lineUserId, context);
-                        return handleMyPhotoJobs(userProfile);
+                        return handleMyPhotoJobs(userProfile, aiResponse.params);
                 }
             }
         }
