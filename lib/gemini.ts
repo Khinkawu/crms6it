@@ -30,7 +30,7 @@ const safetySettings = [
 
 // Text-only model for general chat
 export const geminiModel = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: 'gemini-2.5-flash',
     generationConfig: {
         temperature: 0.7,
         maxOutputTokens: 2048,
@@ -40,7 +40,7 @@ export const geminiModel = genAI.getGenerativeModel({
 
 // Vision model for image analysis (repair reports)
 export const geminiVisionModel = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: 'gemini-2.5-flash',
     generationConfig: {
         temperature: 0.5,
         maxOutputTokens: 1024,
