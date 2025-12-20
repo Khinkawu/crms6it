@@ -48,6 +48,8 @@ interface ConversationContext {
         params: Record<string, unknown>;
         awaitingConfirmation?: boolean;
         awaitingImage?: boolean;
+        awaitingSide?: boolean;  // Waiting for ม.ต้น/ม.ปลาย
+        awaitingRoom?: boolean;  // Waiting for room number
     };
     lastActivity: Date;
 }
@@ -281,21 +283,27 @@ async function handleCheckRepair(
 async function handleCheckAvailability(params: Record<string, unknown>): Promise<string> {
     const { room, date } = params as { room?: string; date?: string };
 
-    // Parse date (use Thai date parser), default to today
+    // Use Bangkok timezone
+    const bangkokOptions = { timeZone: 'Asia/Bangkok' };
+
+    // Get current date in Bangkok timezone
+    const now = new Date();
+    const bangkokNow = new Date(now.toLocaleString('en-US', bangkokOptions));
+
     let targetDate: Date;
     let dateDisplay: string;
 
-    if (date) {
+    if (date && date !== 'today') {
         const parsed = parseThaiDate(date);
         if (parsed) {
             targetDate = new Date(parsed);
-            dateDisplay = targetDate.toLocaleDateString('th-TH');
+            dateDisplay = targetDate.toLocaleDateString('th-TH', bangkokOptions);
         } else {
-            targetDate = new Date();
+            targetDate = bangkokNow;
             dateDisplay = 'วันนี้';
         }
     } else {
-        targetDate = new Date();
+        targetDate = bangkokNow;
         dateDisplay = 'วันนี้';
     }
 
@@ -306,7 +314,6 @@ async function handleCheckAvailability(params: Record<string, unknown>): Promise
 
     try {
         const bookingsRef = collection(db, 'bookings');
-        // Query by date only - filter status in code to avoid composite index
         const q = query(
             bookingsRef,
             where('startTime', '>=', Timestamp.fromDate(startOfDay)),
@@ -324,19 +331,29 @@ async function handleCheckAvailability(params: Record<string, unknown>): Promise
         const bookings: string[] = [];
         snapshot.forEach((docSnap) => {
             const data = docSnap.data();
-            // Filter by status in code to avoid composite index
             if (!['pending', 'approved'].includes(data.status)) return;
 
             if (!room || data.roomName?.includes(room) || data.room?.includes(room)) {
-                const startTime = data.startTime?.toDate?.()?.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) || '';
-                const endTime = data.endTime?.toDate?.()?.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) || '';
+                // Use Bangkok timezone for time display
+                const startTime = data.startTime?.toDate?.()?.toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Bangkok'
+                }) || '';
+                const endTime = data.endTime?.toDate?.()?.toLocaleTimeString('th-TH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Bangkok'
+                }) || '';
                 const status = data.status === 'approved' ? '✅' : '⏳';
                 bookings.push(`${status} ${data.roomName || data.room}: ${startTime}-${endTime}\n   ${data.title || 'ไม่ระบุหัวข้อ'}`);
             }
         });
 
         if (bookings.length === 0) {
-            return `ห้อง ${room} ว่างทั้งวัน${dateDisplay}ค่ะ`;
+            return room
+                ? `ห้อง ${room} ว่างทั้งวัน${dateDisplay}ค่ะ`
+                : `ไม่มีการจอง${dateDisplay}ค่ะ ทุกห้องว่างนะคะ 😊`;
         }
 
         const header = room ? `📅 การจองห้อง ${room} (${dateDisplay})` : `📅 การจอง${dateDisplay}`;
@@ -631,6 +648,16 @@ export async function processAIMessage(
         };
     }
 
+    // Handle direct questions about account binding status
+    const bindingKeywords = ['ผูกบัญชี', 'ผูกไอดี', 'ลิ้งก์บัญชี', 'เชื่อมบัญชี', 'ผูกรึยัง', 'ผูกยัง', 'ผูกหรือยัง'];
+    if (bindingKeywords.some(kw => userMessage.toLowerCase().includes(kw))) {
+        if (userProfile) {
+            return `✅ คุณผูกบัญชีแล้วค่ะ!\n\n👤 ชื่อ: ${userProfile.displayName}\n📧 อีเมล: ${userProfile.email}\n\nพร้อมใช้งานทุกฟังก์ชันแล้วค่ะ 😊`;
+        } else {
+            return `❌ ยังไม่ได้ผูกบัญชีค่ะ\n\nวิธีผูกบัญชี:\n1. เข้าเว็บ https://crms6it.vercel.app\n2. เข้าสู่ระบบด้วย Google xxx@tesaban6.ac.th\n3. ไปที่ Profile → เชื่อมต่อ LINE\n\nหลังผูกแล้วกลับมาทักใหม่ได้เลยค่ะ 😊`;
+        }
+    }
+
     // Handle image message for repair
     if (imageBuffer && imageMimeType) {
         // If awaiting image for repair, analyze and continue flow
@@ -638,11 +665,11 @@ export async function processAIMessage(
             const symptom = (context.pendingAction.params?.description as string) || 'อุปกรณ์มีปัญหา';
             const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, symptom);
 
-            // Update pending action
+            // Update pending action - ask for side first
             context.pendingAction = {
                 ...context.pendingAction,
                 awaitingImage: false,
-                awaitingConfirmation: true,
+                awaitingSide: true,  // Ask for side first
                 params: {
                     ...context.pendingAction.params,
                     imageAnalysis: analysis,
@@ -651,7 +678,7 @@ export async function processAIMessage(
 
             await saveConversationContext(lineUserId, context);
 
-            return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "แจ้งซ่อม")`;
+            return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? ถ้าต้องการ กรุณาบอกว่าอุปกรณ์อยู่ฝั่งไหนก่อนนะคะ\n(ตอบ "ม.ต้น" หรือ "ม.ปลาย" หรือ "ยกเลิก")`;
         }
 
         // Check if recent conversation was about repair (smart detection)
@@ -668,11 +695,11 @@ export async function processAIMessage(
 
             const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, symptom);
 
-            // Set up pending repair action
+            // Set up pending repair action - start with asking for side
             context.pendingAction = {
                 intent: 'CREATE_REPAIR' as const,
                 awaitingImage: false,
-                awaitingConfirmation: true,
+                awaitingSide: true,  // Ask for side first
                 params: {
                     description: symptom,
                     imageAnalysis: analysis,
@@ -681,7 +708,7 @@ export async function processAIMessage(
 
             await saveConversationContext(lineUserId, context);
 
-            return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "แจ้งซ่อม")`;
+            return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? ถ้าต้องการ กรุณาบอกว่าอุปกรณ์อยู่ฝั่งไหนก่อนนะคะ\n(ตอบ "ม.ต้น" หรือ "ม.ปลาย" หรือ "ยกเลิก")`;
         }
 
         // Image sent without repair context - general analysis
@@ -712,6 +739,48 @@ export async function processAIMessage(
             console.error('Error analyzing image:', error);
             return 'ขออภัยค่ะ ไม่สามารถวิเคราะห์รูปภาพได้ในขณะนี้ กรุณาลองส่งใหม่อีกครั้งนะคะ 🙏';
         }
+    }
+
+    // Handle side/zone input for repair
+    if (context.pendingAction?.awaitingSide) {
+        const sideMatch = userMessage.match(/ม\.(ต้น|ปลาย)|มัธยม(ต้น|ปลาย)|ฝั่ง(ต้น|ปลาย)/i);
+        const side = sideMatch ? (sideMatch[0].includes('ต้น') ? 'ม.ต้น' : 'ม.ปลาย') : userMessage;
+
+        context.pendingAction = {
+            ...context.pendingAction,
+            awaitingSide: false,
+            awaitingRoom: true,
+            params: {
+                ...context.pendingAction.params,
+                side,
+            },
+        };
+        await saveConversationContext(lineUserId, context);
+        return 'อุปกรณ์อยู่ห้องอะไรคะ? (เช่น 101, ห้องประชุม, ห้องคอม)';
+    }
+
+    // Handle room input for repair
+    if (context.pendingAction?.awaitingRoom) {
+        const room = userMessage.trim();
+
+        context.pendingAction = {
+            ...context.pendingAction,
+            awaitingRoom: false,
+            awaitingConfirmation: true,
+            params: {
+                ...context.pendingAction.params,
+                room,
+            },
+        };
+        await saveConversationContext(lineUserId, context);
+
+        const params = context.pendingAction.params;
+        return `📝 สรุปข้อมูลแจ้งซ่อม:
+- ฝั่ง: ${params.side}
+- ห้อง: ${params.room}
+- อาการ: ${params.description}
+
+ยืนยันแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "ยกเลิก")`;
     }
 
     // Handle confirmation responses

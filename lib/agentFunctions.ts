@@ -256,6 +256,14 @@ export async function createRepairFromAI(
     requesterEmail: string
 ): Promise<CreateRepairResult> {
     try {
+        // Validate required fields
+        if (!room || !description || !side) {
+            return {
+                success: false,
+                error: 'ข้อมูลไม่ครบค่ะ กรุณาระบุ ห้อง, อาการ, และฝั่ง (ม.ต้น/ม.ปลาย)',
+            };
+        }
+
         const normalizedSide = SIDE_MAPPING[side.toLowerCase()] || side;
 
         // Generate ticket ID
@@ -351,10 +359,32 @@ export async function getPhotoJobsByPhotographer(userId: string): Promise<Photog
 
 export async function searchGallery(keyword?: string, date?: string): Promise<PhotographyJob[]> {
     try {
+        console.log(`[Gallery Search] keyword: ${keyword}, date: ${date}`);
         const jobsRef = collection(db, 'photography_jobs');
 
-        // If date is specified, filter by that date
-        let q;
+        // Simple query - just get completed jobs, filter in code
+        const q = query(
+            jobsRef,
+            where('status', '==', 'completed'),
+            limit(50)
+        );
+
+        const snapshot = await getDocs(q);
+        console.log(`[Gallery Search] Found ${snapshot.size} completed jobs`);
+
+        let jobs: PhotographyJob[] = [];
+        snapshot.forEach((doc) => {
+            jobs.push({ id: doc.id, ...doc.data() } as PhotographyJob);
+        });
+
+        // Sort by date descending
+        jobs.sort((a, b) => {
+            const dateA = a.startTime instanceof Timestamp ? a.startTime.toMillis() : 0;
+            const dateB = b.startTime instanceof Timestamp ? b.startTime.toMillis() : 0;
+            return dateB - dateA;
+        });
+
+        // Filter by date if provided
         if (date) {
             const searchDate = new Date(date);
             const startOfDay = new Date(searchDate);
@@ -362,43 +392,24 @@ export async function searchGallery(keyword?: string, date?: string): Promise<Ph
             const endOfDay = new Date(searchDate);
             endOfDay.setHours(23, 59, 59, 999);
 
-            q = query(
-                jobsRef,
-                where('status', '==', 'completed'),
-                where('startTime', '>=', Timestamp.fromDate(startOfDay)),
-                where('startTime', '<=', Timestamp.fromDate(endOfDay)),
-                orderBy('startTime', 'desc'),
-                limit(20)
-            );
-        } else {
-            q = query(
-                jobsRef,
-                where('status', '==', 'completed'),
-                orderBy('startTime', 'desc'),
-                limit(20)
+            jobs = jobs.filter(job => {
+                const jobDate = job.startTime instanceof Timestamp ? job.startTime.toDate() : new Date(job.startTime as unknown as string);
+                return jobDate >= startOfDay && jobDate <= endOfDay;
+            });
+        }
+
+        // Filter by keyword if provided
+        if (keyword) {
+            const lowerKeyword = keyword.toLowerCase();
+            jobs = jobs.filter(job =>
+                job.title?.toLowerCase().includes(lowerKeyword) ||
+                job.location?.toLowerCase().includes(lowerKeyword) ||
+                job.description?.toLowerCase().includes(lowerKeyword)
             );
         }
 
-        const snapshot = await getDocs(q);
-        const jobs: PhotographyJob[] = [];
-
-        // Filter by keyword if provided (title, location, description)
-        const lowerKeyword = keyword?.toLowerCase() || '';
-        snapshot.forEach((doc) => {
-            const job = { id: doc.id, ...doc.data() } as PhotographyJob;
-            // If no keyword, include all from date filter
-            if (!keyword) {
-                jobs.push(job);
-            } else if (
-                job.title.toLowerCase().includes(lowerKeyword) ||
-                job.location?.toLowerCase().includes(lowerKeyword) ||
-                job.description?.toLowerCase().includes(lowerKeyword)
-            ) {
-                jobs.push(job);
-            }
-        });
-
-        return jobs.slice(0, 10); // Return max 10 results
+        console.log(`[Gallery Search] After filtering: ${jobs.length} jobs`);
+        return jobs.slice(0, 10);
     } catch (error) {
         console.error('Error searching gallery:', error);
         return [];
