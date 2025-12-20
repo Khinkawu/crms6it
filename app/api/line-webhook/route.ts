@@ -76,16 +76,27 @@ async function handleMessageEvent(event: any) {
         // Show typing indicator
         await sendTypingIndicator(userId);
 
+        console.log('[AI Agent] Processing message from user:', userId);
+        console.log('[AI Agent] Message:', text);
+
         // Get AI response
         const aiReply = await processAIMessage(userId, text);
+
+        console.log('[AI Agent] Reply:', aiReply?.substring(0, 100));
 
         // Reply to user
         await client.replyMessage(replyToken, {
             type: 'text',
             text: aiReply,
         });
-    } catch (error) {
-        console.error('AI Agent Error:', error);
+    } catch (error: any) {
+        console.error('=== AI Agent Error ===');
+        console.error('Error name:', error?.name);
+        console.error('Error message:', error?.message);
+        console.error('Error stack:', error?.stack);
+        console.error('Full error:', JSON.stringify(error, null, 2));
+        console.error('======================');
+
         await client.replyMessage(replyToken, {
             type: 'text',
             text: 'ขออภัยค่ะ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้งนะคะ',
