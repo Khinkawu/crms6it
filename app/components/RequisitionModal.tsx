@@ -8,6 +8,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import { decrementStats } from "../../utils/aggregation";
+import { logActivity } from "../../utils/logger";
 
 interface RequisitionModalProps {
     isOpen: boolean;
@@ -143,11 +144,21 @@ const RequisitionModal: React.FC<RequisitionModalProps> = ({ isOpen, onClose, pr
                     await decrementStats('available');
                 }
             } else {
-                // Unique Logic
                 if (product.status === 'available') {
                     await decrementStats('available');
                 }
             }
+
+            // Log Activity
+            await logActivity({
+                action: 'requisition',
+                productName: product.name,
+                userName: formData.requesterName,
+                details: `เบิก: ${formData.reason} (ห้อง ${formData.room})`,
+                zone: product.location || 'unknown',
+                status: 'completed',
+                signatureUrl: signatureUrl
+            });
 
             onSuccess();
             onClose();

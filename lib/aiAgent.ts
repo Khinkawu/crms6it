@@ -3,6 +3,7 @@
  * Main processor for natural language understanding and action execution
  */
 
+import { PhotographyJob } from '@/types';
 import { db } from '@/lib/firebase';
 import {
     collection,
@@ -47,9 +48,14 @@ interface ConversationContext {
         intent: string;
         params: Record<string, unknown>;
         awaitingConfirmation?: boolean;
-        awaitingImage?: boolean;
-        awaitingSide?: boolean;  // Waiting for ม.ต้น/ม.ปลาย
-        awaitingRoom?: boolean;  // Waiting for room number
+        // Repair flow states (in order)
+        awaitingEquipment?: boolean;  // 1. What equipment is broken
+        awaitingSymptom?: boolean;    // 2. What's the symptom
+        awaitingImage?: boolean;      // 3. Photo of the issue
+        awaitingSide?: boolean;       // 4. ม.ต้น/ม.ปลาย
+        awaitingRoom?: boolean;       // 5. Room number
+        // Gallery selection
+        galleryResults?: PhotographyJob[];
     };
     lastActivity: Date;
 }
@@ -410,7 +416,12 @@ async function handleMyPhotoJobs(userProfile: UserProfile, params?: Record<strin
     return `${title}\n\n${jobsList}`;
 }
 
-async function handleGallerySearch(params: Record<string, unknown>): Promise<string> {
+interface GallerySearchResult {
+    message: string;
+    jobs?: PhotographyJob[];
+}
+
+async function handleGallerySearchWithResults(params: Record<string, unknown>): Promise<GallerySearchResult> {
     const rawKeyword = params.keyword as string | undefined;
     const rawDate = params.date as string | undefined;
 
@@ -458,13 +469,38 @@ async function handleGallerySearch(params: Record<string, unknown>): Promise<str
 
     if (jobs.length === 0) {
         if (!keyword && !searchDate) {
-            return 'ยังไม่มีภาพกิจกรรมในระบบค่ะ';
+            return { message: 'ยังไม่มีภาพกิจกรรมในระบบค่ะ' };
         }
-        return `ไม่พบภาพกิจกรรมที่ตรงกับ ${searchDesc} ค่ะ ลองค้นหาคำอื่นนะคะ`;
+        return { message: `ไม่พบภาพกิจกรรมที่ตรงกับ ${searchDesc} ค่ะ ลองค้นหาคำอื่นนะคะ` };
     }
 
-    const resultsList = jobs.map((j) => formatPhotoJobForDisplay(j)).join('\n\n');
-    return `📸 พบ ${jobs.length} กิจกรรม ${searchDesc}\n\n${resultsList}\n\nต้องการ Link กิจกรรมไหนคะ?`;
+    // If only 1 result, show full details
+    if (jobs.length === 1) {
+        const job = jobs[0];
+        return {
+            message: `📸 พบ 1 กิจกรรม ${searchDesc}\n\n${formatPhotoJobForDisplay(job)}`,
+            jobs
+        };
+    }
+
+    // Multiple results - show numbered list for easy selection
+    const listItems = jobs.slice(0, 10).map((job, index) => {
+        const date = job.startTime instanceof Timestamp
+            ? job.startTime.toDate().toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' })
+            : '';
+        // Truncate title if too long
+        const shortTitle = job.title.length > 40 ? job.title.substring(0, 40) + '...' : job.title;
+        return `${index + 1}. ${shortTitle} (${date})`;
+    }).join('\n');
+
+    let response = `📸 พบ ${jobs.length} กิจกรรม ${searchDesc}\n\n${listItems}`;
+
+    if (jobs.length > 10) {
+        response += `\n... และอีก ${jobs.length - 10} กิจกรรม`;
+    }
+
+    response += '\n\nพิมพ์หมายเลขเพื่อดูรายละเอียดและ Link ค่ะ';
+    return { message: response, jobs };
 }
 
 // Parse Thai date formats: "เมื่อวาน", "16/12/2568", "16 ธันวาคม 2568", "yesterday", "today"
@@ -660,25 +696,42 @@ export async function processAIMessage(
 
     // Handle image message for repair
     if (imageBuffer && imageMimeType) {
-        // If awaiting image for repair, analyze and continue flow
-        if (context.pendingAction?.awaitingImage) {
-            const symptom = (context.pendingAction.params?.description as string) || 'อุปกรณ์มีปัญหา';
+        // If awaiting image for repair flow
+        if (context.pendingAction?.awaitingImage && context.pendingAction.intent === 'CREATE_REPAIR') {
+            // Get symptom for analysis context
+            const symptom = (context.pendingAction.params?.description as string) ||
+                (context.pendingAction.params?.symptom as string) ||
+                'อุปกรณ์มีปัญหา';
+
+            // Analyze image with AI for troubleshooting advice
             const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, symptom);
 
-            // Update pending action - ask for side first
+            // Resize image if too large (limit ~500KB for Firestore)
+            let imageBase64 = imageBuffer.toString('base64');
+            const maxSize = 500 * 1024; // 500KB
+            if (imageBase64.length > maxSize) {
+                // Truncate base64 - in production, use proper image compression
+                // For now, we'll just note that the image is too large
+                console.log(`[Image] Original size: ${imageBase64.length}, truncating to ${maxSize}`);
+                imageBase64 = imageBase64.substring(0, maxSize);
+            }
+
             context.pendingAction = {
                 ...context.pendingAction,
                 awaitingImage: false,
-                awaitingSide: true,  // Ask for side first
+                awaitingSide: true,
                 params: {
                     ...context.pendingAction.params,
+                    imageBuffer: imageBase64,
+                    imageMimeType,
                     imageAnalysis: analysis,
+                    imageUrl: `data:${imageMimeType};base64,${imageBase64}`,
                 },
             };
-
             await saveConversationContext(lineUserId, context);
 
-            return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? ถ้าต้องการ กรุณาบอกว่าอุปกรณ์อยู่ฝั่งไหนก่อนนะคะ\n(ตอบ "ม.ต้น" หรือ "ม.ปลาย" หรือ "ยกเลิก")`;
+            // Return analysis with transition to next step
+            return `${analysis}\n\n---\n📷 ได้รับรูปภาพแล้วค่ะ! อุปกรณ์อยู่ฝั่งไหนคะ?\n(ตอบ "ม.ต้น" หรือ "ม.ปลาย")`;
         }
 
         // Check if recent conversation was about repair (smart detection)
@@ -741,8 +794,86 @@ export async function processAIMessage(
         }
     }
 
-    // Handle side/zone input for repair
-    if (context.pendingAction?.awaitingSide) {
+    // === GALLERY NUMBER SELECTION ===
+
+    // Handle number selection for gallery results
+    if (context.pendingAction?.intent === 'GALLERY_SELECTION' && context.pendingAction.galleryResults) {
+        const numberMatch = userMessage.trim().match(/^(\d+)$/);
+        if (numberMatch) {
+            const selectedIndex = parseInt(numberMatch[1]) - 1;
+            const jobs = context.pendingAction.galleryResults;
+
+            if (selectedIndex >= 0 && selectedIndex < jobs.length) {
+                const selectedJob = jobs[selectedIndex];
+                // Clear pending action
+                await clearPendingAction(lineUserId);
+                return `📸 ${selectedJob.title}\n\n${formatPhotoJobForDisplay(selectedJob)}`;
+            } else {
+                return `กรุณาเลือกหมายเลข 1-${Math.min(jobs.length, 10)} ค่ะ`;
+            }
+        }
+        // If not a number, let it continue to AI processing and clear gallery selection
+        await clearPendingAction(lineUserId);
+    }
+
+    // === REPAIR FLOW HANDLERS ===
+
+    // Step 1: Ask what equipment is broken
+    if (context.pendingAction?.awaitingEquipment && context.pendingAction.intent === 'CREATE_REPAIR') {
+        const equipment = userMessage.trim();
+
+        context.pendingAction = {
+            ...context.pendingAction,
+            awaitingEquipment: false,
+            awaitingSymptom: true,
+            params: {
+                ...context.pendingAction.params,
+                equipment,
+            },
+        };
+        await saveConversationContext(lineUserId, context);
+        return `${equipment} มีอาการเป็นอย่างไรคะ? (เช่น "เปิดไม่ติด", "ภาพไม่ออก", "มีเสียงดัง")`;
+    }
+
+    // Step 2: Ask what symptom
+    if (context.pendingAction?.awaitingSymptom && context.pendingAction.intent === 'CREATE_REPAIR') {
+        const symptom = userMessage.trim();
+        const equipment = context.pendingAction.params?.equipment || '';
+        const description = `${equipment} - ${symptom}`;
+
+        context.pendingAction = {
+            ...context.pendingAction,
+            awaitingSymptom: false,
+            awaitingImage: true,
+            params: {
+                ...context.pendingAction.params,
+                symptom,
+                description,
+            },
+        };
+        await saveConversationContext(lineUserId, context);
+        return '📷 กรุณาส่งรูปภาพอุปกรณ์ที่มีปัญหาค่ะ (ถ้าไม่มีรูป พิมพ์ "ไม่มี")';
+    }
+
+    // Step 3: Image handled in image message section above
+    // Check if user says "no image"
+    if (context.pendingAction?.awaitingImage && context.pendingAction.intent === 'CREATE_REPAIR') {
+        const noImageWords = ['ไม่มี', 'ไม่มีรูป', 'ไม่ได้ถ่าย', 'no', 'skip'];
+        if (noImageWords.some(w => userMessage.toLowerCase().includes(w))) {
+            context.pendingAction = {
+                ...context.pendingAction,
+                awaitingImage: false,
+                awaitingSide: true,
+            };
+            await saveConversationContext(lineUserId, context);
+            return 'อุปกรณ์อยู่ฝั่งไหนคะ? (ตอบ "ม.ต้น" หรือ "ม.ปลาย")';
+        }
+        // If they sent something else that's not an image, remind them
+        return '📷 กรุณาส่งรูปภาพ หรือพิมพ์ "ไม่มี" ถ้าไม่มีรูปค่ะ';
+    }
+
+    // Step 4: Handle side/zone input for repair
+    if (context.pendingAction?.awaitingSide && context.pendingAction.intent === 'CREATE_REPAIR') {
         const sideMatch = userMessage.match(/ม\.(ต้น|ปลาย)|มัธยม(ต้น|ปลาย)|ฝั่ง(ต้น|ปลาย)/i);
         const side = sideMatch ? (sideMatch[0].includes('ต้น') ? 'ม.ต้น' : 'ม.ปลาย') : userMessage;
 
@@ -759,8 +890,8 @@ export async function processAIMessage(
         return 'อุปกรณ์อยู่ห้องอะไรคะ? (เช่น 101, ห้องประชุม, ห้องคอม)';
     }
 
-    // Handle room input for repair
-    if (context.pendingAction?.awaitingRoom) {
+    // Step 5: Handle room input for repair
+    if (context.pendingAction?.awaitingRoom && context.pendingAction.intent === 'CREATE_REPAIR') {
         const room = userMessage.trim();
 
         context.pendingAction = {
@@ -775,10 +906,13 @@ export async function processAIMessage(
         await saveConversationContext(lineUserId, context);
 
         const params = context.pendingAction.params;
+        const hasImage = params.imageUrl ? '✅' : '❌';
         return `📝 สรุปข้อมูลแจ้งซ่อม:
+- อุปกรณ์: ${params.equipment || '-'}
+- อาการ: ${params.symptom || params.description || '-'}
 - ฝั่ง: ${params.side}
 - ห้อง: ${params.room}
-- อาการ: ${params.description}
+- รูปภาพ: ${hasImage}
 
 ยืนยันแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "ยกเลิก")`;
     }
@@ -810,7 +944,16 @@ export async function processAIMessage(
                 );
 
                 if (result.success) {
-                    return `✅ แจ้งซ่อมสำเร็จค่ะ!\n\n🔧 Ticket: ${result.ticketId}\n📍 ${params?.room}\n📝 ${params?.description}\n\nช่างจะติดต่อกลับเร็วๆ นี้ค่ะ`;
+                    const equipment = params?.equipment || '';
+                    const symptom = params?.symptom || params?.description || '';
+                    return `✅ แจ้งซ่อมสำเร็จค่ะ!
+
+🔧 Ticket: ${result.ticketId}
+📦 อุปกรณ์: ${equipment}
+💬 อาการ: ${symptom}
+📍 ห้อง: ${params?.room} (${params?.side})
+
+ช่างจะติดต่อกลับเร็วๆ นี้ค่ะ 🙏`;
                 }
                 return `❌ ${result.error}`;
             }
@@ -886,9 +1029,19 @@ export async function processAIMessage(
                     case 'CHECK_ROOM_AVAILABILITY':
                         await saveConversationContext(lineUserId, context);
                         return handleCheckAvailability(aiResponse.params || {});
-                    case 'GALLERY_SEARCH':
+                    case 'GALLERY_SEARCH': {
+                        const galleryResult = await handleGallerySearchWithResults(aiResponse.params || {});
+                        // Save gallery results for number selection
+                        if (galleryResult.jobs && galleryResult.jobs.length > 1) {
+                            context.pendingAction = {
+                                intent: 'GALLERY_SELECTION',
+                                params: {},
+                                galleryResults: galleryResult.jobs as PhotographyJob[],
+                            };
+                        }
                         await saveConversationContext(lineUserId, context);
-                        return handleGallerySearch(aiResponse.params || {});
+                        return galleryResult.message;
+                    }
                     case 'DAILY_SUMMARY':
                         await saveConversationContext(lineUserId, context);
                         return handleDailySummary(userProfile);
@@ -898,9 +1051,6 @@ export async function processAIMessage(
             // Intents that require authentication
             if (userProfile) {
                 switch (aiResponse.intent) {
-                    case 'BOOK_ROOM':
-                        await saveConversationContext(lineUserId, context);
-                        return handleBookRoom(aiResponse.params || {}, userProfile, true);
                     case 'CHECK_REPAIR':
                         await saveConversationContext(lineUserId, context);
                         return handleCheckRepair(aiResponse.params || {}, userProfile);
@@ -917,23 +1067,27 @@ export async function processAIMessage(
         // Need confirmation for specific intents (requires auth)
         if (userProfile) {
             if (aiResponse.intent === 'BOOK_ROOM') {
-                context.pendingAction = {
-                    intent: 'BOOK_ROOM',
-                    params: aiResponse.params || {},
-                    awaitingConfirmation: true,
-                };
+                // Recommend booking link instead of multi-step flow
                 await saveConversationContext(lineUserId, context);
-                return handleBookRoom(aiResponse.params || {}, userProfile, false);
+                return `📅 จองห้องประชุม
+
+สามารถจองได้ 2 วิธีค่ะ:
+
+1️⃣ กดเมนู "จองห้อง" ด้านล่าง
+2️⃣ จองผ่านเว็บ: https://crms6it.vercel.app/booking
+
+เลือกห้อง วันที่ และเวลาได้สะดวกกว่านะคะ 😊`;
             }
 
             if (aiResponse.intent === 'CREATE_REPAIR') {
+                // Start repair flow - ask equipment first
                 context.pendingAction = {
                     intent: 'CREATE_REPAIR',
                     params: aiResponse.params || {},
-                    awaitingImage: true,
+                    awaitingEquipment: true,  // Step 1: Ask what equipment
                 };
                 await saveConversationContext(lineUserId, context);
-                return 'กรุณาส่งรูปภาพอุปกรณ์ที่มีปัญหาด้วยค่ะ เพื่อให้วิเคราะห์และแนะนำแก้ปัญหาเบื้องต้นได้นะคะ';
+                return '🔧 แจ้งซ่อม\n\nอุปกรณ์อะไรเสียคะ? (เช่น "โปรเจคเตอร์", "คอมพิวเตอร์", "เครื่องปริ้น")';
             }
         }
     }

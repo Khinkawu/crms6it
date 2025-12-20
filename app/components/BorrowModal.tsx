@@ -9,6 +9,7 @@ import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
+import { logActivity } from "../../utils/logger";
 
 interface BorrowModalProps {
     isOpen: boolean;
@@ -145,6 +146,17 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                     await updateStatsOnStatusChange('available', 'borrowed');
                 }
             }
+
+            // Log Activity
+            await logActivity({
+                action: 'borrow',
+                productName: product.name,
+                userName: formData.borrowerName,
+                details: `ยืม: ${formData.reason} (ห้อง ${formData.room})`,
+                zone: product.location || 'unknown',
+                status: 'active',
+                signatureUrl: signatureUrl
+            });
 
             toast.success("บันทึกข้อมูลเรียบร้อยแล้ว");
             onSuccess();

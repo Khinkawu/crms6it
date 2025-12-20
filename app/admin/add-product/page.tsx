@@ -234,6 +234,17 @@ const AddProductPage = () => {
             await incrementStats('total');
             await incrementStats('available');
 
+            // Log Activity
+            const { logActivity } = await import("../../../utils/logger");
+            await logActivity({
+                action: 'add',
+                productName: formData.name,
+                userName: user?.displayName || user?.email || "Admin",
+                details: `Added new product: ${formData.name} (${formData.stockId})`,
+                imageUrl: downloadURL,
+                zone: formData.location
+            });
+
             // Clear form
             setFormData({
                 name: "",

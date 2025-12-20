@@ -161,14 +161,14 @@ export default function AdminDashboard() {
 
         // Pending Repairs
         unsubscribers.push(
-            onSnapshot(query(collection(db, "repairs"), where("status", "==", "pending")), (snap) => {
+            onSnapshot(query(collection(db, "repair_tickets"), where("status", "==", "pending")), (snap) => {
                 setStats(prev => ({ ...prev, pendingRepairs: snap.size }));
             })
         );
 
         // In Progress Repairs
         unsubscribers.push(
-            onSnapshot(query(collection(db, "repairs"), where("status", "==", "in_progress")), (snap) => {
+            onSnapshot(query(collection(db, "repair_tickets"), where("status", "==", "in_progress")), (snap) => {
                 setStats(prev => ({ ...prev, inProgressRepairs: snap.size }));
             })
         );
@@ -182,7 +182,7 @@ export default function AdminDashboard() {
 
         // Low Stock
         unsubscribers.push(
-            onSnapshot(query(collection(db, "product"), where("quantity", "<", 5)), (snap) => {
+            onSnapshot(query(collection(db, "products"), where("quantity", "<", 5)), (snap) => {
                 setStats(prev => ({ ...prev, lowStock: snap.size }));
             })
         );

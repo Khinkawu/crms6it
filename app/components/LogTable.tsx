@@ -19,7 +19,7 @@ interface LogTableProps {
     logs: LogActivity[];
     title: string;
     onClose: () => void;
-    onGenerateReport?: (startDate: string, endDate: string) => void;
+    onGenerateReport?: (startDate: string, endDate: string, action?: string) => void;
     isLoading?: boolean;
 }
 
@@ -42,7 +42,7 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
 
     const handleGenerate = () => {
         if (onGenerateReport && startDate && endDate) {
-            onGenerateReport(startDate, endDate);
+            onGenerateReport(startDate, endDate, filterAction);
         }
     };
 

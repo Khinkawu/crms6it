@@ -9,6 +9,7 @@ import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
+import { logActivity } from "../../utils/logger";
 
 interface ReturnModalProps {
     isOpen: boolean;
@@ -156,6 +157,17 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onS
                 timestamp: serverTimestamp(),
                 signatureUrl: signatureUrl,
                 status: "completed"
+            });
+
+            // Log Activity
+            await logActivity({
+                action: 'return',
+                productName: product.name,
+                userName: formData.returnerName,
+                details: `คืน: ${formData.notes}`,
+                zone: product.location || 'unknown',
+                status: 'completed',
+                signatureUrl: signatureUrl
             });
 
             toast.success("คืนวัสดุเรียบร้อยแล้ว");

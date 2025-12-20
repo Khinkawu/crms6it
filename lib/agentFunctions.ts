@@ -143,6 +143,14 @@ export async function createBookingFromAI(
     requesterEmail: string
 ): Promise<CreateBookingResult> {
     try {
+        // Validate required fields
+        if (!room || !date || !startTime || !endTime || !title) {
+            return {
+                success: false,
+                error: 'ข้อมูลไม่ครบค่ะ กรุณาระบุ ห้อง, วันที่, เวลาเริ่ม-สิ้นสุด, และหัวข้อการจอง',
+            };
+        }
+
         const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
         const bookingDate = new Date(date);
 
@@ -199,10 +207,10 @@ export async function createBookingFromAI(
 
 export async function getRepairsByEmail(email: string): Promise<RepairTicket[]> {
     try {
-        const repairsRef = collection(db, 'repairs');
+        const repairsRef = collection(db, 'repair_tickets');
         const q = query(
             repairsRef,
-            where('email', '==', email),
+            where('requesterEmail', '==', email),
             orderBy('createdAt', 'desc'),
             limit(5)
         );
@@ -223,14 +231,13 @@ export async function getRepairsByEmail(email: string): Promise<RepairTicket[]> 
 
 export async function getRepairByTicketId(ticketId: string): Promise<RepairTicket | null> {
     try {
-        const repairsRef = collection(db, 'repairs');
-        const q = query(repairsRef, where('ticketId', '==', ticketId), limit(1));
+        const { doc, getDoc } = await import('firebase/firestore');
+        const docRef = doc(db, 'repair_tickets', ticketId);
+        const docSnap = await getDoc(docRef);
 
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) return null;
+        if (!docSnap.exists()) return null;
 
-        const doc = snapshot.docs[0];
-        return { id: doc.id, ...doc.data() } as RepairTicket;
+        return { id: docSnap.id, ...docSnap.data() } as RepairTicket;
     } catch (error) {
         console.error('Error getting repair by ticket ID:', error);
         return null;
@@ -264,29 +271,68 @@ export async function createRepairFromAI(
             };
         }
 
-        const normalizedSide = SIDE_MAPPING[side.toLowerCase()] || side;
+        const normalizedSide = SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
 
-        // Generate ticket ID
-        const ticketId = `REP-${Date.now().toString(36).toUpperCase()}`;
+        // Build images array (can be empty if no image provided)
+        const images: string[] = imageUrl && imageUrl !== 'pending_upload' && imageUrl !== ''
+            ? [imageUrl]
+            : [];
 
         const repairData = {
-            ticketId,
+            // Note: ticketId will be the document ID
             room,
             description,
-            zone: normalizedSide,
-            imageUrl,
-            requesterName,
-            requesterEmail,
-            status: 'pending',
+            zone: normalizedSide as 'junior_high' | 'senior_high' | 'common',
+            images,  // Array of image URLs
+            requesterName: requesterName || 'ผู้แจ้งผ่าน LINE',
+            requesterEmail: requesterEmail || '',
+            position: 'แจ้งผ่าน LINE',  // Required field
+            phone: '-',  // Required field
+            status: 'pending' as const,
             createdAt: Timestamp.now(),
-            source: 'line_ai', // Indicate this was created via LINE AI
+            updatedAt: Timestamp.now(),  // Required field
+            source: 'line_ai',
         };
 
-        await addDoc(collection(db, 'repairs'), repairData);
+        const docRef = await addDoc(collection(db, 'repair_tickets'), repairData);
+
+        // Log Activity
+        // Lazy load logActivity to avoid circular dependencies if any
+        const { logActivity } = await import('@/utils/logger');
+        await logActivity({
+            action: 'repair',
+            productName: room,
+            userName: requesterName || 'ผู้แจ้งผ่าน LINE',
+            details: description,
+            imageUrl: images.length > 0 ? images[0] : undefined,
+            zone: normalizedSide as 'junior_high' | 'senior_high' | 'common'
+        });
+
+        // Send LINE notification (similar to RepairForm)
+        // Note: The agent itself interacts via LINE, but we might want to notify Admins via the system API
+        // Skipping notify-repair API call here to avoid redundant LINE messages to the group if the bot handles it.
+        // But if the bot created it, maybe we DO want to notify the dedicated technician channel?
+        // Let's call it for consistency with manual entry.
+        try {
+            fetch('https://crms6it.vercel.app/api/notify-repair', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ticketId: docRef.id,
+                    requesterName: requesterName || 'ผู้แจ้งผ่าน LINE',
+                    room: room,
+                    zone: normalizedSide,
+                    description: description,
+                    imageOneUrl: images.length > 0 ? images[0] : null
+                })
+            }).catch(err => console.error("Failed to send LINE notification:", err));
+        } catch (e) {
+            // Ignore fetch errors in server context
+        }
 
         return {
             success: true,
-            ticketId,
+            ticketId: docRef.id,
         };
     } catch (error) {
         console.error('Error creating repair:', error);
@@ -444,7 +490,7 @@ export async function getDailySummary(date: Date = new Date()): Promise<DailySum
         endOfDay.setHours(23, 59, 59, 999);
 
         // Get repairs for today
-        const repairsRef = collection(db, 'repairs');
+        const repairsRef = collection(db, 'repair_tickets');
         const repairsQ = query(
             repairsRef,
             where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
@@ -567,9 +613,19 @@ export function formatPhotoJobForDisplay(job: PhotographyJob): string {
 
     let links = '';
     if (job.driveLink) links += `\n📁 Drive: ${job.driveLink}`;
-    if (job.facebookPostId) links += `\n📘 Facebook: https://facebook.com/${job.facebookPostId}`;
 
-    return `📸 ${job.title}
-📅 ${date}
-📍 ${job.location || '-'}${links}`;
+    // Use facebookPermalink if available, otherwise construct from postId
+    if (job.facebookPermalink) {
+        links += `\n📘 Facebook: ${job.facebookPermalink}`;
+    } else if (job.facebookPostId) {
+        // Format: pageId_postId -> https://www.facebook.com/permalink.php?story_fbid=postId&id=pageId
+        const parts = job.facebookPostId.split('_');
+        if (parts.length === 2) {
+            links += `\n📘 Facebook: https://www.facebook.com/permalink.php?story_fbid=${parts[1]}&id=${parts[0]}`;
+        } else {
+            links += `\n📘 Facebook: https://www.facebook.com/${job.facebookPostId}`;
+        }
+    }
+
+    return `📸 ${job.title}\n📅 ${date}\n📍 ${job.location || '-'}${links}`;
 }
