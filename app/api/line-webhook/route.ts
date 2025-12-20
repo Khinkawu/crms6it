@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Client, FlexMessage, TextMessage } from '@line/bot-sdk';
 import { adminDb } from '../../../lib/firebaseAdmin';
+import { processAIMessage } from '@/lib/aiAgent';
 
 // Initialize LINE Client
 const config = {
@@ -9,6 +10,28 @@ const config = {
 };
 
 const client = new Client(config);
+
+// Send typing indicator to show AI is thinking
+async function sendTypingIndicator(userId: string): Promise<void> {
+    try {
+        // LINE doesn't have a native typing indicator API
+        // But we can use loading animation via chat action
+        await fetch(`https://api.line.me/v2/bot/chat/loading/start`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${config.channelAccessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                chatId: userId,
+                loadingSeconds: 10, // Max 60 seconds
+            }),
+        });
+    } catch (error) {
+        // Silently fail - loading indicator is nice-to-have
+        console.error('Error sending typing indicator:', error);
+    }
+}
 
 export async function POST(req: Request) {
     try {
@@ -21,9 +44,12 @@ export async function POST(req: Request) {
         }
 
         for (const event of events) {
-            if (event.type === 'message' && event.message.type === 'text') {
-                await handleMessageEvent(event);
-            } else {
+            if (event.type === 'message') {
+                if (event.message.type === 'text') {
+                    await handleMessageEvent(event);
+                } else if (event.message.type === 'image') {
+                    await handleImageMessage(event);
+                }
             }
         }
 
@@ -39,12 +65,71 @@ async function handleMessageEvent(event: any) {
     const text = event.message.text.trim();
     const replyToken = event.replyToken;
 
-    // Check Keywords
+    // Check Keywords first
     if (text === 'Track Status' || text === 'ติดตามสถานะ') {
         await handleTrackStatus(replyToken, userId);
-    } else {
-        // Optional: Handle other messages or ignore
-        // await client.replyMessage(replyToken, { type: 'text', text: `Echo: ${text}` });
+        return;
+    }
+
+    // Process with AI Agent
+    try {
+        // Show typing indicator
+        await sendTypingIndicator(userId);
+
+        // Get AI response
+        const aiReply = await processAIMessage(userId, text);
+
+        // Reply to user
+        await client.replyMessage(replyToken, {
+            type: 'text',
+            text: aiReply,
+        });
+    } catch (error) {
+        console.error('AI Agent Error:', error);
+        await client.replyMessage(replyToken, {
+            type: 'text',
+            text: 'ขออภัยค่ะ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้งนะคะ',
+        });
+    }
+}
+
+// Handle image messages for repair reports
+async function handleImageMessage(event: any) {
+    const userId = event.source.userId;
+    const messageId = event.message.id;
+    const replyToken = event.replyToken;
+
+    try {
+        // Show typing indicator
+        await sendTypingIndicator(userId);
+
+        // Get image content from LINE
+        const response = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+            headers: {
+                'Authorization': `Bearer ${config.channelAccessToken}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch image');
+        }
+
+        const imageBuffer = Buffer.from(await response.arrayBuffer());
+        const contentType = response.headers.get('content-type') || 'image/jpeg';
+
+        // Process image with AI Agent
+        const aiReply = await processAIMessage(userId, '', imageBuffer, contentType);
+
+        await client.replyMessage(replyToken, {
+            type: 'text',
+            text: aiReply,
+        });
+    } catch (error) {
+        console.error('Image processing error:', error);
+        await client.replyMessage(replyToken, {
+            type: 'text',
+            text: 'ขออภัยค่ะ ไม่สามารถวิเคราะห์รูปภาพได้ กรุณาลองใหม่อีกครั้งนะคะ',
+        });
     }
 }
 

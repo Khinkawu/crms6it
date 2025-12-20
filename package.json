@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@blackbox-vision/react-qr-reader": "^5.0.0",
+    "@google/generative-ai": "^0.24.1",
     "@line/bot-sdk": "^10.5.0",
     "@line/liff": "^2.27.3",
     "@types/file-saver": "^2.0.7",
