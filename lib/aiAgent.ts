@@ -14,6 +14,7 @@ import {
     query,
     where,
     getDocs,
+    limit,
 } from 'firebase/firestore';
 import { startAIChat, geminiVisionModel, imageToGenerativePart } from './gemini';
 import {
@@ -132,28 +133,55 @@ async function clearPendingAction(lineUserId: string): Promise<void> {
 
 async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserProfile | null> {
     try {
-        // line_bindings uses lineUserId as document ID
+        console.log(`[LINE Binding] Looking up lineUserId: ${lineUserId}`);
+
+        // Method 1: Check line_bindings collection (document ID = lineUserId)
         const bindingDoc = await getDoc(doc(db, 'line_bindings', lineUserId));
 
-        if (!bindingDoc.exists()) return null;
+        if (bindingDoc.exists()) {
+            const binding = bindingDoc.data();
+            const uid = binding.uid;
+            console.log(`[LINE Binding] Found in line_bindings, uid: ${uid}`);
 
-        const binding = bindingDoc.data();
-        const uid = binding.uid;
+            if (uid) {
+                const userDoc = await getDoc(doc(db, 'users', uid));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    console.log(`[LINE Binding] User found: ${userData.displayName || userData.email}`);
 
-        if (!uid) return null;
+                    return {
+                        uid,
+                        displayName: userData.displayName || userData.name || 'ผู้ใช้',
+                        email: userData.email,
+                        role: userData.role || 'user',
+                        isPhotographer: userData.isPhotographer || false,
+                    };
+                }
+            }
+        }
 
-        // Get user profile
-        const userDoc = await getDoc(doc(db, 'users', uid));
-        if (!userDoc.exists()) return null;
+        // Method 2: Check users collection (has lineUserId field)
+        console.log(`[LINE Binding] Checking users collection for lineUserId field...`);
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('lineUserId', '==', lineUserId), limit(1));
+        const snapshot = await getDocs(q);
 
-        const userData = userDoc.data();
-        return {
-            uid,
-            displayName: userData.displayName || userData.name || 'ผู้ใช้',
-            email: userData.email,
-            role: userData.role || 'user',
-            isPhotographer: userData.isPhotographer || false,
-        };
+        if (!snapshot.empty) {
+            const userDoc = snapshot.docs[0];
+            const userData = userDoc.data();
+            console.log(`[LINE Binding] Found in users collection: ${userData.displayName || userData.email}`);
+
+            return {
+                uid: userDoc.id,
+                displayName: userData.displayName || userData.name || 'ผู้ใช้',
+                email: userData.email,
+                role: userData.role || 'user',
+                isPhotographer: userData.isPhotographer || false,
+            };
+        }
+
+        console.log(`[LINE Binding] No binding found for: ${lineUserId}`);
+        return null;
     } catch (error) {
         console.error('Error getting user profile from LINE binding:', error);
         return null;
@@ -251,44 +279,65 @@ async function handleCheckRepair(
 }
 
 async function handleCheckAvailability(params: Record<string, unknown>): Promise<string> {
-    const { room, date } = params as { room?: string; date: string };
+    const { room, date } = params as { room?: string; date?: string };
 
-    // For simplicity, we'll show all bookings for that date
-    // A more advanced implementation would calculate free slots
-    const startOfDay = new Date(date);
+    // Parse date (use Thai date parser), default to today
+    let targetDate: Date;
+    let dateDisplay: string;
+
+    if (date) {
+        const parsed = parseThaiDate(date);
+        if (parsed) {
+            targetDate = new Date(parsed);
+            dateDisplay = targetDate.toLocaleDateString('th-TH');
+        } else {
+            targetDate = new Date();
+            dateDisplay = 'วันนี้';
+        }
+    } else {
+        targetDate = new Date();
+        dateDisplay = 'วันนี้';
+    }
+
+    const startOfDay = new Date(targetDate);
     startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
+    const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
     try {
         const bookingsRef = collection(db, 'bookings');
-        let q = query(
+        const q = query(
             bookingsRef,
-            where('date', '>=', Timestamp.fromDate(startOfDay)),
-            where('date', '<=', Timestamp.fromDate(endOfDay)),
+            where('startTime', '>=', Timestamp.fromDate(startOfDay)),
+            where('startTime', '<=', Timestamp.fromDate(endOfDay)),
             where('status', 'in', ['pending', 'approved'])
         );
 
         const snapshot = await getDocs(q);
+
         if (snapshot.empty) {
             return room
-                ? `${room} ว่างทั้งวันค่ะ วันที่ ${date}`
-                : `ทุกห้องว่างค่ะ วันที่ ${date}`;
+                ? `ห้อง ${room} ว่างทั้งวันค่ะ (${dateDisplay})`
+                : `ไม่มีการจองห้อง${dateDisplay}ค่ะ ทุกห้องว่างนะคะ 😊`;
         }
 
         const bookings: string[] = [];
         snapshot.forEach((doc) => {
             const data = doc.data();
-            if (!room || data.room === room) {
-                bookings.push(`• ${data.room}: ${data.startTime}-${data.endTime} (${data.title})`);
+            if (!room || data.roomName?.includes(room) || data.room?.includes(room)) {
+                const startTime = data.startTime?.toDate?.()?.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) || data.startTime || '';
+                const endTime = data.endTime?.toDate?.()?.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) || data.endTime || '';
+                const status = data.status === 'approved' ? '✅' : '⏳';
+                bookings.push(`${status} ${data.roomName || data.room}: ${startTime}-${endTime}\n   ${data.title || 'ไม่ระบุหัวข้อ'}`);
             }
         });
 
         if (bookings.length === 0) {
-            return `${room} ว่างทั้งวันค่ะ วันที่ ${date}`;
+            return `ห้อง ${room} ว่างทั้งวัน${dateDisplay}ค่ะ`;
         }
 
-        return `📅 การจองวันที่ ${date}\n\n${bookings.join('\n')}\n\nช่วงเวลาอื่นๆ ว่างค่ะ`;
+        const header = room ? `📅 การจองห้อง ${room} (${dateDisplay})` : `📅 การจอง${dateDisplay}`;
+        return `${header}\n\n${bookings.join('\n\n')}\n\nช่วงเวลาอื่นๆ ว่างค่ะ`;
     } catch (error) {
         console.error('Error checking availability:', error);
         return 'เกิดข้อผิดพลาดในการตรวจสอบค่ะ กรุณาลองใหม่อีกครั้งนะคะ';
@@ -349,22 +398,40 @@ async function handleGallerySearch(params: Record<string, unknown>): Promise<str
     const keyword = rawKeyword && rawKeyword !== 'undefined' ? rawKeyword : undefined;
     const date = rawDate && rawDate !== 'undefined' ? rawDate : undefined;
 
-    // Handle "today" as date
-    let searchDate = date;
-    if (date === 'today' || date === 'วันนี้') {
-        searchDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // Parse Thai date formats
+    let searchDate: string | undefined;
+    if (date) {
+        searchDate = parseThaiDate(date);
     }
 
-    const jobs = await searchGallery(keyword, searchDate);
+    // First try: exact search
+    let jobs = await searchGallery(keyword, searchDate);
+
+    // If no results and has keyword, try smart search with individual words
+    if (jobs.length === 0 && keyword) {
+        // Split keyword into words and try each
+        const words = keyword.split(/[\s,]+/).filter(w => w.length > 2);
+        for (const word of words) {
+            jobs = await searchGallery(word, searchDate);
+            if (jobs.length > 0) break;
+        }
+    }
+
+    // If still no results, try without date filter
+    if (jobs.length === 0 && keyword && searchDate) {
+        jobs = await searchGallery(keyword, undefined);
+    }
 
     // Build search description
     let searchDesc = '';
     if (keyword && searchDate) {
-        searchDesc = `"${keyword}" วันที่ ${new Date(searchDate).toLocaleDateString('th-TH')}`;
+        const dateStr = isNaN(new Date(searchDate).getTime()) ? date : new Date(searchDate).toLocaleDateString('th-TH');
+        searchDesc = `"${keyword}" ${dateStr}`;
     } else if (keyword) {
         searchDesc = `"${keyword}"`;
     } else if (searchDate) {
-        searchDesc = `วันที่ ${new Date(searchDate).toLocaleDateString('th-TH')}`;
+        const dateStr = isNaN(new Date(searchDate).getTime()) ? date : new Date(searchDate).toLocaleDateString('th-TH');
+        searchDesc = dateStr || '';
     } else {
         searchDesc = 'ล่าสุด';
     }
@@ -373,11 +440,74 @@ async function handleGallerySearch(params: Record<string, unknown>): Promise<str
         if (!keyword && !searchDate) {
             return 'ยังไม่มีภาพกิจกรรมในระบบค่ะ';
         }
-        return `ไม่พบภาพกิจกรรม${searchDesc !== 'ล่าสุด' ? 'ที่ตรงกับ ' + searchDesc : ''} ค่ะ ลองค้นหาคำอื่นหรือวันอื่นนะคะ`;
+        return `ไม่พบภาพกิจกรรมที่ตรงกับ ${searchDesc} ค่ะ ลองค้นหาคำอื่นนะคะ`;
     }
 
     const resultsList = jobs.map((j) => formatPhotoJobForDisplay(j)).join('\n\n');
-    return `📸 พบ ${jobs.length} กิจกรรม${searchDesc !== 'ล่าสุด' ? ' ' + searchDesc : 'ล่าสุด'}\n\n${resultsList}\n\nต้องการ Link กิจกรรมไหนคะ?`;
+    return `📸 พบ ${jobs.length} กิจกรรม ${searchDesc}\n\n${resultsList}\n\nต้องการ Link กิจกรรมไหนคะ?`;
+}
+
+// Parse Thai date formats: "เมื่อวาน", "16/12/2568", "16 ธันวาคม 2568", "yesterday", "today"
+function parseThaiDate(dateStr: string): string | undefined {
+    const today = new Date();
+    const str = dateStr.toLowerCase().trim();
+
+    // Handle relative dates
+    if (str === 'today' || str === 'วันนี้') {
+        return today.toISOString().split('T')[0];
+    }
+    if (str === 'yesterday' || str === 'เมื่อวาน' || str === 'เมื่อวานนี้') {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return yesterday.toISOString().split('T')[0];
+    }
+
+    // Handle Thai date format: "16/12/2568" or "16-12-2568"
+    const thaiDateMatch = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (thaiDateMatch) {
+        let year = parseInt(thaiDateMatch[3]);
+        // Convert Buddhist Era to CE if needed
+        if (year > 2500) year -= 543;
+        const month = parseInt(thaiDateMatch[2]) - 1;
+        const day = parseInt(thaiDateMatch[1]);
+        const date = new Date(year, month, day);
+        if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+        }
+    }
+
+    // Handle Thai month names
+    const thaiMonths: Record<string, number> = {
+        'มกราคม': 0, 'กุมภาพันธ์': 1, 'มีนาคม': 2, 'เมษายน': 3,
+        'พฤษภาคม': 4, 'มิถุนายน': 5, 'กรกฎาคม': 6, 'สิงหาคม': 7,
+        'กันยายน': 8, 'ตุลาคม': 9, 'พฤศจิกายน': 10, 'ธันวาคม': 11,
+        'ม.ค.': 0, 'ก.พ.': 1, 'มี.ค.': 2, 'เม.ย.': 3,
+        'พ.ค.': 4, 'มิ.ย.': 5, 'ก.ค.': 6, 'ส.ค.': 7,
+        'ก.ย.': 8, 'ต.ค.': 9, 'พ.ย.': 10, 'ธ.ค.': 11
+    };
+
+    for (const [monthName, monthIndex] of Object.entries(thaiMonths)) {
+        if (dateStr.includes(monthName)) {
+            const dayMatch = dateStr.match(/(\d{1,2})/);
+            const yearMatch = dateStr.match(/(\d{4})/);
+            if (dayMatch && yearMatch) {
+                let year = parseInt(yearMatch[1]);
+                if (year > 2500) year -= 543;
+                const date = new Date(year, monthIndex, parseInt(dayMatch[1]));
+                if (!isNaN(date.getTime())) {
+                    return date.toISOString().split('T')[0];
+                }
+            }
+        }
+    }
+
+    // Try standard date parsing
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+    }
+
+    return undefined;
 }
 
 async function handleDailySummary(userProfile: UserProfile | null): Promise<string> {
@@ -450,20 +580,26 @@ export async function analyzeRepairImage(
     try {
         const imagePart = imageToGenerativePart(imageBuffer, mimeType);
 
-        const prompt = `คุณเป็นช่างซ่อมคอมพิวเตอร์และอุปกรณ์ IT ที่มีประสบการณ์
-        
-ผู้ใช้ส่งรูปอุปกรณ์ที่มีปัญหามาพร้อมอาการ: "${symptomDescription}"
+        const prompt = `เป็นช่างซ่อมอุปกรณ์โสตทัศนูปกรณ์ ผู้ใช้แจ้งอาการ: "${symptomDescription}"
 
-กรุณา:
-1. วิเคราะห์รูปภาพและอาการ
-2. แนะนำวิธีแก้ปัญหาเบื้องต้น 2-3 ข้อที่ผู้ใช้ทำได้เอง
-3. บอกว่าถ้าทำแล้วยังไม่หาย จะส่งช่างไปดูให้
+ดูจากรูปและอาการ ให้ตอบแบบนี้:
+1. วิเคราะห์สาเหตุที่เป็นไปได้ 
+2. วิธีแก้เบื้องต้นที่ทำได้เอง 2-3 ข้อ
+3. จบด้วย "ถ้าทำแล้วยังมีปัญหา ตอบ 'แจ้งซ่อม' เพื่อส่งช่างไปดูค่ะ"
 
-ตอบเป็นภาษาไทย สุภาพ เป็นกันเอง ใช้คำลงท้ายว่า "ค่ะ" หรือ "นะคะ"`;
+ห้ามบอกว่า "เห็นอะไรในรูป" ไปตรงที่วิเคราะห์เลย
+ตอบสั้น กระชับ ภาษาไทย ลงท้าย "ค่ะ"`;
 
         const result = await geminiVisionModel.generateContent([prompt, imagePart]);
         const response = await result.response;
-        return response.text();
+        let analysis = response.text();
+
+        // Ensure not too long
+        if (analysis.length > 2000) {
+            analysis = analysis.substring(0, 2000) + '...';
+        }
+
+        return analysis;
     } catch (error) {
         console.error('Error analyzing repair image:', error);
         return 'ไม่สามารถวิเคราะห์รูปภาพได้ค่ะ กรุณาลองส่งรูปใหม่อีกครั้งนะคะ';
@@ -515,28 +651,55 @@ export async function processAIMessage(
             return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "แจ้งซ่อม")`;
         }
 
-        // Image sent without context - analyze what the image is
+        // Check if recent conversation was about repair (smart detection)
+        const recentMessages = context.messages.slice(-4);
+        const repairKeywords = ['ซ่อม', 'เสีย', 'ปัญหา', 'ไม่ทำงาน', 'พัง', 'อุปกรณ์', 'โปรเจคเตอร์', 'เครื่อง', 'คอม', 'รูป', 'ภาพ'];
+        const isRepairContext = recentMessages.some(m =>
+            repairKeywords.some(kw => m.content.toLowerCase().includes(kw))
+        );
+
+        if (isRepairContext) {
+            // Extract symptom from recent messages
+            const userMessages = recentMessages.filter(m => m.role === 'user');
+            const symptom = userMessages.map(m => m.content).join(' ') || 'อุปกรณ์มีปัญหา';
+
+            const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, symptom);
+
+            // Set up pending repair action
+            context.pendingAction = {
+                intent: 'CREATE_REPAIR' as const,
+                awaitingImage: false,
+                awaitingConfirmation: true,
+                params: {
+                    description: symptom,
+                    imageAnalysis: analysis,
+                },
+            };
+
+            await saveConversationContext(lineUserId, context);
+
+            return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "แจ้งซ่อม")`;
+        }
+
+        // Image sent without repair context - general analysis
         try {
             const imagePart = imageToGenerativePart(imageBuffer, imageMimeType);
 
-            const prompt = `วิเคราะห์รูปภาพนี้และตอบครบใน reply เดียว:
+            const prompt = `ดูรูปภาพนี้:
 
-ถ้าเป็นอุปกรณ์โสตทัศนูปกรณ์/IT (คอม, โปรเจคเตอร์, เครื่องเสียง ฯลฯ):
-1. บอกว่าเห็นอะไรในรูป
-2. ถ้าเห็นปัญหา: วิเคราะห์อาการ + แนะนำวิธีแก้เบื้องต้น 2-3 ข้อ
-3. ถ้าแก้เองไม่ได้ ให้ตอบ "แจ้งซ่อม" เพื่อส่งช่าง
-
+ถ้าเป็นอุปกรณ์ IT/โสตฯ ที่ดูมีปัญหา: วิเคราะห์อาการ + แนะนำแก้เบื้องต้น 2-3 ข้อ + ถามต้องการแจ้งซ่อมไหม
+ถ้าเป็นอุปกรณ์ IT/โสตฯ ที่ดูปกติ: ถามว่ามีปัญหาอะไรไหม
 ถ้าไม่ใช่อุปกรณ์ IT: ตอบสั้นๆ + บอกว่าช่วยเรื่องโสตฯ ได้
 
-ตอบภาษาไทย กระชับ ลงท้าย "ค่ะ"`;
+ห้ามเริ่มด้วย "เห็นว่า" ตอบกระชับ ภาษาไทย ลงท้าย "ค่ะ"`;
 
             const result = await geminiVisionModel.generateContent([prompt, imagePart]);
             const response = await result.response;
             let analysis = response.text();
 
             // Ensure response is not too long for LINE (max 5000 chars)
-            if (analysis.length > 4500) {
-                analysis = analysis.substring(0, 4500) + '...';
+            if (analysis.length > 2000) {
+                analysis = analysis.substring(0, 2000) + '...';
             }
 
             await saveConversationContext(lineUserId, context);
@@ -629,7 +792,7 @@ export async function processAIMessage(
     }
 
     // Handle specific intents
-    const noAuthIntents = ['DAILY_SUMMARY', 'CHECK_AVAILABILITY', 'GALLERY_SEARCH'];
+    const noAuthIntents = ['DAILY_SUMMARY', 'CHECK_AVAILABILITY', 'CHECK_ROOM_AVAILABILITY', 'GALLERY_SEARCH'];
 
     if (aiResponse.intent) {
         // If more info is needed
@@ -648,6 +811,7 @@ export async function processAIMessage(
             if (noAuthIntents.includes(aiResponse.intent)) {
                 switch (aiResponse.intent) {
                     case 'CHECK_AVAILABILITY':
+                    case 'CHECK_ROOM_AVAILABILITY':
                         await saveConversationContext(lineUserId, context);
                         return handleCheckAvailability(aiResponse.params || {});
                     case 'GALLERY_SEARCH':
