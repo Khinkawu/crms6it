@@ -3,7 +3,7 @@
  * Main processor for natural language understanding and action execution
  */
 
-import { PhotographyJob } from '@/types';
+import { PhotographyJob, UserProfile, RepairTicket, Booking } from '@/types';
 import { db } from '@/lib/firebase';
 import {
     collection,
@@ -28,28 +28,23 @@ import {
     getPhotoJobsByPhotographer,
     searchGallery,
     getDailySummary,
+    getRoomSchedule,
     formatBookingForDisplay,
     formatRepairForDisplay,
     formatPhotoJobForDisplay,
 } from './agentFunctions';
 
 // Types
-interface UserProfile {
-    uid: string;
-    displayName: string;
-    email: string;
-    role?: 'user' | 'technician' | 'moderator' | 'admin';
-    isPhotographer?: boolean;
-}
+// UserProfile imported from @/types
 
 interface ConversationContext {
     messages: { role: 'user' | 'model'; content: string; timestamp: Date }[];
     pendingAction?: {
         intent: string;
-        params: Record<string, unknown>;
+        params: Record<string, any>; // Changed to 'any' for flexibility in repair flow
         // Strict Repair Flow Steps
         repairStep?:
-        | 'awaiting_symptom'      // 1. Ask for symptom/equipment
+        | 'awaiting_symptom'      // 1. Ask for equipment/symptom
         | 'awaiting_image'        // 2. Ask for image
         | 'awaiting_intent_confirm' // 3. Analyze & Confirm intent
         | 'awaiting_room'         // 4. Ask for room
@@ -837,20 +832,24 @@ export async function processAIMessage(
     // REPAIR FLOW STATE MACHINE
     // ============================================
 
-    if (context.pendingAction?.intent === 'CREATE_REPAIR') {
+    if (context.pendingAction?.intent === 'CREATE_REPAIR' && context.pendingAction.repairStep) {
         const step = context.pendingAction.repairStep;
         const params = context.pendingAction.params || {};
 
-        // 1. Awaiting Symptom (only if not provided initially)
+        // Step 1: Awaiting Equipment (using awaiting_symptom state)
         if (step === 'awaiting_symptom') {
-            const symptom = userMessage.trim();
-            context.pendingAction = {
-                ...context.pendingAction,
-                repairStep: 'awaiting_image',
-                params: { ...params, description: symptom }
-            };
+            // If we don't have equipment yet, this is the equipment input
+            if (!params.equipment) {
+                context.pendingAction.params = { ...params, equipment: userMessage };
+                await saveConversationContext(lineUserId, context);
+                return 'ขอทราบอาการเสียโดยละเอียดค่ะ เป็นอย่างไรคะ?';
+            }
+
+            // If equipment is set, then this must be the symptom
+            context.pendingAction.params = { ...params, description: `${params.equipment} - ${userMessage}` };
+            context.pendingAction.repairStep = 'awaiting_image';
             await saveConversationContext(lineUserId, context);
-            return '📷 รบกวนถ่ายรูปหน้างานให้ดูหน่อยได้ไหมคะ? (ถ้าไม่มีพิมพ์ "ไม่มี" ได้เลยค่ะ)';
+            return '📸 รบกวนถ่ายรูปอุปกรณ์ที่เสียให้หน่อยค่ะ (หรือพิมพ์ "ไม่มีรูป" เพื่อข้าม)';
         }
 
         // 2. Awaiting Image (Handled in image block mostly, but handle text here)
@@ -972,21 +971,21 @@ export async function processAIMessage(
 
     // Legacy/Other confirmation check (e.g. Booking)
     // Note: Repair now handles its own confirmation above
-    if (context.pendingAction?.intent === 'BOOK_ROOM' && context.pendingAction.params?.awaitingConfirmation) {
-        // ... existing booking logic if needed, or simplified
-        // The original code used a generic 'awaitingConfirmation'. 
-        // Since we refactored Repair, we should ensure Booking still works or uses its verification.
-        // Current Plan: Leave booking logic 'as is' but ensure it doesn't conflict.
-        // Booking doesn't use 'repairStep', so safe.
-        // BUT wait, I removed 'awaitingConfirmation' from the interface?
-        // No, I should keep 'awaitingConfirmation' in interface for Booking compatibility if I didn't delete it.
-        // Let's check my interface change. I REPLACED it.
-        // Correcting: I should KEEP 'awaitingConfirmation' for generic use or others?
-        // The 'Checking Room' intent was simple.
-        // Let's assume Booking flow needs specific handling or I should fix the interface to include `awaitingConfirmation` again if needed.
-        // Looking at my interface replacement, I removed `awaitingConfirmation`.
-        // I should add `{ awaitingConfirmation?: boolean } & ...` or just add it back.
-        // Actually, Booking relied on `awaitingConfirmation`. I should put it back in Interface.
+    if (context.pendingAction?.intent === 'BOOK_ROOM' && context.pendingAction.awaitingConfirmation) {
+        // If user confirms booking
+        if (confirmWords.some(w => userMessage.toLowerCase().includes(w))) {
+            await clearPendingAction(lineUserId); // Clear pending action first
+            if (userProfile) {
+                return handleBookRoom(context.pendingAction.params, userProfile, true);
+            } else {
+                return '❌ ไม่พบข้อมูลผู้ใช้งาน กรุณาผูกบัญชีก่อนนะคะ';
+            }
+        }
+        // If user cancels booking
+        if (cancelWords.some(w => userMessage.toLowerCase().includes(w))) {
+            await clearPendingAction(lineUserId);
+            return 'รับทราบค่ะ ยกเลิกการจองแล้ว หากต้องการจองใหม่แจ้งได้เลยนะคะ 😊';
+        }
     }
 
 
@@ -1032,7 +1031,7 @@ export async function processAIMessage(
     }
 
     // Handle specific intents
-    const noAuthIntents = ['DAILY_SUMMARY', 'CHECK_AVAILABILITY', 'CHECK_ROOM_AVAILABILITY', 'GALLERY_SEARCH'];
+    const noAuthIntents = ['DAILY_SUMMARY', 'CHECK_AVAILABILITY', 'CHECK_ROOM_AVAILABILITY', 'CHECK_ROOM_SCHEDULE', 'GALLERY_SEARCH'];
 
     if (aiResponse.intent) {
         // Special case: BOOK_ROOM - Always redirect to website immediately
@@ -1042,7 +1041,7 @@ export async function processAIMessage(
             
 สามารถจองได้ 2 วิธีค่ะ:
 
-1️⃣ กดเมนู "จองห้อง" ที่ Line Rich menu ด้านล่าง
+1️⃣ กดเมนู "จองห้องประชุม" ที่ Line Rich menu ด้านล่าง
 2️⃣ จองผ่านเว็บ: https://crms6it.vercel.app/booking
 
 เลือกห้อง วันที่ และเวลาได้สะดวกกว่านะคะ 😊`;
@@ -1091,25 +1090,55 @@ export async function processAIMessage(
                 switch (aiResponse.intent) {
                     case 'CHECK_REPAIR':
                         await saveConversationContext(lineUserId, context);
-                        return handleCheckRepair(aiResponse.params || {}, userProfile);
+                        // Optimization: If no ticketId provided, force email lookup immediately
+                        // and userProfile exists, check repairs by email first.
+                        // The `params` here refers to `aiResponse.params`.
+                        if (userProfile && !(aiResponse.params as { ticketId?: string })?.ticketId) {
+                            const repairs = await getRepairsByEmail(userProfile.email);
+                            if (repairs.length > 0) {
+                                return `🔧 ประวัติการแจ้งซ่อมของคุณ (${repairs.length} รายการ)\n\n` + repairs.map((r: RepairTicket) => formatRepairForDisplay(r)).join('\n\n');
+                            } else {
+                                return 'ไม่พบประวัติการแจ้งซ่อมค่ะ หากต้องการสร้างรายการใหม่ พิมพ์ "แจ้งซ่อม" ได้เลยนะคะ';
+                            }
+                        }
+                        // Fallback to standard handler if ID provided or no profile
+                        return handleCheckRepair((aiResponse.params || {}) as Record<string, unknown>, userProfile);
+
+                    case 'CHECK_ROOM_SCHEDULE':
+                        await saveConversationContext(lineUserId, context);
+                        if (aiResponse.params && aiResponse.params.room) {
+                            const targetRoom = aiResponse.params.room as string;
+                            const targetDate = (aiResponse.params.date as string) || new Date().toISOString();
+                            const schedule = await getRoomSchedule(targetRoom, targetDate);
+                            if (schedule.length > 0) {
+                                return `📅 ตารางการใช้ห้อง ${targetRoom}\nวันที่ ${new Date(targetDate).toLocaleDateString('th-TH')}\n\n` +
+                                    schedule.map((b: Booking) => formatBookingForDisplay(b)).join('\n\n');
+                            } else {
+                                return `📅 ห้อง ${targetRoom} ว่างตลอดทั้งวันค่ะ (วันที่ ${new Date(targetDate).toLocaleDateString('th-TH')})`;
+                            }
+                        }
+                        // If room not specified, default to generic availability check
+                        return handleCheckAvailability((aiResponse.params || {}) as Record<string, any>);
+
                     case 'MY_BOOKINGS':
                         await saveConversationContext(lineUserId, context);
                         return handleMyBookings(userProfile);
                     case 'MY_PHOTO_JOBS':
                         await saveConversationContext(lineUserId, context);
-                        return handleMyPhotoJobs(userProfile, aiResponse.params);
+                        return handleMyPhotoJobs(userProfile, aiResponse.params as Record<string, unknown> || {});
                 }
                 // Need confirmation for specific intents (requires auth)
                 if (userProfile) {
                     if (aiResponse.intent === 'CREATE_REPAIR') {
-                        // Start repair flow - ask equipment first (symptom)
+                        // Start repair flow - Step 1: Ask Equipment
+                        // FORCE empty params to ensure we start from scratch and ask explicitly
                         context.pendingAction = {
                             intent: 'CREATE_REPAIR',
-                            params: aiResponse.params || {},
-                            repairStep: 'awaiting_symptom',  // Step 1: Ask what equipment/symptom
+                            params: {},
+                            repairStep: 'awaiting_symptom',
                         };
                         await saveConversationContext(lineUserId, context);
-                        return '🔧 แจ้งซ่อม\n\nอุปกรณ์อะไรเสียและมีอาการอย่างไรคะ? (เช่น "โปรเจคเตอร์ภาพสีเพี้ยน", "ไมค์เสีย เสียงไม่ดัง")';
+                        return '🔧 แจ้งซ่อม\n\nอุปกรณ์อะไรเสียคะ? (เช่น คอมพิวเตอร์, โปรเจคเตอร์, แอร์)';
                     }
                 }
             }

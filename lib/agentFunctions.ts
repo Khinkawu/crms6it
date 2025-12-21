@@ -127,6 +127,48 @@ export async function checkRoomAvailability(
     }
 }
 
+
+export async function getRoomSchedule(
+    room: string,
+    date: string
+): Promise<Booking[]> {
+    try {
+        const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
+        const scheduleDate = new Date(date);
+        const startOfDay = new Date(scheduleDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(scheduleDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const bookingsRef = collection(db, 'bookings');
+        const q = query(
+            bookingsRef,
+            where('room', '==', normalizedRoom),
+            where('startTime', '>=', Timestamp.fromDate(startOfDay)),
+            where('startTime', '<=', Timestamp.fromDate(endOfDay)),
+            where('status', 'in', ['pending', 'approved'])
+        );
+
+        const snapshot = await getDocs(q);
+        const bookings: Booking[] = [];
+        snapshot.forEach((doc) => {
+            bookings.push({ id: doc.id, ...doc.data() } as Booking);
+        });
+
+        // Sort by start time
+        bookings.sort((a, b) => {
+            const startA = a.startTime instanceof Timestamp ? a.startTime.toMillis() : 0;
+            const startB = b.startTime instanceof Timestamp ? b.startTime.toMillis() : 0;
+            return startA - startB;
+        });
+
+        return bookings;
+    } catch (error) {
+        console.error('Error getting room schedule:', error);
+        return [];
+    }
+}
+
 export interface CreateBookingResult {
     success: boolean;
     bookingId?: string;
@@ -403,34 +445,36 @@ export async function getPhotoJobsByPhotographer(userId: string): Promise<Photog
 // GALLERY_SEARCH Functions
 // ============================================
 
+// Fuzzy search helper
+function calculateScore(text: string, tokens: string[]): number {
+    const lowerText = text.toLowerCase();
+    let score = 0;
+    tokens.forEach(token => {
+        if (lowerText.includes(token)) score += 1;
+    });
+    return score;
+}
+
 export async function searchGallery(keyword?: string, date?: string): Promise<PhotographyJob[]> {
     try {
         console.log(`[Gallery Search] keyword: ${keyword}, date: ${date}`);
         const jobsRef = collection(db, 'photography_jobs');
 
-        // Simple query - just get completed jobs, filter in code
+        // Fetch larger batch for fuzzy matching (last 3 months approx limit or just 100 recent)
         const q = query(
             jobsRef,
             where('status', '==', 'completed'),
-            limit(50)
+            orderBy('startTime', 'desc'),
+            limit(100)
         );
 
         const snapshot = await getDocs(q);
-        console.log(`[Gallery Search] Found ${snapshot.size} completed jobs`);
-
         let jobs: PhotographyJob[] = [];
         snapshot.forEach((doc) => {
             jobs.push({ id: doc.id, ...doc.data() } as PhotographyJob);
         });
 
-        // Sort by date descending
-        jobs.sort((a, b) => {
-            const dateA = a.startTime instanceof Timestamp ? a.startTime.toMillis() : 0;
-            const dateB = b.startTime instanceof Timestamp ? b.startTime.toMillis() : 0;
-            return dateB - dateA;
-        });
-
-        // Filter by date if provided
+        // Filter by date first if provided (strict filter)
         if (date) {
             const searchDate = new Date(date);
             const startOfDay = new Date(searchDate);
@@ -444,17 +488,22 @@ export async function searchGallery(keyword?: string, date?: string): Promise<Ph
             });
         }
 
-        // Filter by keyword if provided
+        // Fuzzy match by keyword
         if (keyword) {
-            const lowerKeyword = keyword.toLowerCase();
-            jobs = jobs.filter(job =>
-                job.title?.toLowerCase().includes(lowerKeyword) ||
-                job.location?.toLowerCase().includes(lowerKeyword) ||
-                job.description?.toLowerCase().includes(lowerKeyword)
-            );
+            const tokens = keyword.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+
+            jobs = jobs.map(job => {
+                const titleScore = calculateScore(job.title || '', tokens) * 2; // Title weight x2
+                const locScore = calculateScore(job.location || '', tokens);
+                const descScore = calculateScore(job.description || '', tokens);
+                return { job, score: titleScore + locScore + descScore };
+            })
+                .filter(item => item.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .map(item => item.job);
         }
 
-        console.log(`[Gallery Search] After filtering: ${jobs.length} jobs`);
+        console.log(`[Gallery Search] Found ${jobs.length} jobs`);
         return jobs.slice(0, 10);
     } catch (error) {
         console.error('Error searching gallery:', error);
