@@ -26,24 +26,33 @@ const ROOM_MAPPING: Record<string, string> = {
     'ห้องพญาสัตบรรณ': 'jh_phaya',
     'พญาสัตบรรณ': 'jh_phaya',
     'พญา': 'jh_phaya',
+    'ห้องประชุมพญาสัตบรรณ': 'jh_phaya',
     'โรงยิม': 'jh_gym',
     'ยิม': 'jh_gym',
+    'ห้องประชุมโรงยิม': 'jh_gym',
     'ห้องจามจุรี': 'jh_chamchuri',
     'จามจุรี': 'jh_chamchuri',
+    'ห้องประชุมจามจุรี': 'jh_chamchuri',
 
     // Senior High
     'ห้องลีลาวดี': 'sh_leelawadee',
     'ลีลาวดี': 'sh_leelawadee',
     'ลีลา': 'sh_leelawadee',
+    'ห้องประชุมลีลาวดี': 'sh_leelawadee',
     'หอประชุม': 'sh_auditorium',
-    'อาคารพลศึกษา': 'sh_auditorium', // Alias if commonly used
+    'อาคารพลศึกษา': 'sh_auditorium',
+    'ห้องประชุมหอประชุม': 'sh_auditorium',
     'ห้องศาสตร์พระราชา': 'sh_king_science',
     'ศาสตร์พระราชา': 'sh_king_science',
+    'ห้องประชุมศาสตร์พระราชา': 'sh_king_science',
     'ห้องศูนย์ภาษา': 'sh_language_center',
     'ศูนย์ภาษา': 'sh_language_center',
+    'ห้องประชุมศูนย์ภาษา': 'sh_language_center',
     'ชั้น 3 อาคารอำนวยการ': 'sh_admin_3',
     'ห้องอำนวยการ': 'sh_admin_3',
     'อาคาร 3': 'sh_admin_3',
+    'ห้องประชุมชั้น 3': 'sh_admin_3',
+    'ห้องประชุมอำนวยการ': 'sh_admin_3',
 };
 
 // Side mapping (ม.ต้น / ม.ปลาย)
@@ -59,6 +68,41 @@ const SIDE_MAPPING: Record<string, string> = {
     'senior': 'senior_high',
     'senior_high': 'senior_high',
 };
+
+// ============================================
+// HELPERS
+// ============================================
+
+/**
+ * Get UTC Timestamp range for a specific Thai Date
+ * Input: "YYYY-MM-DD" (Thai Date)
+ * Output: { start: Timestamp, end: Timestamp }
+ * Logic: 
+ *   Thai Day Starts: YYYY-MM-DD 00:00:00+07:00 => UTC: PrevDay 17:00:00
+ *   Thai Day Ends:   YYYY-MM-DD 23:59:59+07:00 => UTC: CurrentDay 16:59:59
+ */
+function getThaiDateRange(dateStr: string): { start: Timestamp, end: Timestamp } {
+    const [year, month, day] = dateStr.split('-').map(Number);
+
+    // Create Date object for 00:00:00 of that day (Local/Server time is irrelevant, we manipulate UTC directly)
+    // We want YYYY-MM-DD 00:00:00+07:00
+    // In UTC, this is YYYY-MM-DD minus 7 hours. 
+
+    // Let's use simpler Epoch math to allow for Date object quirks
+    // 1. Create a UTC date for YYYY-MM-DD 00:00:00Z
+    const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+
+    // 2. Shift back 7 hours to get Thai Midnight in UTC
+    const thaiStart = new Date(utcMidnight.getTime() - (7 * 60 * 60 * 1000));
+
+    // 3. End Time is Start + 24 hours - 1ms
+    const thaiEnd = new Date(thaiStart.getTime() + (24 * 60 * 60 * 1000) - 1);
+
+    return {
+        start: Timestamp.fromDate(thaiStart),
+        end: Timestamp.fromDate(thaiEnd)
+    };
+}
 
 // ============================================
 // BOOK_ROOM Functions
@@ -83,27 +127,25 @@ export async function checkRoomAvailability(
     try {
         const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
 
-        // Parse date and create timestamp range for that day
-        const bookingDate = new Date(date);
-        const startOfDay = new Date(bookingDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(bookingDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        // Use correct Thai Timezone range
+        const { start, end } = getThaiDateRange(date);
 
-        // Query bookings for that room and date range (using startTime field)
+        // Query bookings for that room and date range
+        // Note: We check mainly by comparing date range first, then filter overlaps in memory 
+        // because filtering by start AND end time in query is complex with Firestore indexes
         const bookingsRef = collection(db, 'bookings');
         const q = query(
             bookingsRef,
             where('room', '==', normalizedRoom),
-            where('startTime', '>=', Timestamp.fromDate(startOfDay)),
-            where('startTime', '<=', Timestamp.fromDate(endOfDay)),
-            where('status', 'in', ['pending', 'approved'])
+            where('startTime', '>=', start),
+            where('startTime', '<=', end),
+            where('status', 'in', ['pending', 'approved', 'confirmed']) // Added confirmed just in case
         );
 
         const snapshot = await getDocs(q);
         const conflicts: CheckAvailabilityResult['conflicts'] = [];
 
-        // Parse input times (HH:MM format) 
+        // Parse input times (HH:MM)
         const [inputStartHour, inputStartMin] = startTime.split(':').map(Number);
         const [inputEndHour, inputEndMin] = endTime.split(':').map(Number);
         const requestStart = inputStartHour * 60 + inputStartMin;
@@ -111,7 +153,8 @@ export async function checkRoomAvailability(
 
         snapshot.forEach((doc) => {
             const booking = doc.data();
-            // startTime and endTime are Timestamps in the database
+
+            // Convert Booking Timestamps to Date objects
             const bookingStartDate = booking.startTime instanceof Timestamp
                 ? booking.startTime.toDate()
                 : new Date(booking.startTime);
@@ -119,15 +162,20 @@ export async function checkRoomAvailability(
                 ? booking.endTime.toDate()
                 : new Date(booking.endTime);
 
-            const bookingStart = bookingStartDate.getHours() * 60 + bookingStartDate.getMinutes();
-            const bookingEnd = bookingEndDate.getHours() * 60 + bookingEndDate.getMinutes();
+            // Convert Booking Date to Thai Time to get HH:MM
+            // We need to shift +7 hours to get the local time digits
+            const thStart = new Date(bookingStartDate.getTime() + (7 * 60 * 60 * 1000));
+            const thEnd = new Date(bookingEndDate.getTime() + (7 * 60 * 60 * 1000));
+
+            const bookingStartMinutes = thStart.getUTCHours() * 60 + thStart.getUTCMinutes();
+            const bookingEndMinutes = thEnd.getUTCHours() * 60 + thEnd.getUTCMinutes();
 
             // Check for overlap
-            if (requestStart < bookingEnd && requestEnd > bookingStart) {
+            if (requestStart < bookingEndMinutes && requestEnd > bookingStartMinutes) {
                 conflicts.push({
                     title: booking.title,
-                    startTime: bookingStartDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-                    endTime: bookingEndDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+                    startTime: thStart.toISOString().substring(11, 16), // HH:MM from fake UTC
+                    endTime: thEnd.toISOString().substring(11, 16),
                     requesterName: booking.requesterName,
                 });
             }
@@ -150,19 +198,15 @@ export async function getRoomSchedule(
 ): Promise<Booking[]> {
     try {
         const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
-        const scheduleDate = new Date(date);
-        const startOfDay = new Date(scheduleDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(scheduleDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const { start, end } = getThaiDateRange(date);
 
         const bookingsRef = collection(db, 'bookings');
         const q = query(
             bookingsRef,
             where('room', '==', normalizedRoom),
-            where('startTime', '>=', Timestamp.fromDate(startOfDay)),
-            where('startTime', '<=', Timestamp.fromDate(endOfDay)),
-            where('status', 'in', ['pending', 'approved'])
+            where('startTime', '>=', start),
+            where('startTime', '<=', end),
+            where('status', 'in', ['pending', 'approved', 'confirmed'])
         );
 
         const snapshot = await getDocs(q);
@@ -172,7 +216,7 @@ export async function getRoomSchedule(
             bookings.push({
                 id: doc.id,
                 ...data,
-                roomName: data.roomName || data.room // Ensure roomName is available
+                roomName: data.roomName || data.room
             } as Booking);
         });
 
@@ -301,17 +345,21 @@ export async function getRepairsByEmail(email: string): Promise<RepairTicket[]> 
  * NEW: Get repairs for a specific zone (for technicians)
  * Retrieves active repairs (pending/in_progress) for the technician's zone
  */
-export async function getRepairsForTechnician(zone: string | 'all'): Promise<RepairTicket[]> {
+export async function getRepairsForTechnician(zone: string | 'all', date?: string): Promise<RepairTicket[]> {
     try {
         const repairsRef = collection(db, 'repair_tickets');
         let q;
+
+        // Note: For date filtering, we might need to fetch more to ensure we find matches in memory
+        // or usage complex indexes. For now, fetch latest 50 if date is provided.
+        const limitCount = date ? 50 : 10;
 
         if (zone === 'all') {
             q = query(
                 repairsRef,
                 where('status', 'in', ['pending', 'in_progress', 'waiting_parts']),
                 orderBy('createdAt', 'desc'),
-                limit(10)
+                limit(limitCount)
             );
         } else {
             q = query(
@@ -319,16 +367,30 @@ export async function getRepairsForTechnician(zone: string | 'all'): Promise<Rep
                 where('zone', '==', zone),
                 where('status', 'in', ['pending', 'in_progress', 'waiting_parts']),
                 orderBy('createdAt', 'desc'),
-                limit(10)
+                limit(limitCount)
             );
         }
 
         const snapshot = await getDocs(q);
-        const repairs: RepairTicket[] = [];
+        let repairs: RepairTicket[] = [];
 
         snapshot.forEach((doc) => {
             repairs.push({ id: doc.id, ...doc.data() } as RepairTicket);
         });
+
+        if (date) {
+            const targetYMD = date.split('T')[0];
+            repairs = repairs.filter(r => {
+                const rDate = r.createdAt instanceof Timestamp
+                    ? r.createdAt.toDate()
+                    : new Date(r.createdAt as unknown as string);
+
+                // Adjust to Thai Time
+                const thDate = new Date(rDate.getTime() + (7 * 60 * 60 * 1000));
+                const thYMD = thDate.toISOString().split('T')[0];
+                return thYMD === targetYMD;
+            });
+        }
 
         return repairs;
     } catch (error) {
