@@ -36,6 +36,7 @@ import {
     getRepairsForTechnician,
     getPendingBookings
 } from './agentFunctions';
+import { formatThaiDate } from './dateUtils';
 
 // ============================================
 // Types & Interfaces
@@ -284,9 +285,15 @@ async function handleCheckRepair(params: Record<string, unknown>, userProfile: U
 async function handleCheckAvailability(params: Record<string, unknown>): Promise<string> {
     const { room, date, startTime, endTime } = params as { room?: string; date?: string; startTime?: string; endTime?: string };
     if (room && date && startTime && endTime) {
-        const availability = await checkRoomAvailability(room, date, startTime, endTime);
+        // Normalize date to YYYY-MM-DD using Thai timezone
+        const normalizedDate = parseThaiDate(date) || parseThaiDate('today')!;
+        const availability = await checkRoomAvailability(room, normalizedDate, startTime, endTime);
+        // Use Thai format for display (e.g., "21 ธ.ค. 2568")
+        const displayDate = date.toLowerCase() === 'today' || date === 'วันนี้'
+            ? 'วันนี้'
+            : formatThaiDate(new Date(normalizedDate));
         return availability.available
-            ? `${room} ว่างในช่วงเวลา ${startTime}-${endTime} วันที่ ${date} ค่ะ ✅`
+            ? `${room} ว่างในช่วงเวลา ${startTime}-${endTime} ${displayDate} ค่ะ ✅`
             : `${room} ไม่ว่างในช่วงเวลาดังกล่าวค่ะ ❌\nที่มีการจอง:\n${availability.conflicts?.map(c => `• ${c.startTime}-${c.endTime}: ${c.title || 'ไม่ระบุหัวข้อ'} (${c.requesterName || 'ไม่ระบุชื่อ'})`).join('\n')}`;
     }
     return handleRoomSchedule(params);
@@ -294,10 +301,16 @@ async function handleCheckAvailability(params: Record<string, unknown>): Promise
 
 async function handleRoomSchedule(params: Record<string, unknown>): Promise<string> {
     const { room, date } = params as { room?: string; date?: string };
-    const targetDate = date && date !== 'today' ? date : new Date().toISOString().split('T')[0];
-    const displayDate = parseThaiDate(targetDate) === new Date().toISOString().split('T')[0] ? 'วันนี้' : targetDate;
 
-    if (!room) return `กรุณาระบุห้องที่ต้องการดูตารางด้วยนะคะ (เช่น ขอตารางห้องประชุม 1 วันนี้)`;
+    // Use parseThaiDate for all date handling (it handles 'today' with correct TZ)
+    const rawDate = date || 'today';
+    const targetDate = parseThaiDate(rawDate) || parseThaiDate('today')!; // Fallback to today
+    // Use Thai format for display (e.g., "21 ธ.ค. 2568")
+    const displayDate = rawDate.toLowerCase() === 'today' || rawDate === 'วันนี้'
+        ? 'วันนี้'
+        : formatThaiDate(new Date(targetDate));
+
+    if (!room) return `กรุณาระบุห้องที่ต้องการดูตารางด้วยนะคะ (เช่น ขอตารางห้องลีลาวดี วันนี้)`;
 
     const schedule = await getRoomSchedule(room, targetDate);
     if (schedule.length === 0) return `📅 ตาราง ${room} (${displayDate})\n\n✅ ว่างทั้งวันค่ะ`;

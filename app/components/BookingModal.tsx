@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../lib/firebase";
 import toast from "react-hot-toast";
 import { X, Upload, Calendar, Clock, MapPin, Users, Briefcase, Paperclip, CheckSquare, Loader2 } from "lucide-react";
+import { getTodayBangkok, getBangkokDateString } from "../../lib/dateUtils";
 
 interface BookingModalProps {
     isOpen: boolean;
@@ -45,7 +46,7 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialDate }
         roomId: "",
         title: "",
         description: "",
-        date: initialDate ? initialDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        date: initialDate ? getBangkokDateString(initialDate) : getTodayBangkok(),
         startTime: "08:00",
         endTime: "10:00",
         equipment: [] as string[],

@@ -5,6 +5,7 @@ import { collection, doc, updateDoc, query, where, getDocs, Timestamp } from "fi
 import { db } from "../../lib/firebase";
 import toast from "react-hot-toast";
 import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Save, Camera } from "lucide-react";
+import { getBangkokDateString } from "../../lib/dateUtils";
 
 
 // Manually defining Booking interface here to avoid import issues for now if types file is separate
@@ -259,7 +260,7 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                 position: booking.position,
                 department: booking.department,
                 phoneNumber: booking.phoneNumber,
-                date: start.toISOString().split('T')[0],
+                date: getBangkokDateString(start),
                 startTime: start.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false }),
                 endTime: end.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false }),
                 equipment: booking.equipment || [],

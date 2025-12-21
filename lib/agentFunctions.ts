@@ -136,10 +136,10 @@ export async function checkRoomAvailability(
         const bookingsRef = collection(db, 'bookings');
         const q = query(
             bookingsRef,
-            where('room', '==', normalizedRoom),
+            where('roomId', '==', normalizedRoom),
             where('startTime', '>=', start),
             where('startTime', '<=', end),
-            where('status', 'in', ['pending', 'approved', 'confirmed']) // Added confirmed just in case
+            where('status', 'in', ['pending', 'approved', 'confirmed'])
         );
 
         const snapshot = await getDocs(q);
@@ -203,7 +203,7 @@ export async function getRoomSchedule(
         const bookingsRef = collection(db, 'bookings');
         const q = query(
             bookingsRef,
-            where('room', '==', normalizedRoom),
+            where('roomId', '==', normalizedRoom),
             where('startTime', '>=', start),
             where('startTime', '<=', end),
             where('status', 'in', ['pending', 'approved', 'confirmed'])

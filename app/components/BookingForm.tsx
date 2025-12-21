@@ -6,6 +6,7 @@ import { collection, addDoc, query, where, getDocs, Timestamp, serverTimestamp }
 import { db } from "../../lib/firebase";
 import toast from "react-hot-toast";
 import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Camera } from "lucide-react";
+import { getTodayBangkok, getBangkokDateString } from "../../lib/dateUtils";
 
 interface BookingFormProps {
     onSuccess?: () => void;
@@ -213,7 +214,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
         roomId: "",
         title: "",
         description: "",
-        date: initialDate ? initialDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        date: initialDate ? getBangkokDateString(initialDate) : getTodayBangkok(),
         startTime: "08:00",
         endTime: "10:00",
         equipment: [] as string[],

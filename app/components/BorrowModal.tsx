@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
 import { logActivity } from "../../utils/logger";
+import { getTodayBangkok } from "../../lib/dateUtils";
 
 interface BorrowModalProps {
     isOpen: boolean;
@@ -247,7 +248,7 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                                 name="returnDate"
                                 value={formData.returnDate}
                                 onChange={handleInputChange}
-                                min={new Date().toISOString().split('T')[0]}
+                                min={getTodayBangkok()}
                                 required
                                 className="input-field dark:[color-scheme:dark]"
                             />
