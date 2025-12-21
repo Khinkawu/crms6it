@@ -698,6 +698,23 @@ export async function processAIMessage(
         }
     }
 
+    // INTERCEPT: Booking commands - Prevent AI from engaging in booking conversation
+    // This strictly enforces the "Use Website" policy for bookings
+    const bookingKeywords = ['จองห้อง', 'จองประชุม', 'ขอใช้ห้อง', 'จองพื้นที่', 'booking', 'reserve room'];
+    if (bookingKeywords.some(kw => userMessage.toLowerCase().includes(kw))) {
+        // Clear any pending action to reset state
+        await clearPendingAction(lineUserId);
+
+        return `📅 จองห้องประชุม
+
+สามารถจองได้ 2 วิธีค่ะ:
+
+1️⃣ กดเมนู "จองห้อง" ที่ Line Rich menu ด้านล่าง
+2️⃣ จองผ่านเว็บ: https://crms6it.vercel.app/booking
+
+เลือกห้อง วันที่ และเวลาได้สะดวกกว่านะคะ 😊`;
+    }
+
     // Handle image message for repair
     if (imageBuffer && imageMimeType) {
         // If awaiting image for repair flow
@@ -1092,7 +1109,7 @@ export async function processAIMessage(
                             repairStep: 'awaiting_symptom',  // Step 1: Ask what equipment/symptom
                         };
                         await saveConversationContext(lineUserId, context);
-                        return '🔧 แจ้งซ่อม\n\nอุปกรณ์อะไรเสียและมีอาการอย่างไรคะ? (เช่น "โปรเจคเตอร์ภาพสีเพี้ยน", "คอมพิวเตอร์เปิดไม่ติด")';
+                        return '🔧 แจ้งซ่อม\n\nอุปกรณ์อะไรเสียและมีอาการอย่างไรคะ? (เช่น "โปรเจคเตอร์ภาพสีเพี้ยน", "ไมค์เสีย เสียงไม่ดัง")';
                     }
                 }
             }
@@ -1101,7 +1118,14 @@ export async function processAIMessage(
             await saveConversationContext(lineUserId, context);
             return aiResponse.question || aiResponse.message || responseText;
         }
+        // Default: return AI response
+        await saveConversationContext(lineUserId, context);
+        return aiResponse.question || aiResponse.message || responseText;
     }
+
+    // Final fallback if no intent and no message handled earlier
+    await saveConversationContext(lineUserId, context);
+    return aiResponse.message || responseText;
 }
 
 // ============================================
