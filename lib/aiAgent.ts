@@ -54,7 +54,7 @@ interface ConversationContext {
         | 'awaiting_side'
         | 'awaiting_final_confirm';
         awaitingConfirmation?: boolean;
-        galleryResults?: PhotographyJob[];
+        galleryResults?: PhotographyJob[]; // Added for Gallery Selection State
     };
     lastActivity: any; // Timestamp or Date
 }
@@ -189,6 +189,28 @@ function parseAIResponse(responseText: string): AIResponse {
     return { message: responseText };
 }
 
+function parseThaiDate(dateStr: string): string | undefined {
+    const today = new Date();
+    const str = dateStr.toLowerCase().trim();
+    if (str === 'today' || str === 'วันนี้') return today.toISOString().split('T')[0];
+    if (str === 'yesterday' || str === 'เมื่อวาน' || str === 'เมื่อวานนี้') {
+        const y = new Date(today);
+        y.setDate(y.getDate() - 1);
+        return y.toISOString().split('T')[0];
+    }
+    // Simple 16/12/2568 parser
+    const m = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) {
+        let yr = parseInt(m[3]);
+        if (yr > 2500) yr -= 543;
+        const dt = new Date(yr, parseInt(m[2]) - 1, parseInt(m[1]));
+        if (!isNaN(dt.getTime())) return dt.toISOString().split('T')[0];
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    return undefined;
+}
+
 // ============================================
 // Intent Handlers
 // ============================================
@@ -210,7 +232,7 @@ async function handleBookRoom(
         const availability = await checkRoomAvailability(room, date, startTime, endTime);
         if (!availability.available) {
             return `ขออภัยค่ะ ${room} ไม่ว่างในช่วงเวลาที่ต้องการ มีการจองดังนี้:\n${availability.conflicts?.map(
-                (c) => `• ${c.startTime}-${c.endTime}: ${c.title}`
+                (c) => `• ${c.startTime}-${c.endTime}: ${c.title || 'ไม่ระบุหัวข้อ'} (${c.requesterName || 'ไม่ระบุชื่อ'})`
             ).join('\n')}\n\nต้องการเลือกเวลาอื่นไหมคะ?`;
         }
         return `ห้องว่างค่ะ ต้องการจอง ${room} วันที่ ${date} เวลา ${startTime}-${endTime} หัวข้อ "${title}" ใช่ไหมคะ? (ตอบ "ใช่" หรือ "ยืนยัน" เพื่อจอง)`;
@@ -222,7 +244,7 @@ async function handleBookRoom(
         startTime,
         endTime,
         title,
-        userProfile.displayName,
+        userProfile.displayName || userProfile.email,
         userProfile.email
     );
 
@@ -250,7 +272,7 @@ async function handleCheckAvailability(params: Record<string, unknown>): Promise
         const availability = await checkRoomAvailability(room, date, startTime, endTime);
         return availability.available
             ? `${room} ว่างในช่วงเวลา ${startTime}-${endTime} วันที่ ${date} ค่ะ ✅`
-            : `${room} ไม่ว่างในช่วงเวลาดังกล่าวค่ะ ❌\nที่มีการจอง:\n${availability.conflicts?.map(c => `• ${c.startTime}-${c.endTime}: ${c.title}`).join('\n')}`;
+            : `${room} ไม่ว่างในช่วงเวลาดังกล่าวค่ะ ❌\nที่มีการจอง:\n${availability.conflicts?.map(c => `• ${c.startTime}-${c.endTime}: ${c.title || 'ไม่ระบุหัวข้อ'} (${c.requesterName || 'ไม่ระบุชื่อ'})`).join('\n')}`;
     }
     return handleRoomSchedule(params);
 }
@@ -272,46 +294,45 @@ async function handleRoomSchedule(params: Record<string, unknown>): Promise<stri
         const end = booking.endTime instanceof Timestamp
             ? booking.endTime.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
             : '';
-        return `• ${start}-${end}: ${booking.title} (${booking.requesterName})`;
+        return `• ${start}-${end}: ${booking.title || 'ไม่ระบุหัวข้อ'} (${booking.requesterName || 'ไม่ระบุชื่อ'})`;
     }).join('\n');
 
     return `📅 ตาราง ${room} (${displayDate})\n\n${scheduleList}`;
 }
 
 async function handleMyWork(userProfile: UserProfile, params?: Record<string, unknown>): Promise<string> {
-    let response = `👤 งานของคุณ (${userProfile.displayName})\n\n`;
+    let response = `👤 งานของคุณ (${userProfile.displayName || userProfile.email})\n\n`;
     let hasWork = false;
 
-    // Technician
+    // 1. Technician Logic
     if (userProfile.role === 'technician') {
         const zone = userProfile.responsibility || 'all';
         const myRepairs = await getRepairsForTechnician(zone);
         if (myRepairs.length > 0) {
             hasWork = true;
-            response += `🔧 **งานซ่อมที่ต้องดูแล (${zone === 'all' ? 'ทั้งหมด' : zone})**\n`;
+            response += `🔧 **งานซ่อม (${zone === 'all' ? 'ทั้งหมด' : zone})**\n`;
             response += myRepairs.map(r => formatRepairForDisplay(r)).join('\n\n');
             response += '\n\n';
         } else {
-            hasWork = false; // Technician but no repairs is possible, but let's see if they have other roles
-            response += `🔧 งานซ่อม: ไม่มีงานค้างค่ะ เยี่ยมมาก! 👍\n\n`;
+            response += `🔧 งานซ่อม: ไม่มีงานค้างค่ะ 👍\n\n`;
         }
     }
 
-    // Photographer
-    if (userProfile.isPhotographer) {
+    // 2. Photographer Logic
+    else if (userProfile.isPhotographer) {
         const myPhotoJobs = await getPhotoJobsByPhotographer(userProfile.uid);
         if (myPhotoJobs.length > 0) {
             hasWork = true;
             response += `📸 **งานถ่ายภาพ**\n`;
             response += myPhotoJobs.map(j => formatPhotoJobForDisplay(j)).join('\n\n');
             response += '\n\n';
-        } else if (userProfile.role !== 'technician') {
+        } else {
             response += `📸 งานถ่ายภาพ: ไม่มีงานค่ะ\n\n`;
         }
     }
 
-    // Moderator/Admin
-    if (userProfile.role === 'moderator' || userProfile.role === 'admin') {
+    // 3. Moderator/Admin Logic
+    else if (userProfile.role === 'moderator' || userProfile.role === 'admin') {
         const pendingBookings = await getPendingBookings();
         if (pendingBookings.length > 0) {
             hasWork = true;
@@ -323,20 +344,21 @@ async function handleMyWork(userProfile: UserProfile, params?: Record<string, un
         }
     }
 
-    // User Bookings - Only show if they actually have them
-    const myBookings = await getBookingsByEmail(userProfile.email);
-    if (myBookings.length > 0) {
-        hasWork = true;
-        response += `📅 **การจองของคุณ**\n`;
-        response += myBookings.slice(0, 3).map(b => formatBookingForDisplay(b)).join('\n\n');
-        if (myBookings.length > 3) response += `\n...และอีก ${myBookings.length - 3} รายการ`;
+    // 4. Regular User Logic (Only show their own stuff)
+    else {
+        // User Bookings - Only show if they actually have them
+        const myBookings = await getBookingsByEmail(userProfile.email);
+        if (myBookings.length > 0) {
+            hasWork = true;
+            response += `📅 **การจองของคุณ**\n`;
+            response += myBookings.slice(0, 3).map(b => formatBookingForDisplay(b)).join('\n\n');
+            if (myBookings.length > 3) response += `\n...และอีก ${myBookings.length - 3} รายการ`;
+            response += '\n\n';
+        }
     }
 
-    // Force hasWork true if we showed ANY section even if empty (like "No repairs")
-    // Actually simplicity: if response length grew significantly > header
-
-    if (response.length < 50) { // Just header
-        return `ไม่พบงานหรืองานค้างในระบบสำหรับคุณค่ะ 😊`;
+    if (response.length < 60) { // Just header + minimal text
+        return `👤 ${userProfile.displayName}\nคุณไม่มีงานค้าง หรือรายการที่ต้องดำเนินการค่ะ 😊`;
     }
     return response;
 }
@@ -383,31 +405,9 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     }).join('\n');
     let response = `📸 พบ ${jobs.length} กิจกรรม\n\n${listItems}`;
     if (jobs.length > 10) response += `\n... ${jobs.length - 10} รายการ`;
-    response += '\n\nพิมพ์หมายเลขเพื่อดูรายละเอียดค่ะ';
+    response += '\n\nพิมพ์หมายเลข (เช่น 1) เพื่อดูรูปและลิงก์ Drive ค่ะ'; // Instruction for user
 
-    return { message: response, jobs };
-}
-
-function parseThaiDate(dateStr: string): string | undefined {
-    const today = new Date();
-    const str = dateStr.toLowerCase().trim();
-    if (str === 'today' || str === 'วันนี้') return today.toISOString().split('T')[0];
-    if (str === 'yesterday' || str === 'เมื่อวาน' || str === 'เมื่อวานนี้') {
-        const y = new Date(today);
-        y.setDate(y.getDate() - 1);
-        return y.toISOString().split('T')[0];
-    }
-    // Simple 16/12/2568 parser
-    const m = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-    if (m) {
-        let yr = parseInt(m[3]);
-        if (yr > 2500) yr -= 543;
-        const dt = new Date(yr, parseInt(m[2]) - 1, parseInt(m[1]));
-        if (!isNaN(dt.getTime())) return dt.toISOString().split('T')[0];
-    }
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-    return undefined;
+    return { message: response, jobs: jobs.slice(0, 10) }; // Return jobs to state
 }
 
 async function handleDailySummary(userProfile: UserProfile | null): Promise<string> {
@@ -513,7 +513,7 @@ export async function processAIMessage(
 
     // 4. Pending Actions (State Machine)
     if (context.pendingAction) {
-        const { intent, repairStep, params } = context.pendingAction;
+        const { intent, repairStep, params, galleryResults } = context.pendingAction;
         const msg = userMessage.trim();
 
         if (['ยกเลิก', 'cancel'].includes(msg.toLowerCase())) {
@@ -546,6 +546,11 @@ export async function processAIMessage(
                         await saveConversationContext(lineUserId, context);
                         return 'ขอทราบสถานที่/ห้อง ที่อุปกรณ์มีปัญหาด้วยค่ะ?';
                     }
+                    // If room exists, proceed to side check or create
+                    context.pendingAction.repairStep = 'awaiting_side';
+                    await saveConversationContext(lineUserId, context);
+                    return `อุปกรณ์อยู่ที่ห้อง ${params.room} ใช่มั้ยคะ? อยู่ฝั่ง ม.ต้น หรือ ม.ปลาย คะ?`;
+
                 } else {
                     await clearPendingAction(lineUserId);
                     return 'ยกเลิกการแจ้งซ่อมแล้วค่ะ';
@@ -553,14 +558,12 @@ export async function processAIMessage(
             }
             if (repairStep === 'awaiting_room') {
                 context.pendingAction.params.room = msg;
-                // Check if side is missing (default junior high often valid, but better ask if unknown)
                 context.pendingAction.repairStep = 'awaiting_side';
                 await saveConversationContext(lineUserId, context);
                 return 'อยู่ฝั่ง ม.ต้น หรือ ม.ปลาย คะ?';
             }
             if (repairStep === 'awaiting_side') {
                 context.pendingAction.params.side = msg;
-                // Final save
                 if (!userProfile) return 'คุณยังไม่ได้ผูกบัญชี กรุณาผ่านบัญชีก่อนแจ้งซ่อมค่ะ';
 
                 const res = await createRepairFromAI(
@@ -568,12 +571,28 @@ export async function processAIMessage(
                     params.description,
                     msg,
                     params.imageUrl || '',
-                    userProfile.displayName,
+                    userProfile.displayName || 'ผู้ใช้ LINE',
                     userProfile.email
                 );
                 await clearPendingAction(lineUserId);
                 return res.success ? `✅ รับแจ้งซ่อมเรียบร้อยค่ะ\nLine ID: ${res.ticketId}\nช่างจะเข้าไปตรวจสอบโดยเร็วที่สุดค่ะ` : `❌ เกิดข้อผิดพลาด: ${res.error}`;
             }
+        }
+
+        // --- GALLERY SELECTION FLOW ---
+        if (intent === 'GALLERY_SELECT' && galleryResults) {
+            const selectedIndex = parseInt(msg) - 1;
+            if (!isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < galleryResults.length) {
+                const job = galleryResults[selectedIndex];
+                await clearPendingAction(lineUserId); // Clear state after selection
+
+                const d = job.startTime instanceof Timestamp
+                    ? job.startTime.toDate().toLocaleDateString('th-TH')
+                    : '';
+
+                return `📸 **${job.title}**\n📅 ${d}\n📍 ${job.location || '-'}\n\n🔗 ลิงก์รูปภาพ: ${job.driveLink || 'ไม่มีลิงก์'}`;
+            }
+            // If not a number, fall through to AI (maybe they are asking something else)
         }
     }
 
@@ -619,6 +638,14 @@ export async function processAIMessage(
                 case 'GALLERY_SEARCH':
                     const searchRes = await handleGallerySearchWithResults(aiRes.params || {});
                     reply = searchRes.message;
+                    // If jobs found, set pending action for selection
+                    if (searchRes.jobs && searchRes.jobs.length > 0) {
+                        context.pendingAction = {
+                            intent: 'GALLERY_SELECT',
+                            params: {},
+                            galleryResults: searchRes.jobs // Save results to context
+                        };
+                    }
                     break;
                 case 'DAILY_SUMMARY':
                     reply = await handleDailySummary(userProfile);
