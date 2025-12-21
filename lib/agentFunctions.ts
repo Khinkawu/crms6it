@@ -10,24 +10,40 @@ import {
     where,
     getDocs,
     addDoc,
-    Timestamp,
+    serverTimestamp,
     orderBy,
     limit,
+    Timestamp,
+    doc,
+    getDoc
 } from 'firebase/firestore';
 import { Booking, RepairTicket, PhotographyJob } from '@/types';
 
 // Room mapping for natural language
+// Based on BookingForm.tsx constants
 const ROOM_MAPPING: Record<string, string> = {
-    'ห้องประชุมใหญ่': 'large_meeting',
-    'ห้องประชุมเล็ก': 'small_meeting',
-    'ห้องประชุม 1': 'meeting_1',
-    'ห้องประชุม 2': 'meeting_2',
-    'ห้อง lab': 'lab',
-    'ห้องปฏิบัติการ': 'lab',
-    'ห้อง it': 'it_room',
-    'ห้องคอมพิวเตอร์': 'computer_room',
-    'large_meeting': 'large_meeting',
-    'small_meeting': 'small_meeting',
+    // Junior High
+    'ห้องพญาสัตบรรณ': 'jh_phaya',
+    'พญาสัตบรรณ': 'jh_phaya',
+    'พญา': 'jh_phaya',
+    'โรงยิม': 'jh_gym',
+    'ยิม': 'jh_gym',
+    'ห้องจามจุรี': 'jh_chamchuri',
+    'จามจุรี': 'jh_chamchuri',
+
+    // Senior High
+    'ห้องลีลาวดี': 'sh_leelawadee',
+    'ลีลาวดี': 'sh_leelawadee',
+    'ลีลา': 'sh_leelawadee',
+    'หอประชุม': 'sh_auditorium',
+    'อาคารพลศึกษา': 'sh_auditorium', // Alias if commonly used
+    'ห้องศาสตร์พระราชา': 'sh_king_science',
+    'ศาสตร์พระราชา': 'sh_king_science',
+    'ห้องศูนย์ภาษา': 'sh_language_center',
+    'ศูนย์ภาษา': 'sh_language_center',
+    'ชั้น 3 อาคารอำนวยการ': 'sh_admin_3',
+    'ห้องอำนวยการ': 'sh_admin_3',
+    'อาคาร 3': 'sh_admin_3',
 };
 
 // Side mapping (ม.ต้น / ม.ปลาย)
@@ -152,7 +168,12 @@ export async function getRoomSchedule(
         const snapshot = await getDocs(q);
         const bookings: Booking[] = [];
         snapshot.forEach((doc) => {
-            bookings.push({ id: doc.id, ...doc.data() } as Booking);
+            const data = doc.data();
+            bookings.push({
+                id: doc.id,
+                ...data,
+                roomName: data.roomName || data.room // Ensure roomName is available
+            } as Booking);
         });
 
         // Sort by start time
@@ -217,15 +238,20 @@ export async function createBookingFromAI(
 
         const bookingData = {
             room: normalizedRoom,
+            roomId: normalizedRoom, // Explicitly set roomId as well (BookingForm uses it as primary key)
             startTime: Timestamp.fromDate(startDateTime),
             endTime: Timestamp.fromDate(endDateTime),
             title,
+            description: 'จองผ่าน LINE AI',
             requesterName,
             requesterEmail,
-            department: '', // Required field
+            // Required fields by Schema/Frontend - using safe defaults for AI
+            department: 'บุคลากร', // Default department
+            position: 'บุคลากร',   // Default position
+            phoneNumber: '-',      // Default phone
             status: 'pending', // รออนุมัติ
-            createdAt: Timestamp.now(),
-            source: 'line_ai', // Indicate this was created via LINE AI
+            createdAt: serverTimestamp(),
+            source: 'line_ai',
         };
 
         const docRef = await addDoc(collection(db, 'bookings'), bookingData);
@@ -271,9 +297,48 @@ export async function getRepairsByEmail(email: string): Promise<RepairTicket[]> 
     }
 }
 
+/**
+ * NEW: Get repairs for a specific zone (for technicians)
+ * Retrieves active repairs (pending/in_progress) for the technician's zone
+ */
+export async function getRepairsForTechnician(zone: string | 'all'): Promise<RepairTicket[]> {
+    try {
+        const repairsRef = collection(db, 'repair_tickets');
+        let q;
+
+        if (zone === 'all') {
+            q = query(
+                repairsRef,
+                where('status', 'in', ['pending', 'in_progress', 'waiting_parts']),
+                orderBy('createdAt', 'desc'),
+                limit(10)
+            );
+        } else {
+            q = query(
+                repairsRef,
+                where('zone', '==', zone),
+                where('status', 'in', ['pending', 'in_progress', 'waiting_parts']),
+                orderBy('createdAt', 'desc'),
+                limit(10)
+            );
+        }
+
+        const snapshot = await getDocs(q);
+        const repairs: RepairTicket[] = [];
+
+        snapshot.forEach((doc) => {
+            repairs.push({ id: doc.id, ...doc.data() } as RepairTicket);
+        });
+
+        return repairs;
+    } catch (error) {
+        console.error('Error getting technician repairs:', error);
+        return [];
+    }
+}
+
 export async function getRepairByTicketId(ticketId: string): Promise<RepairTicket | null> {
     try {
-        const { doc, getDoc } = await import('firebase/firestore');
         const docRef = doc(db, 'repair_tickets', ticketId);
         const docSnap = await getDoc(docRef);
 
@@ -331,15 +396,15 @@ export async function createRepairFromAI(
             position: 'แจ้งผ่าน LINE',  // Required field
             phone: '-',  // Required field
             status: 'pending' as const,
-            createdAt: Timestamp.now(),
-            updatedAt: Timestamp.now(),  // Required field
+            createdAt: serverTimestamp(), // Use serverTimestamp for correct sorting
+            updatedAt: serverTimestamp(),
             source: 'line_ai',
         };
 
         const docRef = await addDoc(collection(db, 'repair_tickets'), repairData);
 
-        // Log Activity
-        // Lazy load logActivity to avoid circular dependencies if any
+        // Log Activity aligned with RepairForm.tsx
+        // Lazy load logActivity
         const { logActivity } = await import('@/utils/logger');
         await logActivity({
             action: 'repair',
@@ -350,26 +415,28 @@ export async function createRepairFromAI(
             zone: normalizedSide as 'junior_high' | 'senior_high' | 'common'
         });
 
-        // Send LINE notification (similar to RepairForm)
-        // Note: The agent itself interacts via LINE, but we might want to notify Admins via the system API
-        // Skipping notify-repair API call here to avoid redundant LINE messages to the group if the bot handles it.
-        // But if the bot created it, maybe we DO want to notify the dedicated technician channel?
-        // Let's call it for consistency with manual entry.
+        // Trigger Notification API (Restored to ensure Flex Message is sent)
         try {
-            fetch('https://crms6it.vercel.app/api/notify-repair', {
+            // Use absolute URL for server-side calls if needed, or relative for consistency
+            // In AI context (Node environment), we might need full URL, but client-side fetch handles relative.
+            // Since this runs in AI agent (server context usually), let's use full URL if possible, or fallback.
+            const apiUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
+
+            await fetch(`${apiUrl}/api/notify-repair`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ticketId: docRef.id,
                     requesterName: requesterName || 'ผู้แจ้งผ่าน LINE',
-                    room: room,
-                    zone: normalizedSide,
-                    description: description,
-                    imageOneUrl: images.length > 0 ? images[0] : null
+                    room,
+                    description,
+                    imageOneUrl: images.length > 0 ? images[0] : '',
+                    zone: normalizedSide // 'junior_high' | 'senior_high' | 'common'
                 })
-            }).catch(err => console.error("Failed to send LINE notification:", err));
-        } catch (e) {
-            // Ignore fetch errors in server context
+            });
+        } catch (notifyError) {
+            console.error('Failed to trigger notification:', notifyError);
+            // Don't fail the whole operation if notification fails
         }
 
         return {
@@ -409,6 +476,33 @@ export async function getBookingsByEmail(email: string): Promise<Booking[]> {
         return bookings;
     } catch (error) {
         console.error('Error getting bookings:', error);
+        return [];
+    }
+}
+
+/**
+ * NEW: Get pending bookings (for Moderators/Admins)
+ */
+export async function getPendingBookings(): Promise<Booking[]> {
+    try {
+        const bookingsRef = collection(db, 'bookings');
+        const q = query(
+            bookingsRef,
+            where('status', '==', 'pending'),
+            orderBy('startTime', 'asc'),
+            limit(10)
+        );
+
+        const snapshot = await getDocs(q);
+        const bookings: Booking[] = [];
+
+        snapshot.forEach((doc) => {
+            bookings.push({ id: doc.id, ...doc.data() } as Booking);
+        });
+
+        return bookings;
+    } catch (error) {
+        console.error('Error getting pending bookings:', error);
         return [];
     }
 }
@@ -528,6 +622,7 @@ export interface DailySummary {
     };
     photoJobs: {
         total: number;
+        pending: number; // Added pending count for completeness
     };
 }
 
@@ -594,6 +689,7 @@ export async function getDailySummary(date: Date = new Date()): Promise<DailySum
             },
             photoJobs: {
                 total: jobsSnapshot.size,
+                pending: 0, // Placeholder
             },
         };
     } catch (error) {
@@ -601,7 +697,7 @@ export async function getDailySummary(date: Date = new Date()): Promise<DailySum
         return {
             repairs: { total: 0, pending: 0, inProgress: 0 },
             bookings: { total: 0, pending: 0, approved: 0 },
-            photoJobs: { total: 0 },
+            photoJobs: { total: 0, pending: 0 },
         };
     }
 }
@@ -632,13 +728,16 @@ export function formatBookingForDisplay(booking: Booking): string {
     return `📅 ${dateStr} | ${startTimeStr}-${endTimeStr}
 📍 ${booking.room}
 📝 ${booking.title}
-${statusMap[booking.status] || booking.status}`;
+${statusMap[booking.status] || booking.status}
+👤 ${booking.requesterName}
+`;
 }
 
 export function formatRepairForDisplay(repair: RepairTicket): string {
     const statusMap: Record<string, string> = {
         pending: '🟡 รอดำเนินการ',
         in_progress: '🔵 กำลังซ่อม',
+        waiting_parts: '🟠 รออะไหล่', // Added waiting_parts
         completed: '🟢 เสร็จแล้ว',
         cancelled: '⚫ ยกเลิก',
     };
@@ -652,7 +751,7 @@ export function formatRepairForDisplay(repair: RepairTicket): string {
 📍 ${repair.room}
 📝 ${repair.description?.substring(0, 50)}...
 📅 ${date}
-${statusMap[repair.status] || repair.status}`;
+สถานะ: ${statusMap[repair.status] || repair.status}`;
 }
 
 export function formatPhotoJobForDisplay(job: PhotographyJob): string {
