@@ -149,23 +149,14 @@ function InventoryContent() {
             const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
             const end = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
 
-            let q;
-            if (action && action !== 'all') {
-                q = query(
-                    collection(db, "activities"),
-                    where("timestamp", ">=", start),
-                    where("timestamp", "<=", end),
-                    where("action", "==", action),
-                    orderBy("timestamp", "desc")
-                );
-            } else {
-                q = query(
-                    collection(db, "activities"),
-                    where("timestamp", ">=", start),
-                    where("timestamp", "<=", end),
-                    orderBy("timestamp", "desc")
-                );
-            }
+            // Simplify query to avoid composite index issues (Client-side filtering handles the action)
+            // Query all logs in range, let LogTable filter by action
+            const q = query(
+                collection(db, "activities"),
+                where("timestamp", ">=", start),
+                where("timestamp", "<=", end),
+                orderBy("timestamp", "desc")
+            );
 
             const snapshot = await getDocs(q);
             const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

@@ -483,22 +483,35 @@ export async function getBookingsByEmail(email: string): Promise<Booking[]> {
 /**
  * NEW: Get pending bookings (for Moderators/Admins)
  */
-export async function getPendingBookings(): Promise<Booking[]> {
+export async function getPendingBookings(date?: string): Promise<Booking[]> {
     try {
         const bookingsRef = collection(db, 'bookings');
         const q = query(
             bookingsRef,
             where('status', '==', 'pending'),
             orderBy('startTime', 'asc'),
-            limit(10)
+            limit(date ? 50 : 10)
         );
 
         const snapshot = await getDocs(q);
-        const bookings: Booking[] = [];
+        let bookings: Booking[] = [];
 
         snapshot.forEach((doc) => {
             bookings.push({ id: doc.id, ...doc.data() } as Booking);
         });
+
+        if (date) {
+            const targetYMD = date.split('T')[0];
+            bookings = bookings.filter(b => {
+                const bDate = b.startTime instanceof Timestamp
+                    ? b.startTime.toDate()
+                    : new Date(b.startTime as unknown as string);
+
+                const thDate = new Date(bDate.getTime() + (7 * 60 * 60 * 1000));
+                const thYMD = thDate.toISOString().split('T')[0];
+                return thYMD === targetYMD;
+            });
+        }
 
         return bookings;
     } catch (error) {
@@ -511,22 +524,40 @@ export async function getPendingBookings(): Promise<Booking[]> {
 // MY_PHOTO_JOBS Functions
 // ============================================
 
-export async function getPhotoJobsByPhotographer(userId: string): Promise<PhotographyJob[]> {
+export async function getPhotoJobsByPhotographer(userId: string, date?: string): Promise<PhotographyJob[]> {
     try {
         const jobsRef = collection(db, 'photography_jobs');
+        // Base query - remove limit if filtering by date in memory, or use complex index
+        // Since we can't easily do array-contains + range filter without specific index,
+        // let's fetch by assignee and sort, then filter in memory for the date.
         const q = query(
             jobsRef,
             where('assigneeIds', 'array-contains', userId),
             orderBy('startTime', 'desc'),
-            limit(10)
+            limit(date ? 50 : 10) // Fetch more if filtering by date
         );
 
         const snapshot = await getDocs(q);
-        const jobs: PhotographyJob[] = [];
+        let jobs: PhotographyJob[] = [];
 
         snapshot.forEach((doc) => {
             jobs.push({ id: doc.id, ...doc.data() } as PhotographyJob);
         });
+
+        if (date) {
+            const targetYMD = date.split('T')[0];
+            jobs = jobs.filter(job => {
+                if (!job.startTime) return false;
+                const jobDate = job.startTime instanceof Timestamp
+                    ? job.startTime.toDate()
+                    : new Date(job.startTime as unknown as string);
+
+                // Adjust to TH time for "Today" comparison
+                const thDate = new Date(jobDate.getTime() + (7 * 60 * 60 * 1000));
+                const thYMD = thDate.toISOString().split('T')[0];
+                return thYMD === targetYMD;
+            });
+        }
 
         return jobs;
     } catch (error) {
@@ -541,10 +572,11 @@ export async function getPhotoJobsByPhotographer(userId: string): Promise<Photog
 
 // Fuzzy search helper
 function calculateScore(text: string, tokens: string[]): number {
-    const lowerText = text.toLowerCase();
+    const normalize = (str: string) => str.toLowerCase().replace(/\s+/g, '');
+    const normalizedText = normalize(text);
     let score = 0;
     tokens.forEach(token => {
-        if (lowerText.includes(token)) score += 1;
+        if (normalizedText.includes(normalize(token))) score += 1;
     });
     return score;
 }
@@ -554,12 +586,12 @@ export async function searchGallery(keyword?: string, date?: string): Promise<Ph
         console.log(`[Gallery Search] keyword: ${keyword}, date: ${date}`);
         const jobsRef = collection(db, 'photography_jobs');
 
-        // Fetch larger batch for fuzzy matching (last 3 months approx limit or just 100 recent)
+        // Fetch larger batch for fuzzy matching (last ~2-3 months)
         const q = query(
             jobsRef,
             where('status', '==', 'completed'),
             orderBy('startTime', 'desc'),
-            limit(100)
+            limit(300) // Increased from 100 to 300 to ensure recall
         );
 
         const snapshot = await getDocs(q);
@@ -568,29 +600,51 @@ export async function searchGallery(keyword?: string, date?: string): Promise<Ph
             jobs.push({ id: doc.id, ...doc.data() } as PhotographyJob);
         });
 
-        // Filter by date first if provided (strict filter)
+        // Filter by date first if provided
         if (date) {
             const searchDate = new Date(date);
-            const startOfDay = new Date(searchDate);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(searchDate);
-            endOfDay.setHours(23, 59, 59, 999);
+            // Handle timezone offset if needed - but simply treating "date" string as local YYYY-MM-DD 00:00
+            // and comparing against Firestore UTC timestamp is tricky.
+            // Best approach: Create start/end range in Local Time, convert to UTC? 
+            // OR checks generic day match.
+            // Let's rely on simple Date comparison which works if server/client locales align, 
+            // but for safety, we accept any time on that UTCDay.
+
+            // Simplified: check if job.startTime ISO string starts with YYYY-MM-DD
+            // This is safer than timestamp ranges if we don't know the exact offsets.
+            // BUT job.startTime is Timestamp.
+
+            const targetYMD = date.split('T')[0];
 
             jobs = jobs.filter(job => {
-                const jobDate = job.startTime instanceof Timestamp ? job.startTime.toDate() : new Date(job.startTime as unknown as string);
-                return jobDate >= startOfDay && jobDate <= endOfDay;
+                if (!job.startTime) return false;
+                const jobDate = job.startTime instanceof Timestamp
+                    ? job.startTime.toDate()
+                    : new Date(job.startTime as unknown as string);
+
+                // Adjust to TH time (UTC+7) for comparison?
+                // The 'date' param usually comes from 'parseThaiDate' which returns YYYY-MM-DD.
+                // If we want to match "16 Dec" regardless of time:
+                // jobDate (UTC) + 7 hours -> TH Date.
+
+                const thDate = new Date(jobDate.getTime() + (7 * 60 * 60 * 1000));
+                const thYMD = thDate.toISOString().split('T')[0];
+
+                return thYMD === targetYMD;
             });
         }
 
         // Fuzzy match by keyword
         if (keyword) {
-            const tokens = keyword.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+            const tokens = keyword.toLowerCase().split(/[\s,]+/).filter(t => t.length > 0);
 
             jobs = jobs.map(job => {
-                const titleScore = calculateScore(job.title || '', tokens) * 2; // Title weight x2
+                const titleScore = calculateScore(job.title || '', tokens) * 3; // Title weight x3
                 const locScore = calculateScore(job.location || '', tokens);
-                const descScore = calculateScore(job.description || '', tokens);
-                return { job, score: titleScore + locScore + descScore };
+                // Also check description?
+                // const descScore = calculateScore(job.description || '', tokens);
+                // Reduce noise: only match Title and Location strongly.
+                return { job, score: titleScore + locScore };
             })
                 .filter(item => item.score > 0)
                 .sort((a, b) => b.score - a.score)

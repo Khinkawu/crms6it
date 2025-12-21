@@ -17,12 +17,16 @@ const getZoneThai = (zone: string) => {
 };
 
 const getThaiStatus = (s: string) => {
-    switch (s) {
+    switch (s?.toLowerCase()) {
         case 'pending': return 'รอดำเนินการ';
-        case 'in_progress': return 'กำลังดำเนินการ';
-        case 'waiting_parts': return 'รออะไหล่';
+        case 'in_progress':
+        case 'inprogress': return 'กำลังดำเนินการ';
+        case 'waiting_parts':
+        case 'waiting-parts':
+        case 'waitingparts': return 'รออะไหล่';
         case 'completed': return 'เสร็จสิ้น';
-        case 'cancelled': return 'ยกเลิกงาน';
+        case 'cancelled':
+        case 'canceled': return 'ยกเลิกงาน';
         default: return s;
     }
 };

@@ -190,14 +190,29 @@ function parseAIResponse(responseText: string): AIResponse {
 }
 
 function parseThaiDate(dateStr: string): string | undefined {
-    const today = new Date();
+    // Current time in UTC (server time)
+    const now = new Date();
+    // Shift to Thailand Time (UTC+7)
+    const bkkNow = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+
     const str = dateStr.toLowerCase().trim();
-    if (str === 'today' || str === 'วันนี้') return today.toISOString().split('T')[0];
-    if (str === 'yesterday' || str === 'เมื่อวาน' || str === 'เมื่อวานนี้') {
-        const y = new Date(today);
-        y.setDate(y.getDate() - 1);
-        return y.toISOString().split('T')[0];
+
+    if (str === 'today' || str === 'วันนี้') {
+        return bkkNow.toISOString().split('T')[0];
     }
+
+    if (str === 'tomorrow' || str === 'พรุ่งนี้') {
+        const tmr = new Date(bkkNow);
+        tmr.setDate(tmr.getDate() + 1);
+        return tmr.toISOString().split('T')[0];
+    }
+
+    if (str === 'yesterday' || str === 'เมื่อวาน' || str === 'เมื่อวานนี้') {
+        const yest = new Date(bkkNow);
+        yest.setDate(yest.getDate() - 1);
+        return yest.toISOString().split('T')[0];
+    }
+
     // Simple 16/12/2568 parser
     const m = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if (m) {
@@ -301,64 +316,103 @@ async function handleRoomSchedule(params: Record<string, unknown>): Promise<stri
 }
 
 async function handleMyWork(userProfile: UserProfile, params?: Record<string, unknown>): Promise<string> {
-    let response = `👤 งานของคุณ (${userProfile.displayName || userProfile.email})\n\n`;
+    const rawDate = params?.date as string | undefined;
+    const date = rawDate && rawDate !== 'undefined' ? rawDate : undefined;
+
+    // Parse date for filtering
+    let filterDate: string | undefined;
+    let displayDate = '';
+
+    if (date) {
+        filterDate = parseThaiDate(date); // Returns YYYY-MM-DD
+        if (filterDate) {
+            const d = new Date(filterDate);
+            displayDate = isNaN(d.getTime())
+                ? ` (${date})`
+                : ` (${d.toLocaleDateString('th-TH')})`;
+            if (filterDate === new Date().toISOString().split('T')[0]) displayDate = ' (วันนี้)';
+        }
+    }
+
+    let response = `👤 งานของคุณ (${userProfile.displayName || userProfile.email})${displayDate}\n\n`;
     let hasWork = false;
 
     // 1. Technician Logic
     if (userProfile.role === 'technician') {
         const zone = userProfile.responsibility || 'all';
-        const myRepairs = await getRepairsForTechnician(zone);
+        const myRepairs = await getRepairsForTechnician(zone, filterDate);
         if (myRepairs.length > 0) {
             hasWork = true;
             response += `🔧 **งานซ่อม (${zone === 'all' ? 'ทั้งหมด' : zone})**\n`;
             response += myRepairs.map(r => formatRepairForDisplay(r)).join('\n\n');
             response += '\n\n';
         } else {
-            response += `🔧 งานซ่อม: ไม่มีงานค้างค่ะ 👍\n\n`;
+            if (filterDate) response += `🔧 งานซ่อม: ไม่มีรายการวันที่ระบุค่ะ\n\n`;
+            else response += `🔧 งานซ่อม: ไม่มีงานค้างค่ะ 👍\n\n`;
         }
     }
 
     // 2. Photographer Logic
-    else if (userProfile.isPhotographer) {
-        const myPhotoJobs = await getPhotoJobsByPhotographer(userProfile.uid);
+    if (userProfile.isPhotographer) {
+        const myPhotoJobs = await getPhotoJobsByPhotographer(userProfile.uid, filterDate);
         if (myPhotoJobs.length > 0) {
             hasWork = true;
             response += `📸 **งานถ่ายภาพ**\n`;
             response += myPhotoJobs.map(j => formatPhotoJobForDisplay(j)).join('\n\n');
             response += '\n\n';
         } else {
-            response += `📸 งานถ่ายภาพ: ไม่มีงานค่ะ\n\n`;
+            if (filterDate) response += `📸 งานถ่ายภาพ: ไม่มีงานวันที่ระบุค่ะ\n\n`;
+            else response += `📸 งานถ่ายภาพ: ไม่มีงานค่ะ\n\n`;
         }
     }
 
     // 3. Moderator/Admin Logic
-    else if (userProfile.role === 'moderator' || userProfile.role === 'admin') {
-        const pendingBookings = await getPendingBookings();
+    if (userProfile.role === 'moderator' || userProfile.role === 'admin') {
+        const pendingBookings = await getPendingBookings(filterDate);
         if (pendingBookings.length > 0) {
             hasWork = true;
             response += `📅 **การจองรออนุมัติ**\n`;
             response += pendingBookings.map(b => formatBookingForDisplay(b)).join('\n\n');
             response += '\n\n';
         } else {
-            response += `📅 การจอง: ไม่มีรายการรออนุมัติค่ะ\n\n`;
+            if (filterDate) response += `📅 การจอง: ไม่มีรายการรออนุมัติวันที่ระบุค่ะ\n\n`;
+            else response += `📅 การจอง: ไม่มีรายการรออนุมัติค่ะ\n\n`;
         }
     }
 
     // 4. Regular User Logic (Only show their own stuff)
-    else {
-        // User Bookings - Only show if they actually have them
-        const myBookings = await getBookingsByEmail(userProfile.email);
-        if (myBookings.length > 0) {
+    // For regular users, usually they want "My Bookings" history.
+    // If they ask "My Bookings Today", we should filter too?
+    // Let's keep it simple for now, regular users usually invoke CHECK_AVAILABILITY or CHECK_ROOM_SCHEDULE.
+    // But if they say "My Work" (My Bookings), check filtered.
+    if (!userProfile.role || userProfile.role === 'user') { // Strictly user role or fallback
+        const myBookings = await getBookingsByEmail(userProfile.email); // Need update?
+        // getBookingsByEmail doesn't support date yet. Let's do in-memory filter since likely small list.
+        let filteredBookings = myBookings;
+        if (filterDate) {
+            filteredBookings = myBookings.filter(b => {
+                const bDate = b.startTime instanceof Timestamp
+                    ? b.startTime.toDate().toISOString().split('T')[0]
+                    : new Date(b.startTime as unknown as string).toISOString().split('T')[0]; // Simplify
+                // Timezone might be issue here if strict.
+                // Let's use same logic: +7 hrs
+                const dateObj = b.startTime instanceof Timestamp ? b.startTime.toDate() : new Date(b.startTime);
+                const thDate = new Date(dateObj.getTime() + (7 * 60 * 60 * 1000));
+                return thDate.toISOString().split('T')[0] === filterDate;
+            });
+        }
+
+        if (filteredBookings.length > 0) {
             hasWork = true;
             response += `📅 **การจองของคุณ**\n`;
-            response += myBookings.slice(0, 3).map(b => formatBookingForDisplay(b)).join('\n\n');
-            if (myBookings.length > 3) response += `\n...และอีก ${myBookings.length - 3} รายการ`;
+            response += filteredBookings.slice(0, 3).map(b => formatBookingForDisplay(b)).join('\n\n');
+            if (filteredBookings.length > 3) response += `\n...และอีก ${filteredBookings.length - 3} รายการ`;
             response += '\n\n';
         }
     }
 
     if (response.length < 60) { // Just header + minimal text
-        return `👤 ${userProfile.displayName}\nคุณไม่มีงานค้าง หรือรายการที่ต้องดำเนินการค่ะ 😊`;
+        return `👤 ${userProfile.displayName}${displayDate}\nไม่พบงานหรือรายการที่ต้องดำเนินการค่ะ 😊`;
     }
     return response;
 }
@@ -590,7 +644,11 @@ export async function processAIMessage(
                     ? job.startTime.toDate().toLocaleDateString('th-TH')
                     : '';
 
-                return `📸 **${job.title}**\n📅 ${d}\n📍 ${job.location || '-'}\n\n🔗 ลิงก์รูปภาพ: ${job.driveLink || 'ไม่มีลิงก์'}`;
+                let reply = `📸 **${job.title}**\n📅 ${d}\n📍 ${job.location || '-'}\n\n🔗 Drive: ${job.driveLink || 'ไม่มีลิงก์'}`;
+                if (job.facebookPermalink) {
+                    reply += `\n🔗 Facebook: ${job.facebookPermalink}`;
+                }
+                return reply;
             }
             // If not a number, fall through to AI (maybe they are asking something else)
         }
