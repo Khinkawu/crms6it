@@ -1,9 +1,11 @@
 /**
- * AI Agent for LINE Bot
- * Main processor for natural language understanding and action execution
+ * AI Agent for LINE Bot (FIXED DUPLICATE IMPORT)
+ * แก้ไข:
+ * 1. ลบ createRepairFromAI ที่ประกาศซ้ำใน import
+ * 2. ตรวจสอบการใช้งานตัวแปรทั้งหมดให้ตรงกับ agentFunctions ตัวใหม่
  */
 
-import { PhotographyJob, UserProfile, RepairTicket, Booking } from '@/types';
+import { PhotographyJob, UserProfile, RepairTicket } from '@/types';
 import { db } from '@/lib/firebase';
 import {
     collection,
@@ -24,19 +26,37 @@ import {
     createBookingFromAI,
     getRepairsByEmail,
     getRepairByTicketId,
-    createRepairFromAI,
+    createRepairFromAI, // เหลืออันเดียวแล้ว
     getBookingsByEmail,
     getPhotoJobsByPhotographer,
     searchGallery,
     getDailySummary,
     getRoomSchedule,
-    formatBookingForDisplay,
-    formatRepairForDisplay,
-    formatPhotoJobForDisplay,
     getRepairsForTechnician,
     getPendingBookings
 } from './agentFunctions';
 import { formatThaiDate } from './dateUtils';
+
+// ============================================
+// SYSTEM PROMPT (กฎเหล็กสำหรับ AI)
+// ============================================
+const SYSTEM_PROMPT = `
+คุณคือผู้ช่วย AI อัจฉริยะประจำโรงเรียนสาธิต
+หน้าที่: ช่วยเหลือครูและเจ้าหน้าที่ในการค้นหารูปภาพ, แจ้งซ่อม, และจองห้อง
+
+กฎเหล็กในการตอบ (Strict Rules):
+1. **การเรียกชื่อ:** ใช้ชื่อภาษาไทยที่ระบบส่งมาให้เท่านั้น ห้ามตอบเป็นรหัสภาษาอังกฤษ (เช่น ห้ามตอบ jh_phaya ให้ตอบ ห้องพญาสัตบรรณ)
+2. **วันเวลา:** ระบบจะส่งวันที่แบบไทยไปให้แล้ว ให้ตอบตามนั้นเลย
+3. **ลิงก์ (Links):** - ถ้ามี 'driveLink' ให้แสดงพร้อม Emoji 📂
+   - ถ้ามี 'facebookLink' ให้แสดงพร้อม Emoji 📘 โดยเขียนว่า "ดูโพสต์บน Facebook: [ลิงก์]"
+   - ถ้าฟิลด์ไหนเป็นค่าว่าง ไม่ต้องแสดงบรรทัดนั้น
+4. **ห้ามมั่วข้อมูล:** ถ้าข้อมูลไหนไม่มี ให้บอกว่า "ไม่พบข้อมูล" ห้ามใส่วงเล็บจุดๆ (...) หรือข้อมูลปลอม
+
+ตัวอย่างการตอบเมื่อแจ้งซ่อมเสร็จ:
+"รับแจ้งซ่อมเรียบร้อยค่ะ
+คุณ [ชื่อผู้แจ้ง]
+ช่างจะเข้าไปตรวจสอบโดยเร็วที่สุดค่ะ"
+`;
 
 // ============================================
 // Types & Interfaces
@@ -55,9 +75,9 @@ interface ConversationContext {
         | 'awaiting_side'
         | 'awaiting_final_confirm';
         awaitingConfirmation?: boolean;
-        galleryResults?: PhotographyJob[]; // Added for Gallery Selection State
+        galleryResults?: any[];
     };
-    lastActivity: any; // Timestamp or Date
+    lastActivity: any;
 }
 
 interface AIResponse {
@@ -73,6 +93,29 @@ const CONTEXT_EXPIRY_MINUTES = 30;
 const MAX_CONTEXT_MESSAGES = 10;
 
 // ============================================
+// Helper Functions (Local Formatters)
+// ============================================
+
+// ฟังก์ชันจัดรูปแบบข้อมูลดิบ (สำหรับ RepairTicket ที่ได้จาก Firestore โดยตรง - ใช้ในเมนูช่าง)
+function formatRawRepair(repair: RepairTicket): string {
+    const statusMap: Record<string, string> = {
+        pending: '🟡 รอดำเนินการ',
+        in_progress: '🔵 กำลังซ่อม',
+        waiting_parts: '🟠 รออะไหล่',
+        completed: '🟢 เสร็จแล้ว',
+        cancelled: '⚫ ยกเลิก',
+    };
+
+    let dateStr = '-';
+    if (repair.createdAt) {
+        const date = repair.createdAt instanceof Timestamp ? repair.createdAt.toDate() : new Date(repair.createdAt as any);
+        dateStr = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+    }
+
+    return `🔧 ${repair.room} (${repair.zone})\n📝 ${repair.description}\n📅 ${dateStr}\nสถานะ: ${statusMap[repair.status] || repair.status}`;
+}
+
+// ============================================
 // Context Management
 // ============================================
 
@@ -86,7 +129,6 @@ async function getConversationContext(lineUserId: string): Promise<ConversationC
         const data = contextDoc.data();
         const lastActivity = data.lastActivity?.toDate() ? data.lastActivity.toDate() : new Date();
 
-        // Check if context is expired
         const minutesSinceActivity = (Date.now() - lastActivity.getTime()) / 1000 / 60;
         if (minutesSinceActivity > CONTEXT_EXPIRY_MINUTES) {
             return null;
@@ -103,10 +145,7 @@ async function getConversationContext(lineUserId: string): Promise<ConversationC
     }
 }
 
-async function saveConversationContext(
-    lineUserId: string,
-    context: ConversationContext
-): Promise<void> {
+async function saveConversationContext(lineUserId: string, context: ConversationContext): Promise<void> {
     try {
         const contextRef = doc(db, 'ai_conversations', lineUserId);
         const trimmedMessages = context.messages.slice(-MAX_CONTEXT_MESSAGES);
@@ -136,7 +175,6 @@ async function clearPendingAction(lineUserId: string): Promise<void> {
 
 async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserProfile | null> {
     try {
-        // Method 1: Check line_bindings
         const bindingDoc = await getDoc(doc(db, 'line_bindings', lineUserId));
         if (bindingDoc.exists()) {
             const uid = bindingDoc.data().uid;
@@ -156,7 +194,6 @@ async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserPr
             }
         }
 
-        // Method 2: Check users collection
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('lineUserId', '==', lineUserId), limit(1));
         const snapshot = await getDocs(q);
@@ -183,42 +220,31 @@ async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserPr
 function parseAIResponse(responseText: string): AIResponse {
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-        try {
-            return JSON.parse(jsonMatch[0]);
-        } catch { }
+        try { return JSON.parse(jsonMatch[0]); } catch { }
     }
     return { message: responseText };
 }
 
 function parseThaiDate(dateStr: string): string | undefined {
-    // Current time in UTC (server time)
     const now = new Date();
-    // Shift to Thailand Time (UTC+7)
     const bkkNow = new Date(now.getTime() + (7 * 60 * 60 * 1000));
-
     const str = dateStr.toLowerCase().trim();
 
-    if (str === 'today' || str === 'วันนี้') {
-        return bkkNow.toISOString().split('T')[0];
-    }
+    if (str === 'today' || str === 'วันนี้') return bkkNow.toISOString().split('T')[0];
 
     if (str === 'tomorrow' || str === 'พรุ่งนี้') {
-        const tmr = new Date(bkkNow);
-        tmr.setDate(tmr.getDate() + 1);
+        const tmr = new Date(bkkNow); tmr.setDate(tmr.getDate() + 1);
         return tmr.toISOString().split('T')[0];
     }
 
     if (str === 'yesterday' || str === 'เมื่อวาน' || str === 'เมื่อวานนี้') {
-        const yest = new Date(bkkNow);
-        yest.setDate(yest.getDate() - 1);
+        const yest = new Date(bkkNow); yest.setDate(yest.getDate() - 1);
         return yest.toISOString().split('T')[0];
     }
 
-    // Simple 16/12/2568 parser
     const m = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if (m) {
-        let yr = parseInt(m[3]);
-        if (yr > 2500) yr -= 543;
+        let yr = parseInt(m[3]); if (yr > 2500) yr -= 543;
         const dt = new Date(yr, parseInt(m[2]) - 1, parseInt(m[1]));
         if (!isNaN(dt.getTime())) return dt.toISOString().split('T')[0];
     }
@@ -231,41 +257,20 @@ function parseThaiDate(dateStr: string): string | undefined {
 // Intent Handlers
 // ============================================
 
-async function handleBookRoom(
-    params: Record<string, unknown>,
-    userProfile: UserProfile,
-    execute: boolean
-): Promise<string> {
-    const { room, date, startTime, endTime, title } = params as {
-        room: string;
-        date: string;
-        startTime: string;
-        endTime: string;
-        title: string;
-    };
+async function handleBookRoom(params: Record<string, unknown>, userProfile: UserProfile, execute: boolean): Promise<string> {
+    const { room, date, startTime, endTime, title } = params as { room: string; date: string; startTime: string; endTime: string; title: string; };
 
     if (!execute) {
         const availability = await checkRoomAvailability(room, date, startTime, endTime);
         if (!availability.available) {
-            return `ขออภัยค่ะ ${room} ไม่ว่างในช่วงเวลาที่ต้องการ มีการจองดังนี้:\n${availability.conflicts?.map(
-                (c) => `• ${c.startTime}-${c.endTime}: ${c.title || 'ไม่ระบุหัวข้อ'} (${c.requesterName || 'ไม่ระบุชื่อ'})`
-            ).join('\n')}\n\nต้องการเลือกเวลาอื่นไหมคะ?`;
+            return `ขออภัยค่ะ ${room} ไม่ว่างในช่วงเวลาที่ต้องการ มีการจองดังนี้:\n${availability.conflicts?.map(c => `• ${c.timeRange || `${c.startTime}-${c.endTime}`}: ${c.title || 'ไม่ระบุหัวข้อ'} (${c.requesterName || 'ไม่ระบุชื่อ'})`).join('\n')}\n\nต้องการเลือกเวลาอื่นไหมคะ?`;
         }
         return `ห้องว่างค่ะ ต้องการจอง ${room} วันที่ ${date} เวลา ${startTime}-${endTime} หัวข้อ "${title}" ใช่ไหมคะ? (ตอบ "ใช่" หรือ "ยืนยัน" เพื่อจอง)`;
     }
 
-    const result = await createBookingFromAI(
-        room,
-        date,
-        startTime,
-        endTime,
-        title,
-        userProfile.displayName || userProfile.email,
-        userProfile.email
-    );
-
+    const result = await createBookingFromAI(room, date, startTime, endTime, title, userProfile.displayName || userProfile.email, userProfile.email);
     if (result.success) {
-        return `✅ จองสำเร็จค่ะ!\n\n📅 ${date}\n🕐 ${startTime} - ${endTime}\n📍 ${room}\n📝 ${title}\n\n⏳ สถานะ: รออนุมัติ`;
+        return `✅ จองสำเร็จค่ะ!\n\n📅 ${date}\n🕐 ${startTime} - ${endTime}\n📍 ${result.details?.room || room}\n📝 ${title}\n\n⏳ สถานะ: รออนุมัติ`;
     }
     return `❌ ${result.error}`;
 }
@@ -274,75 +279,63 @@ async function handleCheckRepair(params: Record<string, unknown>, userProfile: U
     const { ticketId } = params as { ticketId?: string };
     if (ticketId) {
         const repair = await getRepairByTicketId(ticketId);
+        // ใช้ formatRawRepair สำหรับข้อมูลดิบจาก Firestore
         if (!repair) return `ไม่พบงานซ่อม Ticket ID: ${ticketId} ค่ะ`;
-        return `📋 สถานะงานซ่อม\n\n${formatRepairForDisplay(repair)}`;
+        return `📋 สถานะงานซ่อม\n\n${formatRawRepair(repair)}`;
     }
+
+    // getRepairsByEmail ส่งข้อมูลที่ format มาแล้ว (มี field: room, description, date, status)
     const repairs = await getRepairsByEmail(userProfile.email);
     if (repairs.length === 0) return 'ไม่พบรายการแจ้งซ่อมของคุณค่ะ';
-    return `📋 รายการแจ้งซ่อมล่าสุดของคุณ\n\n${repairs.map(r => formatRepairForDisplay(r)).join('\n\n')}`;
+
+    return `📋 รายการแจ้งซ่อมล่าสุดของคุณ\n\n${repairs.map(r =>
+        `🔧 ${r.room}\n📝 ${r.description}\n📅 ${r.date}\nสถานะ: ${r.status}`
+    ).join('\n\n')}`;
 }
 
 async function handleCheckAvailability(params: Record<string, unknown>): Promise<string> {
     const { room, date, startTime, endTime } = params as { room?: string; date?: string; startTime?: string; endTime?: string };
     if (room && date && startTime && endTime) {
-        // Normalize date to YYYY-MM-DD using Thai timezone
         const normalizedDate = parseThaiDate(date) || parseThaiDate('today')!;
         const availability = await checkRoomAvailability(room, normalizedDate, startTime, endTime);
-        // Use Thai format for display (e.g., "21 ธ.ค. 2568")
-        const displayDate = date.toLowerCase() === 'today' || date === 'วันนี้'
-            ? 'วันนี้'
-            : formatThaiDate(new Date(normalizedDate));
+        const displayDate = date.toLowerCase() === 'today' || date === 'วันนี้' ? 'วันนี้' : formatThaiDate(new Date(normalizedDate));
+
         return availability.available
             ? `${room} ว่างในช่วงเวลา ${startTime}-${endTime} ${displayDate} ค่ะ ✅`
-            : `${room} ไม่ว่างในช่วงเวลาดังกล่าวค่ะ ❌\nที่มีการจอง:\n${availability.conflicts?.map(c => `• ${c.startTime}-${c.endTime}: ${c.title || 'ไม่ระบุหัวข้อ'} (${c.requesterName || 'ไม่ระบุชื่อ'})`).join('\n')}`;
+            : `${room} ไม่ว่างในช่วงเวลาดังกล่าวค่ะ ❌\nที่มีการจอง:\n${availability.conflicts?.map(c => `• ${c.timeRange}: ${c.title || 'ไม่ระบุหัวข้อ'} (${c.requesterName || 'ไม่ระบุชื่อ'})`).join('\n')}`;
     }
     return handleRoomSchedule(params);
 }
 
 async function handleRoomSchedule(params: Record<string, unknown>): Promise<string> {
     const { room, date } = params as { room?: string; date?: string };
-
-    // Use parseThaiDate for all date handling (it handles 'today' with correct TZ)
     const rawDate = date || 'today';
-    const targetDate = parseThaiDate(rawDate) || parseThaiDate('today')!; // Fallback to today
-    // Use Thai format for display (e.g., "21 ธ.ค. 2568")
-    const displayDate = rawDate.toLowerCase() === 'today' || rawDate === 'วันนี้'
-        ? 'วันนี้'
-        : formatThaiDate(new Date(targetDate));
+    const targetDate = parseThaiDate(rawDate) || parseThaiDate('today')!;
+    const displayDate = rawDate.toLowerCase() === 'today' || rawDate === 'วันนี้' ? 'วันนี้' : formatThaiDate(new Date(targetDate));
 
     if (!room) return `กรุณาระบุห้องที่ต้องการดูตารางด้วยนะคะ (เช่น ขอตารางห้องลีลาวดี วันนี้)`;
 
     const schedule = await getRoomSchedule(room, targetDate);
-    if (schedule.length === 0) return `📅 ตาราง ${room} (${displayDate})\n\n✅ ว่างทั้งวันค่ะ`;
+    if (schedule.length === 0) return `📅 ตาราง ${schedule[0]?.room || room} (${displayDate})\n\n✅ ว่างทั้งวันค่ะ`;
 
     const scheduleList = schedule.map(booking => {
-        const start = booking.startTime instanceof Timestamp
-            ? booking.startTime.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-            : '';
-        const end = booking.endTime instanceof Timestamp
-            ? booking.endTime.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-            : '';
-        return `• ${start}-${end}: ${booking.title || 'ไม่ระบุหัวข้อ'} (${booking.requesterName || 'ไม่ระบุชื่อ'})`;
+        return `• ${booking.startTime}-${booking.endTime}: ${booking.title || 'ไม่ระบุหัวข้อ'} (${booking.requester || 'ไม่ระบุชื่อ'})`;
     }).join('\n');
 
-    return `📅 ตาราง ${room} (${displayDate})\n\n${scheduleList}`;
+    return `📅 ตาราง ${schedule[0]?.room || room} (${displayDate})\n\n${scheduleList}`;
 }
 
 async function handleMyWork(userProfile: UserProfile, params?: Record<string, unknown>): Promise<string> {
     const rawDate = params?.date as string | undefined;
     const date = rawDate && rawDate !== 'undefined' ? rawDate : undefined;
-
-    // Parse date for filtering
     let filterDate: string | undefined;
     let displayDate = '';
 
     if (date) {
-        filterDate = parseThaiDate(date); // Returns YYYY-MM-DD
+        filterDate = parseThaiDate(date);
         if (filterDate) {
             const d = new Date(filterDate);
-            displayDate = isNaN(d.getTime())
-                ? ` (${date})`
-                : ` (${d.toLocaleDateString('th-TH')})`;
+            displayDate = isNaN(d.getTime()) ? ` (${date})` : ` (${d.toLocaleDateString('th-TH')})`;
             if (filterDate === new Date().toISOString().split('T')[0]) displayDate = ' (วันนี้)';
         }
     }
@@ -353,78 +346,66 @@ async function handleMyWork(userProfile: UserProfile, params?: Record<string, un
     // 1. Technician Logic
     if (userProfile.role === 'technician') {
         const zone = userProfile.responsibility || 'all';
-        const myRepairs = await getRepairsForTechnician(zone, filterDate);
+        const myRepairs = await getRepairsForTechnician(zone, filterDate); // Returns Raw RepairTicket[]
         if (myRepairs.length > 0) {
             hasWork = true;
             response += `🔧 **งานซ่อม (${zone === 'all' ? 'ทั้งหมด' : zone})**\n`;
-            response += myRepairs.map(r => formatRepairForDisplay(r)).join('\n\n');
+            response += myRepairs.map(r => formatRawRepair(r)).join('\n\n');
             response += '\n\n';
         } else {
-            if (filterDate) response += `🔧 งานซ่อม: ไม่มีรายการวันที่ระบุค่ะ\n\n`;
-            else response += `🔧 งานซ่อม: ไม่มีงานค้างค่ะ 👍\n\n`;
+            response += filterDate ? `🔧 งานซ่อม: ไม่มีรายการวันที่ระบุค่ะ\n\n` : `🔧 งานซ่อม: ไม่มีงานค้างค่ะ 👍\n\n`;
         }
     }
 
     // 2. Photographer Logic
     if (userProfile.isPhotographer) {
-        const myPhotoJobs = await getPhotoJobsByPhotographer(userProfile.uid, filterDate);
+        const myPhotoJobs = await getPhotoJobsByPhotographer(userProfile.uid, filterDate); // Returns Formatted Objects
         if (myPhotoJobs.length > 0) {
             hasWork = true;
             response += `📸 **งานถ่ายภาพ**\n`;
-            response += myPhotoJobs.map(j => formatPhotoJobForDisplay(j)).join('\n\n');
+            response += myPhotoJobs.map(j => {
+                let txt = `📸 ${j.title}\n📅 ${j.startTime}\n📍 ${j.location}`;
+                if (j.facebookLink) txt += `\n📘 Facebook: ${j.facebookLink}`;
+                return txt;
+            }).join('\n\n');
             response += '\n\n';
         } else {
-            if (filterDate) response += `📸 งานถ่ายภาพ: ไม่มีงานวันที่ระบุค่ะ\n\n`;
-            else response += `📸 งานถ่ายภาพ: ไม่มีงานค่ะ\n\n`;
+            response += filterDate ? `📸 งานถ่ายภาพ: ไม่มีงานวันที่ระบุค่ะ\n\n` : `📸 งานถ่ายภาพ: ไม่มีงานค่ะ\n\n`;
         }
     }
 
     // 3. Moderator/Admin Logic
     if (userProfile.role === 'moderator' || userProfile.role === 'admin') {
-        const pendingBookings = await getPendingBookings(filterDate);
+        const pendingBookings = await getPendingBookings(filterDate); // Returns Formatted Objects
         if (pendingBookings.length > 0) {
             hasWork = true;
             response += `📅 **การจองรออนุมัติ**\n`;
-            response += pendingBookings.map(b => formatBookingForDisplay(b)).join('\n\n');
+            response += pendingBookings.map(b =>
+                `📅 ${b.startTime}\n📍 ${b.room}\n📝 ${b.title}`
+            ).join('\n\n');
             response += '\n\n';
         } else {
-            if (filterDate) response += `📅 การจอง: ไม่มีรายการรออนุมัติวันที่ระบุค่ะ\n\n`;
-            else response += `📅 การจอง: ไม่มีรายการรออนุมัติค่ะ\n\n`;
+            response += filterDate ? `📅 การจอง: ไม่มีรายการรออนุมัติวันที่ระบุค่ะ\n\n` : `📅 การจอง: ไม่มีรายการรออนุมัติค่ะ\n\n`;
         }
     }
 
-    // 4. Regular User Logic (Only show their own stuff)
-    // For regular users, usually they want "My Bookings" history.
-    // If they ask "My Bookings Today", we should filter too?
-    // Let's keep it simple for now, regular users usually invoke CHECK_AVAILABILITY or CHECK_ROOM_SCHEDULE.
-    // But if they say "My Work" (My Bookings), check filtered.
-    if (!userProfile.role || userProfile.role === 'user') { // Strictly user role or fallback
-        const myBookings = await getBookingsByEmail(userProfile.email); // Need update?
-        // getBookingsByEmail doesn't support date yet. Let's do in-memory filter since likely small list.
-        let filteredBookings = myBookings;
-        if (filterDate) {
-            filteredBookings = myBookings.filter(b => {
-                const bDate = b.startTime instanceof Timestamp
-                    ? b.startTime.toDate().toISOString().split('T')[0]
-                    : new Date(b.startTime as unknown as string).toISOString().split('T')[0]; // Simplify
-                // Timezone might be issue here if strict.
-                // Let's use same logic: +7 hrs
-                const dateObj = b.startTime instanceof Timestamp ? b.startTime.toDate() : new Date(b.startTime);
-                const thDate = new Date(dateObj.getTime() + (7 * 60 * 60 * 1000));
-                return thDate.toISOString().split('T')[0] === filterDate;
-            });
-        }
+    // 4. Regular User Logic
+    if (!userProfile.role || userProfile.role === 'user') {
+        const myBookings = await getBookingsByEmail(userProfile.email); // Returns Formatted Objects
+        const filteredBookings = myBookings; // Simple pass-through for now
 
         if (filteredBookings.length > 0) {
             hasWork = true;
             response += `📅 **การจองของคุณ**\n`;
-            response += filteredBookings.slice(0, 3).map(b => formatBookingForDisplay(b)).join('\n\n');
+            response += filteredBookings.slice(0, 3).map(b =>
+                `📅 ${b.start}\n📍 ${b.room}\n📝 ${b.title}\nสถานะ: ${b.status}`
+            ).join('\n\n');
             if (filteredBookings.length > 3) response += `\n...และอีก ${filteredBookings.length - 3} รายการ`;
             response += '\n\n';
         }
     }
 
-    if (response.length < 60) { // Just header + minimal text
+    if (response.length < 60) {
         return `👤 ${userProfile.displayName}${displayDate}\nไม่พบงานหรือรายการที่ต้องดำเนินการค่ะ 😊`;
     }
     return response;
@@ -432,7 +413,7 @@ async function handleMyWork(userProfile: UserProfile, params?: Record<string, un
 
 interface GallerySearchResult {
     message: string;
-    jobs?: PhotographyJob[];
+    jobs?: any[];
 }
 
 async function handleGallerySearchWithResults(params: Record<string, unknown>): Promise<GallerySearchResult> {
@@ -464,25 +445,23 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     }
 
     const listItems = jobs.slice(0, 10).map((job, index) => {
-        const d = job.startTime instanceof Timestamp
-            ? job.startTime.toDate().toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' })
-            : '';
-        const t = job.title.length > 40 ? job.title.substring(0, 40) + '...' : job.title;
-        return `${index + 1}. ${t} (${d})`;
+        return `${index + 1}. ${job.title} (${job.date})`;
     }).join('\n');
     let response = `📸 พบ ${jobs.length} กิจกรรม\n\n${listItems}`;
     if (jobs.length > 10) response += `\n... ${jobs.length - 10} รายการ`;
-    response += '\n\nพิมพ์หมายเลข (เช่น 1) เพื่อดูรูปและลิงก์ Drive ค่ะ'; // Instruction for user
+    response += '\n\nพิมพ์หมายเลข (เช่น 1) เพื่อดูรูปและลิงก์ค่ะ';
 
-    return { message: response, jobs: jobs.slice(0, 10) }; // Return jobs to state
+    return { message: response, jobs: jobs.slice(0, 10) };
 }
 
 async function handleDailySummary(userProfile: UserProfile | null): Promise<string> {
     const summary = await getDailySummary();
+    if (summary.error) return 'ไม่สามารถเรียกดูสรุปงานได้ค่ะ';
+
     if (!userProfile) {
-        return `📊 สรุปวันนี้\n\n🔧 งานซ่อม: ${summary.repairs.total}\n📅 จองห้อง: ${summary.bookings.total}\n📸 งานถ่าย: ${summary.photoJobs.total}\n\n💡 ผูกบัญชีเพื่อดูรายละเอียดเพิ่มเติมค่ะ`;
+        return `📊 สรุปวันนี้ (${summary.date})\n\n🔧 งานซ่อม: ${summary.repairs.total}\n📅 จองห้อง: ${summary.bookings.total}\n📸 งานถ่าย: ${summary.photoJobs.total}\n\n💡 ผูกบัญชีเพื่อดูรายละเอียดเพิ่มเติมค่ะ`;
     }
-    let response = `📊 สรุปงานวันนี้`;
+    let response = `📊 สรุปงานวันนี้ (${summary.date})`;
     if (userProfile.role === 'technician' || userProfile.role === 'admin') {
         response += `\n\n🔧 *งานซ่อม*\n• รอ: ${summary.repairs.pending}\n• กำลังทำ: ${summary.repairs.inProgress}`;
     }
@@ -492,11 +471,7 @@ async function handleDailySummary(userProfile: UserProfile | null): Promise<stri
     return response + `\n\nค่ะ 😊`;
 }
 
-export async function analyzeRepairImage(
-    imageBuffer: Buffer,
-    mimeType: string,
-    symptomDescription: string
-): Promise<string> {
+export async function analyzeRepairImage(imageBuffer: Buffer, mimeType: string, symptomDescription: string): Promise<string> {
     try {
         const imagePart = imageToGenerativePart(imageBuffer, mimeType);
         const prompt = `บทบาท: คุณคือผู้เชี่ยวชาญด้าน IT และโสตทัศนูปกรณ์ (AV Specialist)
@@ -518,27 +493,17 @@ export async function analyzeRepairImage(
         const result = await geminiVisionModel.generateContent([prompt, imagePart]);
         const response = await result.response;
         return response.text();
-    } catch (e) {
-        console.error(e);
-        return 'ไม่สามารถวิเคราะห์รูปภาพได้ค่ะ';
-    }
+    } catch (e) { console.error(e); return 'ไม่สามารถวิเคราะห์รูปภาพได้ค่ะ'; }
 }
 
 // ============================================
 // Main Process Function
 // ============================================
 
-export async function processAIMessage(
-    lineUserId: string,
-    userMessage: string,
-    imageBuffer?: Buffer,
-    imageMimeType?: string
-): Promise<string> {
+export async function processAIMessage(lineUserId: string, userMessage: string, imageBuffer?: Buffer, imageMimeType?: string): Promise<string> {
     const userProfile = await getUserProfileFromLineBinding(lineUserId);
     let context = await getConversationContext(lineUserId);
-    if (!context) {
-        context = { messages: [], lastActivity: new Date() };
-    }
+    if (!context) { context = { messages: [], lastActivity: new Date() }; }
 
     // 1. Account Binding Check
     if (['ผูกบัญชี', 'เชื่อมบัญชี'].some(k => userMessage.includes(k))) {
@@ -555,30 +520,21 @@ export async function processAIMessage(
 
     // 3. Image Handling
     if (imageBuffer && imageMimeType) {
-        // Repair Flow Image
         if (context.pendingAction?.intent === 'CREATE_REPAIR' && context.pendingAction.repairStep === 'awaiting_image') {
             const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, 'ตรวจสอบอุปกรณ์');
             let base64 = imageBuffer.toString('base64');
             if (base64.length > 500 * 1024) base64 = base64.substring(0, 500 * 1024);
 
             context.pendingAction.repairStep = 'awaiting_intent_confirm';
-            context.pendingAction.params = {
-                ...context.pendingAction.params,
-                imageBuffer: base64,
-                imageMimeType,
-                imageAnalysis: analysis,
-                imageUrl: `data:${imageMimeType};base64,${base64}`
-            };
+            context.pendingAction.params = { ...context.pendingAction.params, imageBuffer: base64, imageMimeType, imageAnalysis: analysis, imageUrl: `data:${imageMimeType};base64,${base64}` };
             await saveConversationContext(lineUserId, context);
             return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "ยกเลิก")`;
         }
-
-        // General Image
         const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, 'วิเคราะห์ทั่วไป');
         return analysis;
     }
 
-    // 4. Pending Actions (State Machine)
+    // 4. Pending Actions
     if (context.pendingAction) {
         const { intent, repairStep, params, galleryResults } = context.pendingAction;
         const msg = userMessage.trim();
@@ -588,7 +544,6 @@ export async function processAIMessage(
             return 'ยกเลิกเรียบร้อยค่ะ';
         }
 
-        // --- REPAIR FLOW ---
         if (intent === 'CREATE_REPAIR') {
             if (repairStep === 'awaiting_symptom') {
                 context.pendingAction.params.description = msg;
@@ -607,17 +562,14 @@ export async function processAIMessage(
             }
             if (repairStep === 'awaiting_intent_confirm') {
                 if (['ใช่', 'ยืนยัน', 'ok', 'ครับ', 'ค่ะ'].some(k => msg.toLowerCase().includes(k))) {
-                    // Check if room is missing
                     if (!params.room) {
                         context.pendingAction.repairStep = 'awaiting_room';
                         await saveConversationContext(lineUserId, context);
                         return 'ขอทราบสถานที่/ห้อง ที่อุปกรณ์มีปัญหาด้วยค่ะ?';
                     }
-                    // If room exists, proceed to side check or create
                     context.pendingAction.repairStep = 'awaiting_side';
                     await saveConversationContext(lineUserId, context);
                     return `อุปกรณ์อยู่ที่ห้อง ${params.room} ใช่มั้ยคะ? อยู่ฝั่ง ม.ต้น หรือ ม.ปลาย คะ?`;
-
                 } else {
                     await clearPendingAction(lineUserId);
                     return 'ยกเลิกการแจ้งซ่อมแล้วค่ะ';
@@ -633,128 +585,84 @@ export async function processAIMessage(
                 context.pendingAction.params.side = msg;
                 if (!userProfile) return 'คุณยังไม่ได้ผูกบัญชี กรุณาผ่านบัญชีก่อนแจ้งซ่อมค่ะ';
 
-                const res = await createRepairFromAI(
-                    params.room,
-                    params.description,
-                    msg,
-                    params.imageUrl || '',
-                    userProfile.displayName || 'ผู้ใช้ LINE',
-                    userProfile.email
-                );
+                const res = await createRepairFromAI(params.room, params.description, msg, params.imageUrl || '', userProfile.displayName || 'ผู้ใช้ LINE', userProfile.email);
                 await clearPendingAction(lineUserId);
-                return res.success ? `✅ รับแจ้งซ่อมเรียบร้อยค่ะ\nLine ID: ${res.ticketId}\nช่างจะเข้าไปตรวจสอบโดยเร็วที่สุดค่ะ` : `❌ เกิดข้อผิดพลาด: ${res.error}`;
+
+                if (res.success) {
+                    return `✅ รับแจ้งซ่อมเรียบร้อยค่ะ\nคุณ ${res.data?.requesterName || 'ผู้แจ้ง'}\n📍 สถานที่: ${res.data?.roomName}\n📅 วันที่แจ้ง: ${res.data?.createdAt}\n\nช่างจะเข้าไปตรวจสอบโดยเร็วที่สุดค่ะ`;
+                }
+                return `❌ เกิดข้อผิดพลาด: ${res.error}`;
             }
         }
 
-        // --- GALLERY SELECTION FLOW ---
         if (intent === 'GALLERY_SELECT' && galleryResults) {
             const selectedIndex = parseInt(msg) - 1;
             if (!isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < galleryResults.length) {
                 const job = galleryResults[selectedIndex];
-                await clearPendingAction(lineUserId); // Clear state after selection
-
-                const d = job.startTime instanceof Timestamp
-                    ? job.startTime.toDate().toLocaleDateString('th-TH')
-                    : '';
-
-                let reply = `📸 **${job.title}**\n📅 ${d}\n📍 ${job.location || '-'}\n\n🔗 Drive: ${job.driveLink || 'ไม่มีลิงก์'}`;
-                if (job.facebookPermalink) {
-                    reply += `\n🔗 Facebook: ${job.facebookPermalink}`;
-                }
+                await clearPendingAction(lineUserId);
+                let reply = `📸 **${job.title}**\n📅 ${job.date}\n📍 ${job.location || '-'}\n\n🔗 Drive: ${job.driveLink}`;
+                if (job.facebookLink) { reply += `\n📘 Facebook: ${job.facebookLink}`; }
                 return reply;
             }
-            // If not a number, fall through to AI (maybe they are asking something else)
         }
     }
 
-    // 5. Natural Language Processing (Gemini)
+    // 5. NLP (Gemini) with System Prompt Injection
     try {
-        // Add pending gallery results to history for context
-        let history = context.messages.map(m => ({
-            role: m.role,
-            parts: [{ text: m.content }]
-        }));
+        const history: { role: 'user' | 'model'; parts: { text: string }[] }[] = [
+            { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
+            { role: 'model', parts: [{ text: "รับทราบค่ะ ฉันจะปฏิบัติตามกฎอย่างเคร่งครัด" }] },
+            ...context.messages.map(m => ({ role: m.role, parts: [{ text: m.content }] }))
+        ];
 
         const chat = startAIChat(history);
         const result = await chat.sendMessage(userMessage);
         const responseText = result.response.text();
 
-        // Save User Message
         context.messages.push({ role: 'user', content: userMessage, timestamp: new Date() });
-
-        // Parse JSON response
         const aiRes = parseAIResponse(responseText);
 
         if (aiRes.intent) {
             let reply = '';
-
-            // Dispatch Intents
             switch (aiRes.intent) {
                 case 'CHECK_REPAIR':
                     if (!userProfile) { reply = 'กรุณาผูกบัญชีก่อนตรวจสอบสถานะค่ะ'; break; }
-                    reply = await handleCheckRepair(aiRes.params || {}, userProfile);
-                    break;
-                case 'CHECK_ROOM_SCHEDULE':
-                    reply = await handleRoomSchedule(aiRes.params || {});
-                    break;
-                case 'CHECK_AVAILABILITY':
-                    reply = await handleCheckAvailability(aiRes.params || {});
-                    break;
-                case 'MY_WORK': // Unified Intent
+                    reply = await handleCheckRepair(aiRes.params || {}, userProfile); break;
+                case 'CHECK_ROOM_SCHEDULE': reply = await handleRoomSchedule(aiRes.params || {}); break;
+                case 'CHECK_AVAILABILITY': reply = await handleCheckAvailability(aiRes.params || {}); break;
+                case 'MY_WORK':
                 case 'MY_BOOKINGS':
                 case 'MY_PHOTO_JOBS':
                     if (!userProfile) { reply = 'กรุณาผูกบัญชีก่อนดูงานของคุณค่ะ'; break; }
-                    reply = await handleMyWork(userProfile, aiRes.params);
-                    break;
+                    reply = await handleMyWork(userProfile, aiRes.params); break;
                 case 'GALLERY_SEARCH':
                     const searchRes = await handleGallerySearchWithResults(aiRes.params || {});
                     reply = searchRes.message;
-                    // If jobs found, set pending action for selection
                     if (searchRes.jobs && searchRes.jobs.length > 0) {
-                        context.pendingAction = {
-                            intent: 'GALLERY_SELECT',
-                            params: {},
-                            galleryResults: searchRes.jobs // Save results to context
-                        };
+                        context.pendingAction = { intent: 'GALLERY_SELECT', params: {}, galleryResults: searchRes.jobs };
                     }
                     break;
-                case 'DAILY_SUMMARY':
-                    reply = await handleDailySummary(userProfile);
-                    break;
+                case 'DAILY_SUMMARY': reply = await handleDailySummary(userProfile); break;
                 case 'CREATE_REPAIR':
-                    // Start Repair Flow
-                    context.pendingAction = {
-                        intent: 'CREATE_REPAIR',
-                        repairStep: 'awaiting_symptom',
-                        params: aiRes.params || {}
-                    };
-                    // If AI extracted description, go next
+                    context.pendingAction = { intent: 'CREATE_REPAIR', repairStep: 'awaiting_symptom', params: aiRes.params || {} };
                     if (aiRes.params?.description || aiRes.params?.symptom) {
                         context.pendingAction.params.description = aiRes.params.description || aiRes.params.symptom;
                         context.pendingAction.repairStep = 'awaiting_image';
                         reply = `รับแจ้งซ่อม "${context.pendingAction.params.description}" ค่ะ\n\n📸 มีรูปถ่ายอาการไหมคะ? (ส่งรูปมาได้เลย หรือตอบ "ไม่มี")`;
-                    } else {
-                        reply = 'ขอทราบอาการเสีย หรืออุปกรณ์ที่มีปัญหาด้วยค่ะ?';
-                    }
+                    } else { reply = 'ขอทราบอาการเสีย หรืออุปกรณ์ที่มีปัญหาด้วยค่ะ?'; }
                     await saveConversationContext(lineUserId, context);
                     break;
-                default:
-                    reply = aiRes.message || 'ขออภัยค่ะ ไม่เข้าใจคำสั่ง';
+                default: reply = aiRes.message || 'ขออภัยค่ะ ไม่เข้าใจคำสั่ง';
             }
-
-            // Save Model Response
             context.messages.push({ role: 'model', content: reply, timestamp: new Date() });
             await saveConversationContext(lineUserId, context);
             return reply;
-
         } else {
-            // General Chat
             const reply = aiRes.message || responseText;
             context.messages.push({ role: 'model', content: reply, timestamp: new Date() });
             await saveConversationContext(lineUserId, context);
             return reply;
         }
-
     } catch (error) {
         console.error('AI Error:', error);
         return 'ขออภัยค่ะ ระบบขัดข้องชั่วคราว กรุณาลองใหม่ภายหลังนะคะ';

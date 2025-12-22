@@ -1,8 +1,9 @@
 /**
- * AI Agent Functions (FIXED VERSION 3)
- * - Remove Synonym Expansion (Strict Search)
- * - Fix Room Names (ID -> Thai Name)
- * - Fix Timezone (UTC -> Thai Time string)
+ * AI Agent Functions (COMPLETE FIXED VERSION)
+ * - แก้ไขการค้นหาชื่อผู้ใช้จาก Email (แทน Line ID)
+ * - แปลงรหัสห้อง/สถานที่ เป็นชื่อภาษาไทย
+ * - แปลงเวลาเป็นรูปแบบไทย (วว ด.ด. ปปปป เวลา xx:xx น.)
+ * - ดึงลิงก์ Facebook และ Drive ส่งให้ AI
  */
 
 import { db } from '@/lib/firebase';
@@ -25,7 +26,7 @@ import { Booking, RepairTicket, PhotographyJob } from '@/types';
 // 1. MAPPINGS & HELPERS
 // ============================================================================
 
-// Room mapping (User Input -> ID)
+// [MAPPING 1] ชื่อไทย -> รหัส (สำหรับรับค่าตอน User สั่งงาน AI)
 const ROOM_MAPPING: Record<string, string> = {
     // Junior High
     'ห้องพญาสัตบรรณ': 'jh_phaya', 'พญาสัตบรรณ': 'jh_phaya', 'พญา': 'jh_phaya', 'ห้องประชุมพญาสัตบรรณ': 'jh_phaya',
@@ -39,7 +40,7 @@ const ROOM_MAPPING: Record<string, string> = {
     'ชั้น 3 อาคารอำนวยการ': 'sh_admin_3', 'ห้องอำนวยการ': 'sh_admin_3', 'อาคาร 3': 'sh_admin_3', 'ห้องประชุมชั้น 3': 'sh_admin_3', 'ห้องประชุมอำนวยการ': 'sh_admin_3',
 };
 
-// [NEW] Reverse Room Mapping (ID -> Thai Name output for AI)
+// [MAPPING 2] รหัส -> ชื่อไทยสวยๆ (สำหรับส่งกลับให้ AI ตอบ User)
 const ROOM_NAME_DISPLAY: Record<string, string> = {
     'jh_phaya': 'ห้องพญาสัตบรรณ (ม.ต้น)',
     'jh_gym': 'โรงยิม (ม.ต้น)',
@@ -54,7 +55,6 @@ const ROOM_NAME_DISPLAY: Record<string, string> = {
     'senior_high': 'ม.ปลาย'
 };
 
-// Side mapping
 const SIDE_MAPPING: Record<string, string> = {
     'ม.ต้น': 'junior_high', 'มต้น': 'junior_high', 'ม ต้น': 'junior_high', 'junior': 'junior_high', 'junior_high': 'junior_high',
     'ม.ปลาย': 'senior_high', 'มปลาย': 'senior_high', 'ม ปลาย': 'senior_high', 'senior': 'senior_high', 'senior_high': 'senior_high',
@@ -63,33 +63,33 @@ const SIDE_MAPPING: Record<string, string> = {
 
 // --- Helpers ---
 
-// Helper: Convert ID to Thai Name
+// ฟังก์ชันแปลงรหัสห้องเป็นชื่อไทย
 function getRoomDisplayName(id: string): string {
-    return ROOM_NAME_DISPLAY[id] || id;
+    return ROOM_NAME_DISPLAY[id] || id; // ถ้าไม่มีในลิสต์ ให้คืนค่าเดิม
 }
 
-// Helper: Format Date to Thai String (Fixed Timezone Issue)
-// AI จะได้รับ string นี้ไปตอบ ทำให้เวลาตรงแน่นอน
+// ฟังก์ชันแปลงเวลาเป็นภาษาไทย (ปรุงสุกให้ AI)
 function formatToThaiTime(dateInput: any): string {
     if (!dateInput) return '-';
-    const date = dateInput instanceof Timestamp ? dateInput.toDate() : new Date(dateInput);
-
-    // บังคับ Timezone Asia/Bangkok
-    return date.toLocaleString('th-TH', {
-        timeZone: 'Asia/Bangkok',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    try {
+        const date = dateInput instanceof Timestamp ? dateInput.toDate() : new Date(dateInput);
+        // แปลงเป็น "22 ธ.ค. 2568 เวลา 14:30 น."
+        return date.toLocaleString('th-TH', {
+            timeZone: 'Asia/Bangkok',
+            year: 'numeric',
+            month: 'short', // หรือ 'long' ถ้าอยากได้เดือนเต็ม
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        }) + " น.";
+    } catch (e) {
+        return '-';
+    }
 }
 
 function getThaiDateRange(dateStr: string): { start: Timestamp, end: Timestamp } {
     const [year, month, day] = dateStr.split('-').map(Number);
-    // UTC Midnight
     const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-    // Offset -7 hours for Thai start
     const thaiStart = new Date(utcMidnight.getTime() - (7 * 60 * 60 * 1000));
     const thaiEnd = new Date(thaiStart.getTime() + (24 * 60 * 60 * 1000) - 1);
     return { start: Timestamp.fromDate(thaiStart), end: Timestamp.fromDate(thaiEnd) };
@@ -99,11 +99,10 @@ function getThaiDateRange(dateStr: string): { start: Timestamp, end: Timestamp }
 // 2. MAIN FUNCTIONS
 // ============================================================================
 
-// --- GALLERY SEARCH (Strict Version: No Synonyms) ---
+// --- GALLERY SEARCH (ค้นหารูปภาพ) ---
 export async function searchGallery(keyword?: string, date?: string): Promise<any[]> {
     try {
         console.log(`[Gallery Search] Input: "${keyword}", Date: "${date}"`);
-
         const jobsRef = collection(db, 'photography_jobs');
         const q = query(jobsRef, orderBy('startTime', 'desc'), limit(100));
         const snapshot = await getDocs(q);
@@ -113,42 +112,42 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
         snapshot.forEach((doc) => {
             const data = doc.data();
             if (data.status === 'completed') {
-                // แปลงข้อมูลให้ AI อ่านง่ายๆ
                 jobs.push({
                     id: doc.id,
                     title: data.title,
-                    location: data.location,
-                    date: formatToThaiTime(data.startTime), // ส่งเวลาไทยกลับไป
-                    driveLink: data.driveLink || null,
-                    facebookLink: data.facebookPermalink || null, // [NEW] ลิงก์ Facebook
-                    rawStartTime: data.startTime // เก็บไว้เผื่อ sort
+                    // [แก้ไข 1] แปลงรหัสเป็นชื่อไทย
+                    location: getRoomDisplayName(data.location),
+                    // [แก้ไข 2] แปลงวันที่เป็นไทย
+                    date: formatToThaiTime(data.startTime),
+                    driveLink: data.driveLink || 'ไม่มีลิงก์ Drive',
+                    // [แก้ไข 3] ดึง Link Facebook ออกมาส่งให้ AI (รองรับทั้ง field เก่าและใหม่)
+                    facebookLink: data.facebookPermalink || data.facebookPostLink || '',
+                    rawStartTime: data.startTime
                 });
             }
         });
 
-        // 1. Filter Date
+        // Filter Date
         if (date) {
             const targetYMD = date.split('T')[0];
             jobs = jobs.filter(job => {
                 const jDate = job.rawStartTime instanceof Timestamp ? job.rawStartTime.toDate() : new Date(job.rawStartTime);
-                const thDate = new Date(jDate.getTime() + (7 * 60 * 60 * 1000)); // shift logic manually for check
+                const thDate = new Date(jDate.getTime() + (7 * 60 * 60 * 1000));
                 return thDate.toISOString().split('T')[0] === targetYMD;
             });
         }
 
-        // 2. Strict Keyword Search (ตัด Synonym ออก)
+        // Keyword Search
         if (keyword) {
             const cleanKeyword = keyword.trim().toLowerCase();
             const tokens = cleanKeyword.split(/[\s,]+/).filter(t => t.length > 0);
-
             jobs = jobs.filter(job => {
                 const textToSearch = `${job.title} ${job.location}`.toLowerCase();
-                // ต้องมีคำค้นหาปรากฏอยู่จริง (Simple Include)
                 return tokens.some(token => textToSearch.includes(token));
             });
         }
 
-        // Return แค่ข้อมูลที่จำเป็น (ตัด rawStartTime ออกก่อนส่ง)
+        // Return ข้อมูลให้ AI (ตัดข้อมูลดิบทิ้ง ส่งไปแต่ที่ปรุงแล้ว)
         return jobs.slice(0, 10).map(({ rawStartTime, ...rest }) => rest);
 
     } catch (error) {
@@ -157,7 +156,38 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
     }
 }
 
-// --- REPAIR FUNCTIONS ---
+// --- PHOTO JOBS (งานของฉัน) ---
+export async function getPhotoJobsByPhotographer(userId: string, date?: string): Promise<any[]> {
+    try {
+        const q = query(collection(db, 'photography_jobs'), where('assigneeIds', 'array-contains', userId), orderBy('startTime', 'desc'), limit(50));
+        const snapshot = await getDocs(q);
+        let jobs: any[] = [];
+
+        snapshot.forEach((doc) => {
+            const d = doc.data();
+            jobs.push({
+                id: doc.id,
+                title: d.title,
+                location: getRoomDisplayName(d.location),
+                status: d.status,
+                startTime: formatToThaiTime(d.startTime),
+                facebookLink: d.facebookPermalink || '',
+                rawStart: d.startTime
+            });
+        });
+
+        if (date) {
+            const target = date.split('T')[0];
+            jobs = jobs.filter(j => {
+                const t = new Date((j.rawStart instanceof Timestamp ? j.rawStart.toDate() : new Date(j.rawStart)).getTime() + (7 * 60 * 60 * 1000));
+                return t.toISOString().split('T')[0] === target;
+            });
+        }
+        return jobs.map(({ rawStart, ...rest }) => rest);
+    } catch (e) { return []; }
+}
+
+// --- REPAIR (แจ้งซ่อม) ---
 
 export interface CreateRepairResult { success: boolean; ticketId?: string; error?: string; data?: any }
 
@@ -165,38 +195,33 @@ export async function createRepairFromAI(
     room: string, description: string, side: string, imageUrl: string, requesterName: string, requesterEmail: string
 ): Promise<CreateRepairResult> {
     try {
-        if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
-
-        // [NEW] Lookup user's displayName from Firestore using email
+        // [แก้ไข 4] ค้นหาชื่อจริงจาก Users collection
         let finalRequesterName = requesterName || 'ผู้แจ้งผ่าน LINE';
-        if (requesterEmail) {
-            try {
-                const usersRef = collection(db, 'users');
-                const userQuery = query(usersRef, where('email', '==', requesterEmail), limit(1));
-                const userSnapshot = await getDocs(userQuery);
 
-                if (!userSnapshot.empty) {
-                    const userData = userSnapshot.docs[0].data();
-                    if (userData.displayName) {
-                        finalRequesterName = userData.displayName; // Use Google Name
-                        console.log(`[createRepairFromAI] Found user displayName: ${finalRequesterName}`);
-                    }
+        if (requesterEmail) {
+            const usersRef = collection(db, 'users');
+            const userQ = query(usersRef, where('email', '==', requesterEmail), limit(1));
+            const userSnap = await getDocs(userQ);
+
+            if (!userSnap.empty) {
+                const userData = userSnap.docs[0].data();
+                // ใช้ displayName ถ้ามี ถ้าไม่มีใช้ชื่อเดิม
+                if (userData.displayName) {
+                    finalRequesterName = userData.displayName;
                 }
-            } catch (lookupError) {
-                console.error('[createRepairFromAI] User lookup error:', lookupError);
-                // Continue with provided name if lookup fails
             }
         }
+
+        if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
 
         const normalizedSide = SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
         const images: string[] = imageUrl && imageUrl !== 'pending_upload' && imageUrl !== '' ? [imageUrl] : [];
 
         const repairData = {
-            room,
-            description,
+            room, description,
             zone: normalizedSide as 'junior_high' | 'senior_high' | 'common',
             images,
-            requesterName: finalRequesterName, // Use looked-up name
+            requesterName: finalRequesterName, // ใช้ชื่อจริงที่หาเจอ
             requesterEmail: requesterEmail || '',
             position: 'แจ้งผ่าน LINE', phone: '-', status: 'pending' as const,
             createdAt: serverTimestamp(), updatedAt: serverTimestamp(), source: 'line_ai',
@@ -221,9 +246,8 @@ export async function createRepairFromAI(
             ticketId: docRef.id,
             data: {
                 ...repairData,
-                requesterName: finalRequesterName, // [NEW] Explicit name for AI to use
-                roomName: getRoomDisplayName(room), // ส่งชื่อไทยกลับไปให้ AI ตอบ
-                createdAt: formatToThaiTime(new Date())
+                roomName: getRoomDisplayName(room), // แปลงชื่อห้องให้ AI ตอบ
+                createdAt: formatToThaiTime(new Date()) // แปลงเวลาให้ AI ตอบ
             }
         };
     } catch (error) { return { success: false, error: 'เกิดข้อผิดพลาด' }; }
@@ -238,14 +262,32 @@ export async function getRepairsByEmail(email: string): Promise<any[]> {
             const d = doc.data();
             repairs.push({
                 id: doc.id,
-                room: getRoomDisplayName(d.room), // แปลงชื่อห้อง
+                room: getRoomDisplayName(d.room),
                 description: d.description,
                 status: d.status,
-                date: formatToThaiTime(d.createdAt) // แปลงเวลาไทย
+                date: formatToThaiTime(d.createdAt)
             });
         });
         return repairs;
     } catch (error) { return []; }
+}
+
+export async function getRepairsForTechnician(zone: string | 'all', date?: string): Promise<RepairTicket[]> {
+    try {
+        const repairsRef = collection(db, 'repair_tickets');
+        let q;
+        if (zone === 'all') { q = query(repairsRef, where('status', 'in', ['pending', 'in_progress', 'waiting_parts']), orderBy('createdAt', 'desc'), limit(50)); }
+        else { q = query(repairsRef, where('zone', '==', zone), where('status', 'in', ['pending', 'in_progress', 'waiting_parts']), orderBy('createdAt', 'desc'), limit(50)); }
+        const snapshot = await getDocs(q);
+        let repairs: RepairTicket[] = [];
+        snapshot.forEach((doc) => repairs.push({ id: doc.id, ...doc.data() } as RepairTicket));
+        if (date) { const targetYMD = date.split('T')[0]; repairs = repairs.filter(r => { const rDate = r.createdAt instanceof Timestamp ? r.createdAt.toDate() : new Date(r.createdAt as any); const thDate = new Date(rDate.getTime() + (7 * 60 * 60 * 1000)); return thDate.toISOString().split('T')[0] === targetYMD; }); }
+        return repairs;
+    } catch (error) { return []; }
+}
+
+export async function getRepairByTicketId(ticketId: string): Promise<RepairTicket | null> {
+    try { const docRef = doc(db, 'repair_tickets', ticketId); const docSnap = await getDoc(docRef); if (!docSnap.exists()) return null; return { id: docSnap.id, ...docSnap.data() } as RepairTicket; } catch (error) { return null; }
 }
 
 // --- BOOKING FUNCTIONS ---
@@ -267,21 +309,16 @@ export async function checkRoomAvailability(room: string, date: string, startTim
 
         snapshot.forEach((doc) => {
             const b = doc.data();
-            // Convert DB timestamp to Thai Date object for calculation
             const bStart = b.startTime instanceof Timestamp ? b.startTime.toDate() : new Date(b.startTime);
             const bEnd = b.endTime instanceof Timestamp ? b.endTime.toDate() : new Date(b.endTime);
-
-            // Shift to Thai Time strictly for comparison logic
             const thStart = new Date(bStart.getTime() + (7 * 60 * 60 * 1000));
             const thEnd = new Date(bEnd.getTime() + (7 * 60 * 60 * 1000));
-
             const bStartM = thStart.getUTCHours() * 60 + thStart.getUTCMinutes();
             const bEndM = thEnd.getUTCHours() * 60 + thEnd.getUTCMinutes();
 
             if (reqStart < bEndM && reqEnd > bStartM) {
                 conflicts.push({
                     title: b.title,
-                    // Return human readable Thai time string
                     timeRange: `${thStart.getUTCHours().toString().padStart(2, '0')}:${thStart.getUTCMinutes().toString().padStart(2, '0')} - ${thEnd.getUTCHours().toString().padStart(2, '0')}:${thEnd.getUTCMinutes().toString().padStart(2, '0')}`,
                     requesterName: b.requesterName,
                 });
@@ -304,21 +341,17 @@ export async function getRoomSchedule(room: string, date: string): Promise<any[]
             bookings.push({
                 id: doc.id,
                 title: data.title,
-                room: getRoomDisplayName(data.room), // ชื่อห้องไทย
+                room: getRoomDisplayName(data.room),
                 status: data.status,
                 requester: data.requesterName,
-                startTime: formatToThaiTime(data.startTime), // เวลาไทย
-                endTime: formatToThaiTime(data.endTime),     // เวลาไทย
-                rawStart: data.startTime // internal sort
+                startTime: formatToThaiTime(data.startTime),
+                endTime: formatToThaiTime(data.endTime),
+                rawStart: data.startTime
             });
         });
 
-        // Sort by time
         bookings.sort((a, b) => (a.rawStart?.toMillis() || 0) - (b.rawStart?.toMillis() || 0));
-
-        // Remove raw data before sending to AI
         return bookings.map(({ rawStart, ...rest }) => rest);
-
     } catch (error) { return []; }
 }
 
@@ -395,40 +428,6 @@ export async function getPendingBookings(date?: string): Promise<any[]> {
         return bookings.map(({ rawStart, ...rest }) => rest);
     } catch (e) { return []; }
 }
-
-// --- PHOTO JOB FUNCTIONS ---
-
-export async function getPhotoJobsByPhotographer(userId: string, date?: string): Promise<any[]> {
-    try {
-        const q = query(collection(db, 'photography_jobs'), where('assigneeIds', 'array-contains', userId), orderBy('startTime', 'desc'), limit(50));
-        const snapshot = await getDocs(q);
-        let jobs: any[] = [];
-        snapshot.forEach((doc) => {
-            const d = doc.data();
-            jobs.push({
-                id: doc.id,
-                title: d.title,
-                location: d.location,
-                status: d.status,
-                startTime: formatToThaiTime(d.startTime),
-                driveLink: d.driveLink || null,
-                facebookLink: d.facebookPermalink || null, // [NEW] ลิงก์ Facebook
-                rawStart: d.startTime
-            });
-        });
-
-        if (date) {
-            const target = date.split('T')[0];
-            jobs = jobs.filter(j => {
-                const t = new Date((j.rawStart instanceof Timestamp ? j.rawStart.toDate() : new Date(j.rawStart)).getTime() + (7 * 60 * 60 * 1000));
-                return t.toISOString().split('T')[0] === target;
-            });
-        }
-        return jobs.map(({ rawStart, ...rest }) => rest);
-    } catch (e) { return []; }
-}
-
-// --- SUMMARY ---
 
 export async function getDailySummary(date: Date = new Date()): Promise<any> {
     try {
