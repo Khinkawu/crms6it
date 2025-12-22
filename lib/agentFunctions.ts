@@ -119,7 +119,8 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
                     title: data.title,
                     location: data.location,
                     date: formatToThaiTime(data.startTime), // ส่งเวลาไทยกลับไป
-                    driveLink: data.driveLink,
+                    driveLink: data.driveLink || null,
+                    facebookLink: data.facebookPermalink || null, // [NEW] ลิงก์ Facebook
                     rawStartTime: data.startTime // เก็บไว้เผื่อ sort
                 });
             }
@@ -166,6 +167,27 @@ export async function createRepairFromAI(
     try {
         if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
 
+        // [NEW] Lookup user's displayName from Firestore using email
+        let finalRequesterName = requesterName || 'ผู้แจ้งผ่าน LINE';
+        if (requesterEmail) {
+            try {
+                const usersRef = collection(db, 'users');
+                const userQuery = query(usersRef, where('email', '==', requesterEmail), limit(1));
+                const userSnapshot = await getDocs(userQuery);
+
+                if (!userSnapshot.empty) {
+                    const userData = userSnapshot.docs[0].data();
+                    if (userData.displayName) {
+                        finalRequesterName = userData.displayName; // Use Google Name
+                        console.log(`[createRepairFromAI] Found user displayName: ${finalRequesterName}`);
+                    }
+                }
+            } catch (lookupError) {
+                console.error('[createRepairFromAI] User lookup error:', lookupError);
+                // Continue with provided name if lookup fails
+            }
+        }
+
         const normalizedSide = SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
         const images: string[] = imageUrl && imageUrl !== 'pending_upload' && imageUrl !== '' ? [imageUrl] : [];
 
@@ -174,7 +196,7 @@ export async function createRepairFromAI(
             description,
             zone: normalizedSide as 'junior_high' | 'senior_high' | 'common',
             images,
-            requesterName: requesterName || 'ผู้แจ้งผ่าน LINE',
+            requesterName: finalRequesterName, // Use looked-up name
             requesterEmail: requesterEmail || '',
             position: 'แจ้งผ่าน LINE', phone: '-', status: 'pending' as const,
             createdAt: serverTimestamp(), updatedAt: serverTimestamp(), source: 'line_ai',
@@ -188,7 +210,7 @@ export async function createRepairFromAI(
             await fetch(`${apiUrl}/api/notify-repair`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    ticketId: docRef.id, requesterName: requesterName || 'ผู้แจ้งผ่าน LINE',
+                    ticketId: docRef.id, requesterName: finalRequesterName,
                     room, description, imageOneUrl: images[0] || '', zone: normalizedSide
                 })
             });
@@ -199,6 +221,7 @@ export async function createRepairFromAI(
             ticketId: docRef.id,
             data: {
                 ...repairData,
+                requesterName: finalRequesterName, // [NEW] Explicit name for AI to use
                 roomName: getRoomDisplayName(room), // ส่งชื่อไทยกลับไปให้ AI ตอบ
                 createdAt: formatToThaiTime(new Date())
             }
@@ -388,6 +411,8 @@ export async function getPhotoJobsByPhotographer(userId: string, date?: string):
                 location: d.location,
                 status: d.status,
                 startTime: formatToThaiTime(d.startTime),
+                driveLink: d.driveLink || null,
+                facebookLink: d.facebookPermalink || null, // [NEW] ลิงก์ Facebook
                 rawStart: d.startTime
             });
         });
