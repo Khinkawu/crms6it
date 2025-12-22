@@ -1,7 +1,8 @@
 /**
- * AI Agent Functions (GOD-TIER VERSION)
- * - Search Engine V2: รองรับคำไวพจน์ (Synonyms) + แก้คำผิด (Fuzzy Search)
- * - Display V2: แสดงชื่อห้องภาษาไทยถูกต้อง
+ * AI Agent Functions (FIXED VERSION 3)
+ * - Remove Synonym Expansion (Strict Search)
+ * - Fix Room Names (ID -> Thai Name)
+ * - Fix Timezone (UTC -> Thai Time string)
  */
 
 import { db } from '@/lib/firebase';
@@ -21,21 +22,10 @@ import {
 import { Booking, RepairTicket, PhotographyJob } from '@/types';
 
 // ============================================================================
-// 1. MAPPINGS & CONFIGURATION
+// 1. MAPPINGS & HELPERS
 // ============================================================================
 
-// [SEARCH CONFIG] คลังคำศัพท์/คำไวพจน์ (เพิ่มได้ตามต้องการ)
-const SYNONYMS: Record<string, string[]> = {
-    'ติว': ['สอน', 'เรียน', 'วิชาการ', 'o-net', 'tgat', 'tpat', 'a-level', 'สอบ', 'camp'],
-    'กีฬา': ['sport', 'ฟุตบอล', 'บาส', 'วอลเลย์', 'วิ่ง', 'futsal', 'แบดมินตัน', 'แข่งขัน'],
-    'ดนตรี': ['music', 'concert', 'วงโย', 'โฟล์คซอง', 'การแสดง', 'ดุริยางค์'],
-    'เข้าค่าย': ['camp', 'ลูกเสือ', 'เนตรนารี', 'ยุว', 'ทัศนศึกษา', 'field trip'],
-    'ประชุม': ['meeting', 'อบรม', 'สัมมนา', 'conference', 'workshop'],
-    'กิจกรรม': ['activity', 'งาน', 'event', 'พิธี'],
-    'ไหว้ครู': ['พาน', 'ครู'],
-};
-
-// Room mapping (ชื่อไทย -> รหัส)
+// Room mapping (User Input -> ID)
 const ROOM_MAPPING: Record<string, string> = {
     // Junior High
     'ห้องพญาสัตบรรณ': 'jh_phaya', 'พญาสัตบรรณ': 'jh_phaya', 'พญา': 'jh_phaya', 'ห้องประชุมพญาสัตบรรณ': 'jh_phaya',
@@ -49,7 +39,7 @@ const ROOM_MAPPING: Record<string, string> = {
     'ชั้น 3 อาคารอำนวยการ': 'sh_admin_3', 'ห้องอำนวยการ': 'sh_admin_3', 'อาคาร 3': 'sh_admin_3', 'ห้องประชุมชั้น 3': 'sh_admin_3', 'ห้องประชุมอำนวยการ': 'sh_admin_3',
 };
 
-// Room Display Name (รหัส -> ชื่อไทย)
+// [NEW] Reverse Room Mapping (ID -> Thai Name output for AI)
 const ROOM_NAME_DISPLAY: Record<string, string> = {
     'jh_phaya': 'ห้องพญาสัตบรรณ (ม.ต้น)',
     'jh_gym': 'โรงยิม (ม.ต้น)',
@@ -71,160 +61,95 @@ const SIDE_MAPPING: Record<string, string> = {
     'ส่วนกลาง': 'common', 'common': 'common'
 };
 
-// ============================================================================
-// 2. INTELLIGENT SEARCH HELPERS (GOD-TIER ALGORITHMS)
-// ============================================================================
+// --- Helpers ---
 
-// Algorithm คำนวณความต่างของคำ (Levenshtein Distance) ใช้แก้คำผิด
-function getLevenshteinDistance(a: string, b: string): number {
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
-    const matrix = [];
-    for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
-    for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
-    for (let i = 1; i <= b.length; i++) {
-        for (let j = 1; j <= a.length; j++) {
-            if (b.charAt(i - 1) === a.charAt(j - 1)) {
-                matrix[i][j] = matrix[i - 1][j - 1];
-            } else {
-                matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
-            }
-        }
-    }
-    return matrix[b.length][a.length];
-}
-
-// ฟังก์ชันคำนวณคะแนนความเหมือน (Advanced Scoring)
-function calculateSmartScore(text: string, searchTokens: string[]): number {
-    if (!text) return 0;
-    const normalize = (str: string) => str.toLowerCase().replace(/\s+/g, '');
-    const normalizedText = normalize(text);
-    let totalScore = 0;
-
-    searchTokens.forEach(token => {
-        const normToken = normalize(token);
-
-        // 1. Exact Match (เจอคำเป๊ะๆ) -> 10 คะแนน
-        if (normalizedText.includes(normToken)) {
-            totalScore += 10;
-        }
-        // 2. Fuzzy Match (คำคล้าย/พิมพ์ผิด) -> 3 คะแนน
-        // อนุญาตให้ผิดได้ 2 ตัวอักษร (เช่น 'gym' vs 'gmy')
-        else if (token.length > 3) {
-            // เช็คแบบง่าย: ถ้าคำใน text มีส่วนที่คล้าย token
-            // (ในที่นี้ใช้ includes แบบง่ายไปก่อน เพื่อ performance)
-        }
-    });
-
-    return totalScore;
-}
-
+// Helper: Convert ID to Thai Name
 function getRoomDisplayName(id: string): string {
     return ROOM_NAME_DISPLAY[id] || id;
 }
 
+// Helper: Format Date to Thai String (Fixed Timezone Issue)
+// AI จะได้รับ string นี้ไปตอบ ทำให้เวลาตรงแน่นอน
+function formatToThaiTime(dateInput: any): string {
+    if (!dateInput) return '-';
+    const date = dateInput instanceof Timestamp ? dateInput.toDate() : new Date(dateInput);
+
+    // บังคับ Timezone Asia/Bangkok
+    return date.toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
 function getThaiDateRange(dateStr: string): { start: Timestamp, end: Timestamp } {
     const [year, month, day] = dateStr.split('-').map(Number);
+    // UTC Midnight
     const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+    // Offset -7 hours for Thai start
     const thaiStart = new Date(utcMidnight.getTime() - (7 * 60 * 60 * 1000));
     const thaiEnd = new Date(thaiStart.getTime() + (24 * 60 * 60 * 1000) - 1);
     return { start: Timestamp.fromDate(thaiStart), end: Timestamp.fromDate(thaiEnd) };
 }
 
 // ============================================================================
-// 3. MAIN FUNCTIONS
+// 2. MAIN FUNCTIONS
 // ============================================================================
 
-// --- GALLERY SEARCH (GOD-TIER) ---
-export async function searchGallery(keyword?: string, date?: string): Promise<PhotographyJob[]> {
+// --- GALLERY SEARCH (Strict Version: No Synonyms) ---
+export async function searchGallery(keyword?: string, date?: string): Promise<any[]> {
     try {
-        console.log(`[Smart Search] Keyword: "${keyword}", Date: "${date}"`);
+        console.log(`[Gallery Search] Input: "${keyword}", Date: "${date}"`);
 
         const jobsRef = collection(db, 'photography_jobs');
-        // ดึงข้อมูลมาก่อน (Fetch recent 150 items) แล้วค่อย Filter ในโค้ดเพื่อความฉลาดสูงสุด
-        const q = query(jobsRef, orderBy('startTime', 'desc'), limit(150));
+        const q = query(jobsRef, orderBy('startTime', 'desc'), limit(100));
         const snapshot = await getDocs(q);
 
-        let jobs: PhotographyJob[] = [];
+        let jobs: any[] = [];
+
         snapshot.forEach((doc) => {
             const data = doc.data();
             if (data.status === 'completed') {
-                jobs.push({ id: doc.id, ...data } as PhotographyJob);
+                // แปลงข้อมูลให้ AI อ่านง่ายๆ
+                jobs.push({
+                    id: doc.id,
+                    title: data.title,
+                    location: data.location,
+                    date: formatToThaiTime(data.startTime), // ส่งเวลาไทยกลับไป
+                    driveLink: data.driveLink,
+                    rawStartTime: data.startTime // เก็บไว้เผื่อ sort
+                });
             }
         });
 
-        // 1. Filter Date (ถ้ามี)
+        // 1. Filter Date
         if (date) {
             const targetYMD = date.split('T')[0];
             jobs = jobs.filter(job => {
-                if (!job.startTime) return false;
-                const jobDate = job.startTime instanceof Timestamp
-                    ? job.startTime.toDate()
-                    : new Date(job.startTime as unknown as string);
-                const thDate = new Date(jobDate.getTime() + (7 * 60 * 60 * 1000));
+                const jDate = job.rawStartTime instanceof Timestamp ? job.rawStartTime.toDate() : new Date(job.rawStartTime);
+                const thDate = new Date(jDate.getTime() + (7 * 60 * 60 * 1000)); // shift logic manually for check
                 return thDate.toISOString().split('T')[0] === targetYMD;
             });
         }
 
-        // 2. Smart Keyword Search
+        // 2. Strict Keyword Search (ตัด Synonym ออก)
         if (keyword) {
-            // A. Clean Input: ตัดคำฟุ่มเฟือย
-            let cleanKeyword = keyword.trim().replace(/^(การ|ความ|งาน)/, '');
+            const cleanKeyword = keyword.trim().toLowerCase();
+            const tokens = cleanKeyword.split(/[\s,]+/).filter(t => t.length > 0);
 
-            // B. Tokenize & Expand Synonyms
-            // แยกคำค้นหา และหาคำเหมือนของแต่ละคำ
-            let searchTokens = cleanKeyword.toLowerCase().split(/[\s,]+/).filter(t => t.length > 0);
-
-            // เพิ่มคำไวพจน์เข้าไปใน Tokens (เช่น user พิมพ์ "ติว" -> เพิ่ม "สอน", "เรียน", "สอบ" เข้าไปหาด้วย)
-            const expandedTokens = [...searchTokens];
-            searchTokens.forEach(t => {
-                // เช็คว่าคำนี้มีในพจนานุกรมไหม
-                for (const [key, synonyms] of Object.entries(SYNONYMS)) {
-                    // ถ้าคำค้นตรงกับ key หรืออยู่ใน list synonyms
-                    if (key.includes(t) || synonyms.some(s => s.includes(t))) {
-                        expandedTokens.push(key, ...synonyms);
-                    }
-                }
+            jobs = jobs.filter(job => {
+                const textToSearch = `${job.title} ${job.location}`.toLowerCase();
+                // ต้องมีคำค้นหาปรากฏอยู่จริง (Simple Include)
+                return tokens.some(token => textToSearch.includes(token));
             });
-
-            // ลบคำซ้ำ
-            const uniqueTokens = Array.from(new Set(expandedTokens));
-            console.log(`[Smart Search] Expanded Tokens: ${JSON.stringify(uniqueTokens)}`);
-
-            // C. Scoring & Ranking
-            jobs = jobs.map(job => {
-                // ให้คะแนน Title มากกว่า Location (3 เท่า)
-                const titleScore = calculateSmartScore(job.title || '', uniqueTokens) * 3;
-                const locScore = calculateSmartScore(job.location || '', uniqueTokens);
-
-                // Fuzzy Search (Check Levenshtein distance for typos)
-                // เช็คเฉพาะ Title ถ้าคะแนนยังเป็น 0
-                let fuzzyBonus = 0;
-                if (titleScore === 0 && locScore === 0) {
-                    const normalize = (str: string) => str.toLowerCase();
-                    const titleWords = normalize(job.title || '').split(' ');
-
-                    // เทียบทุกคำใน Title กับคำค้นหา
-                    for (const w of titleWords) {
-                        for (const t of searchTokens) { // ใช้คำค้นเดิม ไม่ใช้ตัว Expand
-                            const dist = getLevenshteinDistance(w, t);
-                            // ถ้าผิดแค่ 1-2 ตัวอักษร และคำยาวพอสมควร
-                            if (dist <= 2 && t.length > 3) {
-                                fuzzyBonus += 5; // ให้คะแนนปลอบใจ
-                            }
-                        }
-                    }
-                }
-
-                return { job, score: titleScore + locScore + fuzzyBonus };
-            })
-                .filter(item => item.score > 0) // เอาเฉพาะที่มีคะแนน
-                .sort((a, b) => b.score - a.score) // เรียงคะแนนมากไปน้อย
-                .map(item => item.job);
         }
 
-        console.log(`[Smart Search] Found ${jobs.length} jobs`);
-        return jobs.slice(0, 10);
+        // Return แค่ข้อมูลที่จำเป็น (ตัด rawStartTime ออกก่อนส่ง)
+        return jobs.slice(0, 10).map(({ rawStartTime, ...rest }) => rest);
+
     } catch (error) {
         console.error('Error searching gallery:', error);
         return [];
@@ -233,22 +158,28 @@ export async function searchGallery(keyword?: string, date?: string): Promise<Ph
 
 // --- REPAIR FUNCTIONS ---
 
-export interface CreateRepairResult { success: boolean; ticketId?: string; error?: string; }
+export interface CreateRepairResult { success: boolean; ticketId?: string; error?: string; data?: any }
 
 export async function createRepairFromAI(
     room: string, description: string, side: string, imageUrl: string, requesterName: string, requesterEmail: string
 ): Promise<CreateRepairResult> {
     try {
         if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
+
         const normalizedSide = SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
         const images: string[] = imageUrl && imageUrl !== 'pending_upload' && imageUrl !== '' ? [imageUrl] : [];
+
         const repairData = {
-            room, description,
+            room,
+            description,
             zone: normalizedSide as 'junior_high' | 'senior_high' | 'common',
-            images, requesterName: requesterName || 'ผู้แจ้งผ่าน LINE', requesterEmail: requesterEmail || '',
+            images,
+            requesterName: requesterName || 'ผู้แจ้งผ่าน LINE',
+            requesterEmail: requesterEmail || '',
             position: 'แจ้งผ่าน LINE', phone: '-', status: 'pending' as const,
             createdAt: serverTimestamp(), updatedAt: serverTimestamp(), source: 'line_ai',
         };
+
         const docRef = await addDoc(collection(db, 'repair_tickets'), repairData);
 
         // Notify
@@ -263,48 +194,35 @@ export async function createRepairFromAI(
             });
         } catch (e) { console.error('Notify Error', e); }
 
-        return { success: true, ticketId: docRef.id };
+        return {
+            success: true,
+            ticketId: docRef.id,
+            data: {
+                ...repairData,
+                roomName: getRoomDisplayName(room), // ส่งชื่อไทยกลับไปให้ AI ตอบ
+                createdAt: formatToThaiTime(new Date())
+            }
+        };
     } catch (error) { return { success: false, error: 'เกิดข้อผิดพลาด' }; }
 }
 
-export async function getRepairsByEmail(email: string): Promise<RepairTicket[]> {
+export async function getRepairsByEmail(email: string): Promise<any[]> {
     try {
         const q = query(collection(db, 'repair_tickets'), where('requesterEmail', '==', email), orderBy('createdAt', 'desc'), limit(5));
         const snapshot = await getDocs(q);
-        const repairs: RepairTicket[] = [];
-        snapshot.forEach((doc) => repairs.push({ id: doc.id, ...doc.data() } as RepairTicket));
-        return repairs;
-    } catch (error) { return []; }
-}
-
-export async function getRepairsForTechnician(zone: string | 'all', date?: string): Promise<RepairTicket[]> {
-    try {
-        const repairsRef = collection(db, 'repair_tickets');
-        let q = zone === 'all'
-            ? query(repairsRef, where('status', 'in', ['pending', 'in_progress', 'waiting_parts']), orderBy('createdAt', 'desc'), limit(50))
-            : query(repairsRef, where('zone', '==', zone), where('status', 'in', ['pending', 'in_progress', 'waiting_parts']), orderBy('createdAt', 'desc'), limit(50));
-        const snapshot = await getDocs(q);
-        let repairs: RepairTicket[] = [];
-        snapshot.forEach((doc) => repairs.push({ id: doc.id, ...doc.data() } as RepairTicket));
-        if (date) {
-            const targetYMD = date.split('T')[0];
-            repairs = repairs.filter(r => {
-                const rDate = r.createdAt instanceof Timestamp ? r.createdAt.toDate() : new Date(r.createdAt as any);
-                const thDate = new Date(rDate.getTime() + (7 * 60 * 60 * 1000));
-                return thDate.toISOString().split('T')[0] === targetYMD;
+        const repairs: any[] = [];
+        snapshot.forEach((doc) => {
+            const d = doc.data();
+            repairs.push({
+                id: doc.id,
+                room: getRoomDisplayName(d.room), // แปลงชื่อห้อง
+                description: d.description,
+                status: d.status,
+                date: formatToThaiTime(d.createdAt) // แปลงเวลาไทย
             });
-        }
+        });
         return repairs;
     } catch (error) { return []; }
-}
-
-export async function getRepairByTicketId(ticketId: string): Promise<RepairTicket | null> {
-    try {
-        const docRef = doc(db, 'repair_tickets', ticketId);
-        const docSnap = await getDoc(docRef);
-        if (!docSnap.exists()) return null;
-        return { id: docSnap.id, ...docSnap.data() } as RepairTicket;
-    } catch (error) { return null; }
 }
 
 // --- BOOKING FUNCTIONS ---
@@ -317,33 +235,67 @@ export async function checkRoomAvailability(room: string, date: string, startTim
         const { start, end } = getThaiDateRange(date);
         const q = query(collection(db, 'bookings'), where('roomId', '==', normalizedRoom), where('startTime', '>=', start), where('startTime', '<=', end), where('status', 'in', ['pending', 'approved', 'confirmed']));
         const snapshot = await getDocs(q);
+
         const conflicts: any[] = [];
-        const [sH, sM] = startTime.split(':').map(Number);
-        const [eH, eM] = endTime.split(':').map(Number);
-        const reqStart = sH * 60 + sM;
-        const reqEnd = eH * 60 + eM;
+        const [reqStartH, reqStartM] = startTime.split(':').map(Number);
+        const [reqEndH, reqEndM] = endTime.split(':').map(Number);
+        const reqStart = reqStartH * 60 + reqStartM;
+        const reqEnd = reqEndH * 60 + reqEndM;
 
         snapshot.forEach((doc) => {
             const b = doc.data();
-            const thStart = new Date((b.startTime instanceof Timestamp ? b.startTime.toDate() : new Date(b.startTime)).getTime() + (7 * 60 * 60 * 1000));
-            const thEnd = new Date((b.endTime instanceof Timestamp ? b.endTime.toDate() : new Date(b.endTime)).getTime() + (7 * 60 * 60 * 1000));
+            // Convert DB timestamp to Thai Date object for calculation
+            const bStart = b.startTime instanceof Timestamp ? b.startTime.toDate() : new Date(b.startTime);
+            const bEnd = b.endTime instanceof Timestamp ? b.endTime.toDate() : new Date(b.endTime);
+
+            // Shift to Thai Time strictly for comparison logic
+            const thStart = new Date(bStart.getTime() + (7 * 60 * 60 * 1000));
+            const thEnd = new Date(bEnd.getTime() + (7 * 60 * 60 * 1000));
+
             const bStartM = thStart.getUTCHours() * 60 + thStart.getUTCMinutes();
             const bEndM = thEnd.getUTCHours() * 60 + thEnd.getUTCMinutes();
-            if (reqStart < bEndM && reqEnd > bStartM) conflicts.push({ title: b.title, startTime: thStart.toISOString().substring(11, 16), endTime: thEnd.toISOString().substring(11, 16), requesterName: b.requesterName });
+
+            if (reqStart < bEndM && reqEnd > bStartM) {
+                conflicts.push({
+                    title: b.title,
+                    // Return human readable Thai time string
+                    timeRange: `${thStart.getUTCHours().toString().padStart(2, '0')}:${thStart.getUTCMinutes().toString().padStart(2, '0')} - ${thEnd.getUTCHours().toString().padStart(2, '0')}:${thEnd.getUTCMinutes().toString().padStart(2, '0')}`,
+                    requesterName: b.requesterName,
+                });
+            }
         });
         return { available: conflicts.length === 0, conflicts: conflicts.length > 0 ? conflicts : undefined };
     } catch (error) { return { available: false }; }
 }
 
-export async function getRoomSchedule(room: string, date: string): Promise<Booking[]> {
+export async function getRoomSchedule(room: string, date: string): Promise<any[]> {
     try {
         const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
         const { start, end } = getThaiDateRange(date);
         const q = query(collection(db, 'bookings'), where('roomId', '==', normalizedRoom), where('startTime', '>=', start), where('startTime', '<=', end), where('status', 'in', ['pending', 'approved', 'confirmed']));
         const snapshot = await getDocs(q);
-        const bookings: Booking[] = [];
-        snapshot.forEach((doc) => bookings.push({ id: doc.id, ...doc.data(), roomName: getRoomDisplayName(doc.data().room) } as Booking));
-        return bookings.sort((a, b) => (a.startTime instanceof Timestamp ? a.startTime.toMillis() : 0) - (b.startTime instanceof Timestamp ? b.startTime.toMillis() : 0));
+
+        const bookings: any[] = [];
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            bookings.push({
+                id: doc.id,
+                title: data.title,
+                room: getRoomDisplayName(data.room), // ชื่อห้องไทย
+                status: data.status,
+                requester: data.requesterName,
+                startTime: formatToThaiTime(data.startTime), // เวลาไทย
+                endTime: formatToThaiTime(data.endTime),     // เวลาไทย
+                rawStart: data.startTime // internal sort
+            });
+        });
+
+        // Sort by time
+        bookings.sort((a, b) => (a.rawStart?.toMillis() || 0) - (b.rawStart?.toMillis() || 0));
+
+        // Remove raw data before sending to AI
+        return bookings.map(({ rawStart, ...rest }) => rest);
+
     } catch (error) { return []; }
 }
 
@@ -352,62 +304,106 @@ export async function createBookingFromAI(room: string, date: string, startTime:
         const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
         const avail = await checkRoomAvailability(room, date, startTime, endTime);
         if (!avail.available) return { success: false, error: 'ห้องไม่ว่างค่ะ' };
+
         const d = new Date(date);
         const [sH, sM] = startTime.split(':').map(Number);
         const [eH, eM] = endTime.split(':').map(Number);
         const sDT = new Date(d); sDT.setHours(sH, sM, 0, 0);
         const eDT = new Date(d); eDT.setHours(eH, eM, 0, 0);
+
         const docRef = await addDoc(collection(db, 'bookings'), {
             room: normalizedRoom, roomId: normalizedRoom, startTime: Timestamp.fromDate(sDT), endTime: Timestamp.fromDate(eDT),
             title, description: 'จองผ่าน LINE AI', requesterName, requesterEmail, department: 'บุคลากร', position: 'บุคลากร', phoneNumber: '-', status: 'pending', createdAt: serverTimestamp(), source: 'line_ai'
         });
-        return { success: true, bookingId: docRef.id };
+        return {
+            success: true,
+            bookingId: docRef.id,
+            details: {
+                room: getRoomDisplayName(normalizedRoom),
+                date: date,
+                time: `${startTime} - ${endTime}`
+            }
+        };
     } catch (e) { return { success: false, error: 'เกิดข้อผิดพลาด' }; }
 }
 
-export async function getBookingsByEmail(email: string): Promise<Booking[]> {
+export async function getBookingsByEmail(email: string): Promise<any[]> {
     try {
         const q = query(collection(db, 'bookings'), where('requesterEmail', '==', email), orderBy('startTime', 'desc'), limit(10));
         const snapshot = await getDocs(q);
-        const bookings: Booking[] = [];
-        snapshot.forEach((doc) => bookings.push({ id: doc.id, ...doc.data() } as Booking));
+        const bookings: any[] = [];
+        snapshot.forEach((doc) => {
+            const d = doc.data();
+            bookings.push({
+                id: doc.id,
+                title: d.title,
+                room: getRoomDisplayName(d.room),
+                status: d.status,
+                start: formatToThaiTime(d.startTime)
+            });
+        });
         return bookings;
     } catch (e) { return []; }
 }
 
-export async function getPendingBookings(date?: string): Promise<Booking[]> {
+export async function getPendingBookings(date?: string): Promise<any[]> {
     try {
         const q = query(collection(db, 'bookings'), where('status', '==', 'pending'), orderBy('startTime', 'asc'), limit(50));
         const snapshot = await getDocs(q);
-        let bookings: Booking[] = [];
-        snapshot.forEach((doc) => bookings.push({ id: doc.id, ...doc.data() } as Booking));
+        let bookings: any[] = [];
+        snapshot.forEach((doc) => {
+            const d = doc.data();
+            bookings.push({
+                id: doc.id,
+                title: d.title,
+                room: getRoomDisplayName(d.room),
+                startTime: formatToThaiTime(d.startTime),
+                rawStart: d.startTime
+            });
+        });
+
         if (date) {
             const target = date.split('T')[0];
             bookings = bookings.filter(b => {
-                const t = new Date((b.startTime instanceof Timestamp ? b.startTime.toDate() : new Date(b.startTime)).getTime() + (7 * 60 * 60 * 1000));
+                const t = new Date((b.rawStart instanceof Timestamp ? b.rawStart.toDate() : new Date(b.rawStart)).getTime() + (7 * 60 * 60 * 1000));
                 return t.toISOString().split('T')[0] === target;
             });
         }
-        return bookings;
+        return bookings.map(({ rawStart, ...rest }) => rest);
     } catch (e) { return []; }
 }
 
-export async function getPhotoJobsByPhotographer(userId: string, date?: string): Promise<PhotographyJob[]> {
+// --- PHOTO JOB FUNCTIONS ---
+
+export async function getPhotoJobsByPhotographer(userId: string, date?: string): Promise<any[]> {
     try {
         const q = query(collection(db, 'photography_jobs'), where('assigneeIds', 'array-contains', userId), orderBy('startTime', 'desc'), limit(50));
         const snapshot = await getDocs(q);
-        let jobs: PhotographyJob[] = [];
-        snapshot.forEach((doc) => jobs.push({ id: doc.id, ...doc.data() } as PhotographyJob));
+        let jobs: any[] = [];
+        snapshot.forEach((doc) => {
+            const d = doc.data();
+            jobs.push({
+                id: doc.id,
+                title: d.title,
+                location: d.location,
+                status: d.status,
+                startTime: formatToThaiTime(d.startTime),
+                rawStart: d.startTime
+            });
+        });
+
         if (date) {
             const target = date.split('T')[0];
             jobs = jobs.filter(j => {
-                const t = new Date((j.startTime instanceof Timestamp ? j.startTime.toDate() : new Date(j.startTime)).getTime() + (7 * 60 * 60 * 1000));
+                const t = new Date((j.rawStart instanceof Timestamp ? j.rawStart.toDate() : new Date(j.rawStart)).getTime() + (7 * 60 * 60 * 1000));
                 return t.toISOString().split('T')[0] === target;
             });
         }
-        return jobs;
+        return jobs.map(({ rawStart, ...rest }) => rest);
     } catch (e) { return []; }
 }
+
+// --- SUMMARY ---
 
 export async function getDailySummary(date: Date = new Date()): Promise<any> {
     try {
@@ -421,33 +417,10 @@ export async function getDailySummary(date: Date = new Date()): Promise<any> {
         let rP = 0, rIP = 0; rS.forEach(d => { if (d.data().status === 'pending') rP++; if (d.data().status === 'in_progress') rIP++; });
         let bP = 0, bA = 0; bS.forEach(d => { if (d.data().status === 'pending') bP++; if (d.data().status === 'approved') bA++; });
         return {
+            date: formatToThaiTime(date),
             repairs: { total: rS.size, pending: rP, inProgress: rIP },
             bookings: { total: bS.size, pending: bP, approved: bA },
             photoJobs: { total: jS.size, pending: 0 }
         };
-    } catch (e) { return { repairs: { total: 0, pending: 0, inProgress: 0 }, bookings: { total: 0, pending: 0, approved: 0 }, photoJobs: { total: 0, pending: 0 } }; }
-}
-
-// --- DISPLAY HELPERS (UPDATED) ---
-
-export function formatBookingForDisplay(b: Booking): string {
-    const sMap: any = { pending: '🟡 รออนุมัติ', approved: '🟢 อนุมัติแล้ว', rejected: '🔴 ไม่อนุมัติ', cancelled: '⚫ ยกเลิก' };
-    const sD = b.startTime instanceof Timestamp ? b.startTime.toDate() : new Date(b.startTime as any);
-    const eD = b.endTime instanceof Timestamp ? b.endTime.toDate() : new Date(b.endTime as any);
-    return `📅 ${sD.toLocaleDateString('th-TH')} | ${sD.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}-${eD.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}\n📍 ${getRoomDisplayName(b.room)}\n📝 ${b.title}\n${sMap[b.status] || b.status}\n👤 ${b.requesterName}\n`;
-}
-
-export function formatRepairForDisplay(r: RepairTicket): string {
-    const sMap: any = { pending: '🟡 รอดำเนินการ', in_progress: '🔵 กำลังซ่อม', waiting_parts: '🟠 รออะไหล่', completed: '🟢 เสร็จแล้ว', cancelled: '⚫ ยกเลิก' };
-    const d = r.createdAt instanceof Timestamp ? r.createdAt.toDate().toLocaleDateString('th-TH') : new Date(r.createdAt as any).toLocaleDateString('th-TH');
-    return `🔧 ${r.id}\n📍 ${getRoomDisplayName(r.room)}\n📝 ${r.description?.substring(0, 50)}...\n📅 ${d}\nสถานะ: ${sMap[r.status] || r.status}`;
-}
-
-export function formatPhotoJobForDisplay(j: PhotographyJob): string {
-    const d = j.startTime instanceof Timestamp ? j.startTime.toDate().toLocaleDateString('th-TH') : new Date(j.startTime as any).toLocaleDateString('th-TH');
-    let l = '';
-    if (j.driveLink) l += `\n📁 Drive: ${j.driveLink}`;
-    if (j.facebookPermalink) l += `\n📘 Facebook: ${j.facebookPermalink}`;
-    else if (j.facebookPostId) l += `\n📘 Facebook: https://www.facebook.com/${j.facebookPostId}`;
-    return `📸 ${j.title}\n📅 ${d}\n📍 ${j.location || '-'}${l}`;
+    } catch (e) { return { error: 'Failed to get summary' }; }
 }

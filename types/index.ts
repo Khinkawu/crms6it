@@ -118,6 +118,10 @@ export interface PhotographyJob {
     facebookPostId?: string;
     facebookPermalink?: string;
     facebookPostedAt?: any; // Firestore Timestamp
+
+    // [New] Fields for tracking who completed the job
+    completedBy?: string; // UID of the photographer who submitted the work
+    completedAt?: any;    // Timestamp when the work was submitted
 }
 
 export interface Booking {
