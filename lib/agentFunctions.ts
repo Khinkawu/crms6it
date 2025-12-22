@@ -1,9 +1,6 @@
 /**
- * AI Agent Functions (COMPLETE FIXED VERSION)
- * - แก้ไขการค้นหาชื่อผู้ใช้จาก Email (แทน Line ID)
- * - แปลงรหัสห้อง/สถานที่ เป็นชื่อภาษาไทย
- * - แปลงเวลาเป็นรูปแบบไทย (วว ด.ด. ปปปป เวลา xx:xx น.)
- * - ดึงลิงก์ Facebook และ Drive ส่งให้ AI
+ * AI Agent Functions
+ * ฟังก์ชันสำหรับเรียกข้อมูลจาก Firestore และดำเนินการต่างๆ ให้ AI Agent
  */
 
 import { db } from '@/lib/firebase';
@@ -20,7 +17,7 @@ import {
     doc,
     getDoc
 } from 'firebase/firestore';
-import { Booking, RepairTicket, PhotographyJob } from '@/types';
+import { RepairTicket } from '@/types';
 
 // ============================================================================
 // 1. MAPPINGS & HELPERS
@@ -229,11 +226,15 @@ export async function createRepairFromAI(
 
         const docRef = await addDoc(collection(db, 'repair_tickets'), repairData);
 
-        // Notify
+        // Notify technicians via LINE
         try {
             const apiUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
             await fetch(`${apiUrl}/api/notify-repair`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': process.env.CRMS_API_SECRET_KEY || '',
+                },
                 body: JSON.stringify({
                     ticketId: docRef.id, requesterName: finalRequesterName,
                     room, description, imageOneUrl: images[0] || '', zone: normalizedSide

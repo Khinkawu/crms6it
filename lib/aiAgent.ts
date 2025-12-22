@@ -1,11 +1,9 @@
 /**
- * AI Agent for LINE Bot (FIXED DUPLICATE IMPORT)
- * แก้ไข:
- * 1. ลบ createRepairFromAI ที่ประกาศซ้ำใน import
- * 2. ตรวจสอบการใช้งานตัวแปรทั้งหมดให้ตรงกับ agentFunctions ตัวใหม่
+ * AI Agent for LINE Bot
+ * ประมวลผลข้อความภาษาธรรมชาติจาก LINE และเรียกใช้ฟังก์ชันต่างๆ
  */
 
-import { PhotographyJob, UserProfile, RepairTicket } from '@/types';
+import { UserProfile, RepairTicket } from '@/types';
 import { db } from '@/lib/firebase';
 import {
     collection,
@@ -26,7 +24,7 @@ import {
     createBookingFromAI,
     getRepairsByEmail,
     getRepairByTicketId,
-    createRepairFromAI, // เหลืออันเดียวแล้ว
+    createRepairFromAI,
     getBookingsByEmail,
     getPhotoJobsByPhotographer,
     searchGallery,
@@ -37,7 +35,7 @@ import {
 } from './agentFunctions';
 import { formatThaiDate } from './dateUtils';
 
-// NOTE: ใช้ AI_SYSTEM_PROMPT จาก gemini.ts แทน (ครบถ้วนกว่า)
+
 
 // ============================================
 // Types & Interfaces
@@ -55,7 +53,6 @@ interface ConversationContext {
         | 'awaiting_room'
         | 'awaiting_side'
         | 'awaiting_final_confirm';
-        awaitingConfirmation?: boolean;
         galleryResults?: any[];
     };
     lastActivity: any;
@@ -64,8 +61,6 @@ interface ConversationContext {
 interface AIResponse {
     intent?: string;
     params?: Record<string, unknown>;
-    needMoreInfo?: string[];
-    question?: string;
     execute?: boolean;
     message?: string;
 }
@@ -238,6 +233,8 @@ function parseThaiDate(dateStr: string): string | undefined {
 // Intent Handlers
 // ============================================
 
+// [RESERVED] ฟังก์ชันนี้สำรองไว้สำหรับอนาคต เมื่อต้องการเปิดให้จองห้องผ่าน AI ได้
+// ปัจจุบันการจองถูก intercept ไปที่เว็บแทน (ดู processAIMessage บรรทัด ~494)
 async function handleBookRoom(params: Record<string, unknown>, userProfile: UserProfile, execute: boolean): Promise<string> {
     const { room, date, startTime, endTime, title } = params as { room: string; date: string; startTime: string; endTime: string; title: string; };
 

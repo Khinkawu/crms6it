@@ -132,7 +132,7 @@ export default function ActivityFeed({ activities }: ActivityFeedProps) {
                                         {/* Details Box */}
                                         {(displayDetails) && (
                                             <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-lg p-3 shadow-sm text-xs text-gray-600 dark:text-gray-300 leading-relaxed group-hover:border-blue-100 dark:group-hover:border-blue-900/50 transition-colors">
-                                                <span>"{displayDetails}"</span>
+                                                <span>{`"${displayDetails}"`}</span>
                                             </div>
                                         )}
                                     </div>

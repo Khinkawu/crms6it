@@ -5,6 +5,30 @@ import { createRepairNewFlexMessage } from '@/utils/flexMessageTemplates';
 
 export async function POST(req: Request) {
     try {
+        // Security: ตรวจสอบว่า request มาจากแหล่งที่เชื่อถือได้
+        const apiKey = req.headers.get('x-api-key');
+        const internalKey = req.headers.get('x-internal-request');
+        const origin = req.headers.get('origin') || req.headers.get('referer') || '';
+
+        const validApiKey = process.env.CRMS_API_SECRET_KEY;
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
+
+        // อนุญาตถ้า:
+        // 1. มี API Key ที่ถูกต้อง (server-to-server)
+        // 2. หรือ request มาจาก same origin (client จากเว็บเดียวกัน)
+        // 3. หรือมี internal request header (สำหรับ internal calls)
+        const isValidApiKey = validApiKey && apiKey === validApiKey;
+        const isSameOrigin = origin.includes('crms6it') || origin.includes('localhost');
+        const isInternalRequest = internalKey === 'true';
+
+        if (!isValidApiKey && !isSameOrigin && !isInternalRequest) {
+            console.warn('Unauthorized API access attempt from:', origin);
+            return NextResponse.json(
+                { error: 'Unauthorized: Invalid credentials' },
+                { status: 401 }
+            );
+        }
+
         const body = await req.json();
         const { requesterName, room, description, imageOneUrl, zone, ticketId } = body;
         const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -50,7 +74,6 @@ export async function POST(req: Request) {
             return NextResponse.json({ status: 'skipped', reason: 'No technicians found' });
         }
 
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
         const deepLink = `${appUrl}/admin/repairs?ticketId=${ticketId}`;
 
         // Use new professional Flex Message template
