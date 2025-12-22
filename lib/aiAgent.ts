@@ -316,11 +316,11 @@ async function handleRoomSchedule(params: Record<string, unknown>): Promise<stri
     if (!room) return `กรุณาระบุห้องที่ต้องการดูตารางด้วยนะคะ (เช่น ขอตารางห้องลีลาวดี วันนี้)`;
 
     const schedule = await getRoomSchedule(room, targetDate);
-    if (schedule.length === 0) return `📅 ตาราง ${schedule[0]?.room || room} (${displayDate})\n\n✅ ว่างทั้งวันค่ะ`;
+    if (schedule.length === 0) return `📅 ตาราง ${room} (${displayDate})\n\n✅ ว่างทั้งวันค่ะ`;
 
     const scheduleList = schedule.map(booking => {
-        return `• ${booking.startTime}-${booking.endTime}: ${booking.title || 'ไม่ระบุหัวข้อ'} (${booking.requester || 'ไม่ระบุชื่อ'})`;
-    }).join('\n');
+        return `(${displayDate}) ${booking.startTime} - ${booking.endTime}\n${booking.title || 'ไม่ระบุหัวข้อ'}\nผู้จอง ${booking.requester || 'ไม่ระบุชื่อ'}`;
+    }).join('\n\n');
 
     return `📅 ตาราง ${schedule[0]?.room || room} (${displayDate})\n\n${scheduleList}`;
 }

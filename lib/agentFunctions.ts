@@ -338,14 +338,22 @@ export async function getRoomSchedule(room: string, date: string): Promise<any[]
         const bookings: any[] = [];
         snapshot.forEach((doc) => {
             const data = doc.data();
+            // แปลงเวลาเป็น HH:mm เพื่อให้ AI จัดรูปแบบได้ถูกต้อง
+            const startDT = data.startTime instanceof Timestamp ? data.startTime.toDate() : new Date(data.startTime);
+            const endDT = data.endTime instanceof Timestamp ? data.endTime.toDate() : new Date(data.endTime);
+            // แปลงเป็นเวลาไทย (+7)
+            const thStartDT = new Date(startDT.getTime() + (7 * 60 * 60 * 1000));
+            const thEndDT = new Date(endDT.getTime() + (7 * 60 * 60 * 1000));
+
             bookings.push({
                 id: doc.id,
                 title: data.title,
-                room: getRoomDisplayName(data.room),
+                room: getRoomDisplayName(data.room || data.roomId),
                 status: data.status,
                 requester: data.requesterName,
-                startTime: formatToThaiTime(data.startTime),
-                endTime: formatToThaiTime(data.endTime),
+                // ส่งเป็น HH:mm เท่านั้น
+                startTime: `${thStartDT.getUTCHours().toString().padStart(2, '0')}:${thStartDT.getUTCMinutes().toString().padStart(2, '0')}`,
+                endTime: `${thEndDT.getUTCHours().toString().padStart(2, '0')}:${thEndDT.getUTCMinutes().toString().padStart(2, '0')}`,
                 rawStart: data.startTime
             });
         });
