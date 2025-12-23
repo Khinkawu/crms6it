@@ -32,10 +32,10 @@ export function RepairTicketCard({ ticket, onManage, isReadOnly = false }: Repai
         >
             {/* Status accent bar */}
             <div className={`absolute top-0 left-0 right-0 h-1 ${ticket.status === 'pending' ? 'bg-gradient-to-r from-amber-400 to-orange-400' :
-                    ticket.status === 'in_progress' ? 'bg-gradient-to-r from-blue-400 to-cyan-400' :
-                        ticket.status === 'completed' ? 'bg-gradient-to-r from-emerald-400 to-teal-400' :
-                            ticket.status === 'waiting_parts' ? 'bg-gradient-to-r from-purple-400 to-indigo-400' :
-                                'bg-gradient-to-r from-gray-400 to-slate-400'
+                ticket.status === 'in_progress' ? 'bg-gradient-to-r from-blue-400 to-cyan-400' :
+                    ticket.status === 'completed' ? 'bg-gradient-to-r from-emerald-400 to-teal-400' :
+                        ticket.status === 'waiting_parts' ? 'bg-gradient-to-r from-purple-400 to-indigo-400' :
+                            'bg-gradient-to-r from-gray-400 to-slate-400'
                 }`}></div>
 
             <div className="p-4 pt-5">
@@ -48,6 +48,12 @@ export function RepairTicketCard({ ticket, onManage, isReadOnly = false }: Repai
                         <div>
                             <h3 className="font-bold text-gray-900 dark:text-white text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{ticket.room}</h3>
                             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${ticket.zone === 'senior_high' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                                    ticket.zone === 'junior_high' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
+                                        'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                    }`}>
+                                    {ticket.zone === 'senior_high' ? 'ม.ปลาย' : ticket.zone === 'junior_high' ? 'ม.ต้น' : 'ส่วนกลาง'}
+                                </span>
                                 <Clock size={10} />
                                 <span>{getTimeAgo()}</span>
                             </div>
@@ -109,6 +115,7 @@ export function RepairTicketList({ tickets, onManage, isReadOnly = false }: Repa
                             <th className="px-5 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">สถานะ</th>
                             <th className="px-5 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">วันที่แจ้ง</th>
                             <th className="px-5 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ห้อง/สถานที่</th>
+                            <th className="px-5 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ฝั่ง</th>
                             <th className="px-5 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">อาการเสีย</th>
                             <th className="px-5 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ผู้แจ้ง</th>
                             <th className="px-5 py-4 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-right">จัดการ</th>
@@ -130,6 +137,14 @@ export function RepairTicketList({ tickets, onManage, isReadOnly = false }: Repa
                                     {ticket.createdAt?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
                                 </td>
                                 <td className="px-5 py-4 font-semibold text-gray-900 dark:text-white whitespace-nowrap group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{ticket.room}</td>
+                                <td className="px-5 py-4 whitespace-nowrap">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${ticket.zone === 'senior_high' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                                            ticket.zone === 'junior_high' ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' :
+                                                'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                        }`}>
+                                        {ticket.zone === 'senior_high' ? 'ม.ปลาย' : ticket.zone === 'junior_high' ? 'ม.ต้น' : 'ส่วนกลาง'}
+                                    </span>
+                                </td>
                                 <td className="px-5 py-4 text-gray-700 dark:text-gray-200 max-w-xs truncate">{ticket.description}</td>
                                 <td className="px-5 py-4 text-gray-500 dark:text-gray-400 whitespace-nowrap">{ticket.requesterName}</td>
                                 <td className="px-5 py-4 text-right whitespace-nowrap">

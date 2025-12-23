@@ -312,10 +312,12 @@ export function createRepairNewFlexMessage(data: {
     imageUrl?: string;
     ticketId?: string;
     deepLink: string;
+    zone?: 'junior_high' | 'senior_high' | 'common';
 }) {
+    const zoneLabel = data.zone === 'senior_high' ? 'ม.ปลาย' : data.zone === 'junior_high' ? 'ม.ต้น' : 'ส่วนกลาง';
     return {
         type: 'flex',
-        altText: `🔧 งานซ่อมใหม่: ${data.room}`,
+        altText: `🔧 งานซ่อมใหม่: ${data.room} (${zoneLabel})`,
         contents: createFlexBubble({
             type: 'repair_new',
             title: data.description,
@@ -323,7 +325,7 @@ export function createRepairNewFlexMessage(data: {
             badgeColor: COLORS.info,
             imageUrl: data.imageUrl,
             details: [
-                { icon: '📍', label: 'สถานที่', value: data.room },
+                { icon: '📍', label: 'สถานที่', value: `${data.room} (${zoneLabel})` },
                 { icon: '👤', label: 'ผู้แจ้ง', value: data.requesterName },
                 { icon: '🕐', label: 'เวลาแจ้ง', value: new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) }
             ],

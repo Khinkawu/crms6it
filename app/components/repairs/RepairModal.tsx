@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
+import SignatureCanvas from "react-signature-canvas";
 import { RepairTicket, RepairStatus, Product } from "../../../types";
-import { X, User, MapPin, Phone, Calendar, FileText, Package, Wrench, Camera, Save } from "lucide-react";
+import { X, User, MapPin, Phone, Calendar, FileText, Package, Wrench, Camera, Save, Eraser, PenTool } from "lucide-react";
 import { getThaiStatus, getStatusColor } from "../../../hooks/useRepairAdmin";
 
 interface RepairModalProps {
@@ -20,7 +21,7 @@ interface RepairModalProps {
     setSelectedPartId: (id: string) => void;
     useQuantity: number;
     setUseQuantity: (q: number) => void;
-    onUsePart: () => void;
+    onUsePart: (signatureDataUrl: string) => void;
     isRequisitioning: boolean;
     onSubmit: (e: React.FormEvent) => void;
     isUpdating: boolean;
@@ -49,6 +50,21 @@ export default function RepairModal({
     isReadOnly = false
 }: RepairModalProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const partsSigPad = useRef<SignatureCanvas>(null);
+    const [showSignature, setShowSignature] = useState(false);
+
+    // Handler for parts requisition with signature
+    const handleUsePartWithSignature = () => {
+        if (!partsSigPad.current || partsSigPad.current.isEmpty()) {
+            alert("กรุณาเซ็นลายมือชื่อก่อนเบิกอะไหล่");
+            return;
+        }
+        const signatureDataUrl = partsSigPad.current.toDataURL("image/png");
+        onUsePart(signatureDataUrl);
+        // Clear signature after submit
+        partsSigPad.current.clear();
+        setShowSignature(false);
+    };
 
     if (!isOpen || !ticket) return null;
 
@@ -162,7 +178,11 @@ export default function RepairModal({
                                 <div className="flex-1">
                                     <select
                                         value={selectedPartId}
-                                        onChange={(e) => setSelectedPartId(e.target.value)}
+                                        onChange={(e) => {
+                                            setSelectedPartId(e.target.value);
+                                            if (e.target.value) setShowSignature(true);
+                                            else setShowSignature(false);
+                                        }}
                                         className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                                     >
                                         <option value="">เลือกอะไหล่...</option>
@@ -182,15 +202,42 @@ export default function RepairModal({
                                         className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-center"
                                     />
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={onUsePart}
-                                    disabled={!selectedPartId || isRequisitioning}
-                                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium text-sm shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-all hover:shadow-xl tap-scale"
-                                >
-                                    {isRequisitioning ? "..." : "เบิก"}
-                                </button>
                             </div>
+
+                            {/* Signature Section */}
+                            {showSignature && selectedPartId && (
+                                <div className="mt-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                            <PenTool size={14} /> ลงลายมือชื่อผู้เบิก <span className="text-red-500">*</span>
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => partsSigPad.current?.clear()}
+                                            className="text-xs text-gray-500 hover:text-red-500 flex items-center gap-1"
+                                        >
+                                            <Eraser size={12} /> ล้าง
+                                        </button>
+                                    </div>
+                                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl overflow-hidden bg-white">
+                                        <SignatureCanvas
+                                            ref={partsSigPad}
+                                            penColor="black"
+                                            canvasProps={{
+                                                className: "w-full h-28"
+                                            }}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleUsePartWithSignature}
+                                        disabled={!selectedPartId || isRequisitioning}
+                                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-all hover:shadow-xl tap-scale flex items-center justify-center gap-2"
+                                    >
+                                        {isRequisitioning ? "กำลังเบิก..." : `ยืนยันเบิก ${useQuantity} ชิ้น`}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -206,8 +253,8 @@ export default function RepairModal({
                                             type="button"
                                             onClick={() => setStatus(opt.value as RepairStatus)}
                                             className={`py-2.5 px-3 rounded-xl text-xs font-medium transition-all tap-scale ${status === opt.value
-                                                    ? `bg-gradient-to-r ${opt.color} text-white shadow-lg`
-                                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                ? `bg-gradient-to-r ${opt.color} text-white shadow-lg`
+                                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                                                 }`}
                                         >
                                             {opt.label}

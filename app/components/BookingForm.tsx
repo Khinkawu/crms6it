@@ -46,8 +46,8 @@ const ROOM_EQUIPMENT: Record<string, string[]> = {
 };
 
 
-const POSITIONS = ["ผู้บริหาร", "ครู", "ครู LS", "บุคลากร"];
-const DEPARTMENTS = ["วิชาการ", "กิจการนักเรียน", "บุคลากร", "บริการทั่วไป", "การเงิน", "หน่วยงานภายนอก"];
+const POSITIONS = ["ผู้บริหาร", "ครู", "ครู LS", "บุคลากร", "เลขานุการ"];
+const DEPARTMENTS = ["ฝ่ายงานวิชาการ", "ฝ่ายกิจการนักเรียน", "ฝ่ายงานบุคลากร", "ฝ่ายบริหารงานทั่วไป", "ฝ่ายแผนงานและงบประมาณ", "หน่วยงานภายนอก"];
 
 // --- Custom Scrollable Select Component ---
 interface SelectOption {

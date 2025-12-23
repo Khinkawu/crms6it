@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useRepairAdmin, getThaiStatus, getStatusColor } from "../../../hooks/useRepairAdmin";
-import ConfirmationModal from "../../components/ConfirmationModal";
+// Removed ConfirmationModal as signature is handled in RepairModal
 import RepairActionsBar from "../../../components/admin/RepairActionsBar";
 import { RepairTicketCard, RepairTicketList } from "../../components/repairs/RepairTicketCard";
 import { PageSkeleton } from "../../components/ui/Skeleton";
@@ -23,7 +23,7 @@ export default function RepairDashboard() {
     const { user, role, loading: authLoading } = useAuth();
     const router = useRouter();
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+
 
     // Use custom hook for all repair logic
     const {
@@ -80,15 +80,10 @@ export default function RepairDashboard() {
         }
     }, [filteredTickets, isModalOpen, openModal]);
 
-    // Confirm spare part usage
-    const handleUsePartClick = () => {
+    // Handle spare part usage with signature from modal
+    const handleUsePartClick = async (signatureDataUrl: string) => {
         if (!selectedPartId) return;
-        setIsConfirmOpen(true);
-    };
-
-    const confirmUsePart = async () => {
-        await handleUsePart();
-        setIsConfirmOpen(false);
+        await handleUsePart(signatureDataUrl);
     };
 
     if (authLoading || loading) {
@@ -273,15 +268,6 @@ export default function RepairDashboard() {
                 onSubmit={handleUpdateTicket}
                 isUpdating={isUpdating}
                 isReadOnly={isReadOnly}
-            />
-
-            <ConfirmationModal
-                isOpen={isConfirmOpen}
-                onClose={() => setIsConfirmOpen(false)}
-                onConfirm={confirmUsePart}
-                title="ยืนยันการเบิกอะไหล่"
-                message={`คุณแน่ใจหรือไม่ที่จะเบิก ${useQuantity} ชิ้น ของ ${inventory.find(p => p.id === selectedPartId)?.name}?`}
-                confirmText="ยืนยันเบิก"
             />
         </div>
     );

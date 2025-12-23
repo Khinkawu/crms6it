@@ -1,10 +1,21 @@
 "use strict";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { Product } from "../../types";
-import { X, Calendar, MapPin, Tag, Hash, Package, Clock, Download, Upload, RotateCcw, Edit, ExternalLink, Printer, Box } from "lucide-react";
+import { X, Calendar, MapPin, Tag, Hash, Package, Clock, Download, Upload, RotateCcw, Edit, ExternalLink, Printer, Box, History, ArrowDownToLine, ArrowUpFromLine, Plus, Loader2 } from "lucide-react";
 import Image from "next/image";
 import QRCode from "react-qr-code";
+import { collection, query, where, orderBy, limit, getDocs, Timestamp } from "firebase/firestore";
+import { db } from "../../lib/firebase";
+
+interface ActivityLogItem {
+    id: string;
+    action: string;
+    productName: string;
+    userName: string;
+    details?: string;
+    timestamp: Timestamp;
+}
 
 interface ProductDetailModalProps {
     isOpen: boolean;
@@ -15,6 +26,39 @@ interface ProductDetailModalProps {
 
 export default function ProductDetailModal({ isOpen, onClose, product, onAction }: ProductDetailModalProps) {
     const modalRef = useRef<HTMLDivElement>(null);
+    const [activityHistory, setActivityHistory] = useState<ActivityLogItem[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+
+    // Fetch product activity history
+    useEffect(() => {
+        const fetchProductHistory = async () => {
+            if (!product.name) return;
+
+            setLoadingHistory(true);
+            try {
+                const q = query(
+                    collection(db, "activities"),
+                    where("productName", "==", product.name),
+                    orderBy("timestamp", "desc"),
+                    limit(5)
+                );
+                const snapshot = await getDocs(q);
+                const logs = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })) as ActivityLogItem[];
+                setActivityHistory(logs);
+            } catch (error) {
+                console.error("Error fetching product history:", error);
+            } finally {
+                setLoadingHistory(false);
+            }
+        };
+
+        if (isOpen && product.name) {
+            fetchProductHistory();
+        }
+    }, [isOpen, product.name]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
@@ -35,6 +79,37 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [isOpen, onClose]);
+
+    // Helper function for action icons and labels
+    const getActionConfig = (action: string) => {
+        switch (action) {
+            case 'borrow':
+                return { icon: ArrowDownToLine, label: 'ยืม', color: 'text-amber-600', bg: 'bg-amber-50' };
+            case 'return':
+                return { icon: RotateCcw, label: 'คืน', color: 'text-emerald-600', bg: 'bg-emerald-50' };
+            case 'requisition':
+                return { icon: ArrowUpFromLine, label: 'เบิก', color: 'text-blue-600', bg: 'bg-blue-50' };
+            case 'add':
+                return { icon: Plus, label: 'เพิ่ม', color: 'text-purple-600', bg: 'bg-purple-50' };
+            default:
+                return { icon: Clock, label: action, color: 'text-gray-600', bg: 'bg-gray-50' };
+        }
+    };
+
+    const formatTimeAgo = (timestamp: any) => {
+        if (!timestamp) return '';
+        const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+        const now = new Date();
+        const diff = now.getTime() - date.getTime();
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (minutes < 60) return `${minutes} นาทีที่แล้ว`;
+        if (hours < 24) return `${hours} ชม.ที่แล้ว`;
+        if (days < 7) return `${days} วันที่แล้ว`;
+        return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+    };
 
     if (!isOpen) return null;
 
@@ -246,12 +321,12 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
 
                     {/* Additional Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                        {/* Left Column: History & Actions */}
+                        {/* Left Column: Info, Description & Actions */}
                         <div className="space-y-6">
-                            {/* History */}
+                            {/* Product Info */}
                             <div className="space-y-2">
                                 <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <Clock size={16} className="text-blue-500" /> ประวัติและรายละเอียด
+                                    <Clock size={16} className="text-blue-500" /> ข้อมูลสินค้า
                                 </h3>
                                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm text-gray-600 dark:text-gray-300 space-y-2">
                                     <p><span className="font-medium text-gray-700 dark:text-gray-200">วันที่เพิ่ม:</span> {product.createdAt?.toDate ? product.createdAt.toDate().toLocaleDateString('th-TH') : '-'}</p>
@@ -259,7 +334,24 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                                 </div>
                             </div>
 
-                            {/* Actions (Moved here) */}
+                            {/* Description */}
+                            <div className="space-y-2">
+                                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Tag size={16} className="text-emerald-500" /> รายละเอียดเพิ่มเติม
+                                </h3>
+                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-sm text-gray-600 dark:text-gray-300 min-h-[100px] border border-gray-100 dark:border-gray-700">
+                                    {product.description ? (
+                                        <p className="leading-relaxed whitespace-pre-line text-gray-700 dark:text-gray-200">{product.description}</p>
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-50 space-y-2 py-4">
+                                            <Box size={24} />
+                                            <span className="text-xs">ไม่มีรายละเอียด</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Actions */}
                             <div className="space-y-2">
                                 <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                     <Download size={16} className="text-purple-500" /> จัดการรายการ
@@ -299,18 +391,52 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
                             </div>
                         </div>
 
-                        {/* Right Column: Description (Moved here) */}
-                        <div className="space-y-2">
+                        {/* Right Column: Activity History */}
+                        <div className="space-y-3">
                             <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Tag size={16} className="text-emerald-500" /> รายละเอียดเพิ่มเติม
+                                <History size={16} className="text-indigo-500" /> ประวัติล่าสุด
                             </h3>
-                            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 text-sm text-gray-600 dark:text-gray-300 min-h-[200px] border border-gray-100 dark:border-gray-700">
-                                {product.description ? (
-                                    <p className="leading-relaxed whitespace-pre-line text-gray-700 dark:text-gray-200">{product.description}</p>
+                            <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                {loadingHistory ? (
+                                    <div className="p-8 flex items-center justify-center">
+                                        <Loader2 size={20} className="animate-spin text-gray-400" />
+                                        <span className="ml-2 text-sm text-gray-400">กำลังโหลด...</span>
+                                    </div>
+                                ) : activityHistory.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-400 text-sm">
+                                        <History size={28} className="mx-auto mb-2 opacity-30" />
+                                        <p>ยังไม่มีประวัติการใช้งาน</p>
+                                    </div>
                                 ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-50 space-y-2">
-                                        <Box size={32} />
-                                        <span>ไม่มีรายละเอียด</span>
+                                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                        {activityHistory.slice(0, 5).map((log) => {
+                                            const config = getActionConfig(log.action);
+                                            const IconComponent = config.icon;
+                                            return (
+                                                <div key={log.id} className="flex items-start gap-3 p-3.5 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+                                                    <div className={`p-2 rounded-lg ${config.bg} shrink-0`}>
+                                                        <IconComponent size={14} className={config.color} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-xs font-bold ${config.color}`}>{config.label}</span>
+                                                            <span className="text-xs text-gray-400">•</span>
+                                                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{log.userName}</span>
+                                                        </div>
+                                                        {log.details && (
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{log.details}</p>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-400 shrink-0">{formatTimeAgo(log.timestamp)}</span>
+                                                </div>
+                                            );
+                                        })}
+                                        {/* Empty slots to always show 5 rows */}
+                                        {activityHistory.length < 5 && Array.from({ length: 5 - activityHistory.length }).map((_, i) => (
+                                            <div key={`empty-${i}`} className="flex items-center justify-center p-3.5 text-gray-300 dark:text-gray-600">
+                                                <span className="text-xs">—</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>

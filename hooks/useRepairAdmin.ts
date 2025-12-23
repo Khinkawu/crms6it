@@ -54,7 +54,7 @@ interface UseRepairAdminReturn {
     setUseQuantity: (q: number) => void;
     // Actions
     handleUpdateTicket: (e: React.FormEvent) => Promise<void>;
-    handleUsePart: () => Promise<void>;
+    handleUsePart: (signatureDataUrl?: string) => Promise<void>;
     isUpdating: boolean;
     isRequisitioning: boolean;
 }
@@ -246,8 +246,8 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
         }
     };
 
-    // Use spare part
-    const handleUsePart = async () => {
+    // Use spare part with signature
+    const handleUsePart = async (signatureDataUrl?: string) => {
         if (!selectedPartId || !selectedTicket?.id) return;
 
         const part = inventory.find(p => p.id === selectedPartId);
@@ -260,12 +260,23 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
 
         setIsRequisitioning(true);
         try {
+            let signatureUrl = '';
+
+            // Upload signature if provided
+            if (signatureDataUrl) {
+                const signatureBlob = await (await fetch(signatureDataUrl)).blob();
+                const storageRef = ref(storage, `repair_signatures/${Date.now()}_sig.png`);
+                const snapshot = await uploadBytes(storageRef, signatureBlob);
+                signatureUrl = await getDownloadURL(snapshot.ref);
+            }
+
             const productRef = doc(db, "products", selectedPartId);
             const newQuantity = (part.quantity || 0) - useQuantity;
 
             await updateDoc(productRef, {
                 quantity: newQuantity,
-                status: newQuantity === 0 ? 'requisitioned' : 'available'
+                status: newQuantity === 0 ? 'requisitioned' : 'available',
+                updatedAt: serverTimestamp()
             });
 
             const ticketRef = doc(db, "repair_tickets", selectedTicket.id);
@@ -273,9 +284,21 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
                 partsUsed: arrayUnion({
                     name: part.name,
                     quantity: useQuantity,
-                    date: new Date()
+                    date: new Date(),
+                    signatureUrl: signatureUrl || null
                 }),
                 updatedAt: serverTimestamp()
+            });
+
+            // Log activity for history
+            await logActivity({
+                action: 'requisition',
+                productName: part.name,
+                userName: userName || "Technician",
+                details: `เบิกจากงานซ่อมห้อง ${selectedTicket.room} จำนวน ${useQuantity} ชิ้น`,
+                zone: selectedTicket.zone || 'unknown',
+                status: 'completed',
+                signatureUrl: signatureUrl || undefined
             });
 
             toast.success(`เบิก ${useQuantity} x ${part.name} สำเร็จ`);

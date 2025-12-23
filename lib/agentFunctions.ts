@@ -55,9 +55,20 @@ const ROOM_NAME_DISPLAY: Record<string, string> = {
 };
 
 const SIDE_MAPPING: Record<string, string> = {
-    'ม.ต้น': 'junior_high', 'มต้น': 'junior_high', 'ม ต้น': 'junior_high', 'junior': 'junior_high', 'junior_high': 'junior_high',
-    'ม.ปลาย': 'senior_high', 'มปลาย': 'senior_high', 'ม ปลาย': 'senior_high', 'senior': 'senior_high', 'senior_high': 'senior_high',
-    'ส่วนกลาง': 'common', 'common': 'common'
+    // ม.ต้น variations
+    'ม.ต้น': 'junior_high', 'มต้น': 'junior_high', 'ม ต้น': 'junior_high',
+    'ม.ตน': 'junior_high', 'มตน': 'junior_high',
+    'ต้น': 'junior_high', 'ตน': 'junior_high',
+    'junior': 'junior_high', 'junior_high': 'junior_high',
+    'ฝั่งม.ต้น': 'junior_high', 'ฝั่งมต้น': 'junior_high',
+    // ม.ปลาย variations
+    'ม.ปลาย': 'senior_high', 'มปลาย': 'senior_high', 'ม ปลาย': 'senior_high',
+    'ม.ปราย': 'senior_high', 'มปราย': 'senior_high',
+    'ปลาย': 'senior_high', 'ปราย': 'senior_high',
+    'senior': 'senior_high', 'senior_high': 'senior_high',
+    'ฝั่งม.ปลาย': 'senior_high', 'ฝั่งมปลาย': 'senior_high',
+    // ส่วนกลาง
+    'ส่วนกลาง': 'common', 'common': 'common', 'กลาง': 'common'
 };
 
 // --- Helpers ---
@@ -154,7 +165,8 @@ async function notifyTechniciansDirectly(data: {
             requesterName: data.requesterName,
             imageUrl: validImageUrl,
             ticketId: data.ticketId,
-            deepLink
+            deepLink,
+            zone: data.zone
         });
 
         // 3. Send via LINE Multicast API
@@ -300,7 +312,11 @@ export async function createRepairFromAI(
 
         if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
 
-        const normalizedSide = SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
+        // Debug: Log what side value comes from AI
+        const trimmedSide = side.trim().toLowerCase();
+        const normalizedSide = SIDE_MAPPING[trimmedSide] || SIDE_MAPPING[side.toLowerCase()] || 'common';
+        console.log(`[createRepairFromAI] side input: "${side}" -> trimmed: "${trimmedSide}" -> normalized: "${normalizedSide}"`);
+
         const images: string[] = imageUrl && imageUrl !== 'pending_upload' && imageUrl !== '' ? [imageUrl] : [];
 
         const repairData = {
