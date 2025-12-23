@@ -485,6 +485,12 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
     let context = await getConversationContext(lineUserId);
     if (!context) { context = { messages: [], lastActivity: new Date() }; }
 
+    // Debug logging for OTP flow
+    console.log('[AI Agent] lineUserId:', lineUserId);
+    console.log('[AI Agent] userMessage:', userMessage);
+    console.log('[AI Agent] userProfile:', userProfile ? `${userProfile.displayName} (${userProfile.email})` : 'null');
+    console.log('[AI Agent] context.pendingAction:', JSON.stringify(context.pendingAction));
+
     // 1. Account Binding Check - OTP Flow
     if (['ผูกบัญชี', 'เชื่อมบัญชี', 'link account'].some(k => userMessage.toLowerCase().includes(k))) {
         if (userProfile) {
@@ -493,6 +499,7 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
         // Start OTP binding flow
         context.pendingAction = { intent: 'LINK_ACCOUNT', params: {}, repairStep: 'awaiting_link_email' };
         await saveConversationContext(lineUserId, context);
+        console.log('[AI Agent] Started LINK_ACCOUNT flow, saved context');
         return `🔗 ผูกบัญชี LINE กับระบบ\n\nกรุณาพิมพ์ email @tesaban6.ac.th ของคุณค่ะ\nตัวอย่าง: kawin@tesaban6.ac.th`;
     }
 
