@@ -153,6 +153,7 @@ async function clearPendingAction(lineUserId: string): Promise<void> {
 
 async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserProfile | null> {
     try {
+        // Only check line_bindings collection - the official source of truth
         const bindingDoc = await getDoc(doc(db, 'line_bindings', lineUserId));
         if (bindingDoc.exists()) {
             const uid = bindingDoc.data().uid;
@@ -172,22 +173,7 @@ async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserPr
             }
         }
 
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('lineUserId', '==', lineUserId), limit(1));
-        const snapshot = await getDocs(q);
-
-        if (!snapshot.empty) {
-            const userDoc = snapshot.docs[0];
-            const userData = userDoc.data();
-            return {
-                uid: userDoc.id,
-                displayName: userData.displayName || userData.name || 'ผู้ใช้',
-                email: userData.email,
-                role: userData.role || 'user',
-                isPhotographer: userData.isPhotographer || false,
-                responsibility: userData.responsibility,
-            };
-        }
+        // No binding found - user needs to link account
         return null;
     } catch (error) {
         console.error('Error getting user profile:', error);
