@@ -1,23 +1,11 @@
 /**
  * AI Agent Functions
  * ฟังก์ชันสำหรับเรียกข้อมูลจาก Firestore และดำเนินการต่างๆ ให้ AI Agent
+ * ใช้ Firebase Admin SDK สำหรับ server-side operations
  */
 
-import { db } from '@/lib/firebase';
 import { adminDb } from '@/lib/firebaseAdmin';
-import {
-    collection,
-    query,
-    where,
-    getDocs,
-    addDoc,
-    serverTimestamp,
-    orderBy,
-    limit,
-    Timestamp,
-    doc,
-    getDoc
-} from 'firebase/firestore';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { RepairTicket } from '@/types';
 import { createRepairNewFlexMessage } from '@/utils/flexMessageTemplates';
 
@@ -75,19 +63,19 @@ const SIDE_MAPPING: Record<string, string> = {
 
 // ฟังก์ชันแปลงรหัสห้องเป็นชื่อไทย
 function getRoomDisplayName(id: string): string {
-    return ROOM_NAME_DISPLAY[id] || id; // ถ้าไม่มีในลิสต์ ให้คืนค่าเดิม
+    return ROOM_NAME_DISPLAY[id] || id;
 }
 
-// ฟังก์ชันแปลงเวลาเป็นภาษาไทย (ปรุงสุกให้ AI)
+// ฟังก์ชันแปลงเวลาเป็นภาษาไทย
 function formatToThaiTime(dateInput: any): string {
     if (!dateInput) return '-';
     try {
-        const date = dateInput instanceof Timestamp ? dateInput.toDate() : new Date(dateInput);
-        // แปลงเป็น "22 ธ.ค. 2568 เวลา 14:30 น."
+        const date = dateInput instanceof Timestamp ? dateInput.toDate() :
+            (dateInput.toDate ? dateInput.toDate() : new Date(dateInput));
         return date.toLocaleString('th-TH', {
             timeZone: 'Asia/Bangkok',
             year: 'numeric',
-            month: 'short', // หรือ 'long' ถ้าอยากได้เดือนเต็ม
+            month: 'short',
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit',
@@ -106,7 +94,7 @@ function getThaiDateRange(dateStr: string): { start: Timestamp, end: Timestamp }
 }
 
 /**
- * Notify technicians directly via LINE (แก้ปัญหา self-referencing URL ใน serverless)
+ * Notify technicians directly via LINE
  */
 async function notifyTechniciansDirectly(data: {
     ticketId: string;
@@ -123,7 +111,6 @@ async function notifyTechniciansDirectly(data: {
             return;
         }
 
-        // 1. Query technicians from Firestore using Admin SDK
         const techsSnapshot = await adminDb.collection('users').where('role', '==', 'technician').get();
 
         let targetUserIds: string[] = [];
@@ -134,17 +121,15 @@ async function notifyTechniciansDirectly(data: {
 
             if (!lineId) return;
 
-            // Filter by zone responsibility
             if (data.zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) {
                 targetUserIds.push(lineId);
             } else if (data.zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all')) {
                 targetUserIds.push(lineId);
             } else if (data.zone === 'common') {
-                targetUserIds.push(lineId); // Common zone notifies everyone
+                targetUserIds.push(lineId);
             }
         });
 
-        // Deduplicate
         targetUserIds = Array.from(new Set(targetUserIds));
 
         if (targetUserIds.length === 0) {
@@ -152,11 +137,8 @@ async function notifyTechniciansDirectly(data: {
             return;
         }
 
-        // 2. Create Flex Message
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
         const deepLink = `${appUrl}/admin/repairs?ticketId=${data.ticketId}`;
-
-        // Only use HTTPS image URLs (skip base64 data URLs - too large for LINE API)
         const validImageUrl = data.imageOneUrl && data.imageOneUrl.startsWith('https://') ? data.imageOneUrl : undefined;
 
         const flexMessage = createRepairNewFlexMessage({
@@ -169,7 +151,6 @@ async function notifyTechniciansDirectly(data: {
             zone: data.zone
         });
 
-        // 3. Send via LINE Multicast API
         const response = await fetch('https://api.line.me/v2/bot/message/multicast', {
             method: 'POST',
             headers: {
@@ -201,9 +182,10 @@ async function notifyTechniciansDirectly(data: {
 export async function searchGallery(keyword?: string, date?: string): Promise<any[]> {
     try {
         console.log(`[Gallery Search] Input: "${keyword}", Date: "${date}"`);
-        const jobsRef = collection(db, 'photography_jobs');
-        const q = query(jobsRef, orderBy('startTime', 'desc'), limit(100));
-        const snapshot = await getDocs(q);
+        const snapshot = await adminDb.collection('photography_jobs')
+            .orderBy('startTime', 'desc')
+            .limit(100)
+            .get();
 
         let jobs: any[] = [];
 
@@ -213,12 +195,9 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
                 jobs.push({
                     id: doc.id,
                     title: data.title,
-                    // [แก้ไข 1] แปลงรหัสเป็นชื่อไทย
                     location: getRoomDisplayName(data.location),
-                    // [แก้ไข 2] แปลงวันที่เป็นไทย
                     date: formatToThaiTime(data.startTime),
                     driveLink: data.driveLink || 'ไม่มีลิงก์ Drive',
-                    // [แก้ไข 3] ดึง Link Facebook ออกมาส่งให้ AI (รองรับทั้ง field เก่าและใหม่)
                     facebookLink: data.facebookPermalink || data.facebookPostLink || '',
                     rawStartTime: data.startTime
                 });
@@ -229,7 +208,7 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
         if (date) {
             const targetYMD = date.split('T')[0];
             jobs = jobs.filter(job => {
-                const jDate = job.rawStartTime instanceof Timestamp ? job.rawStartTime.toDate() : new Date(job.rawStartTime);
+                const jDate = job.rawStartTime?.toDate ? job.rawStartTime.toDate() : new Date(job.rawStartTime);
                 const thDate = new Date(jDate.getTime() + (7 * 60 * 60 * 1000));
                 return thDate.toISOString().split('T')[0] === targetYMD;
             });
@@ -245,7 +224,6 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
             });
         }
 
-        // Return ข้อมูลให้ AI (ตัดข้อมูลดิบทิ้ง ส่งไปแต่ที่ปรุงแล้ว)
         return jobs.slice(0, 10).map(({ rawStartTime, ...rest }) => rest);
 
     } catch (error) {
@@ -257,8 +235,12 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
 // --- PHOTO JOBS (งานของฉัน) ---
 export async function getPhotoJobsByPhotographer(userId: string, date?: string): Promise<any[]> {
     try {
-        const q = query(collection(db, 'photography_jobs'), where('assigneeIds', 'array-contains', userId), orderBy('startTime', 'desc'), limit(50));
-        const snapshot = await getDocs(q);
+        const snapshot = await adminDb.collection('photography_jobs')
+            .where('assigneeIds', 'array-contains', userId)
+            .orderBy('startTime', 'desc')
+            .limit(50)
+            .get();
+
         let jobs: any[] = [];
 
         snapshot.forEach((doc) => {
@@ -277,12 +259,15 @@ export async function getPhotoJobsByPhotographer(userId: string, date?: string):
         if (date) {
             const target = date.split('T')[0];
             jobs = jobs.filter(j => {
-                const t = new Date((j.rawStart instanceof Timestamp ? j.rawStart.toDate() : new Date(j.rawStart)).getTime() + (7 * 60 * 60 * 1000));
+                const t = new Date((j.rawStart?.toDate ? j.rawStart.toDate() : new Date(j.rawStart)).getTime() + (7 * 60 * 60 * 1000));
                 return t.toISOString().split('T')[0] === target;
             });
         }
         return jobs.map(({ rawStart, ...rest }) => rest);
-    } catch (e) { return []; }
+    } catch (e) {
+        console.error('Error getting photo jobs:', e);
+        return [];
+    }
 }
 
 // --- REPAIR (แจ้งซ่อม) ---
@@ -293,17 +278,16 @@ export async function createRepairFromAI(
     room: string, description: string, side: string, imageUrl: string, requesterName: string, requesterEmail: string
 ): Promise<CreateRepairResult> {
     try {
-        // [แก้ไข 4] ค้นหาชื่อจริงจาก Users collection
         let finalRequesterName = requesterName || 'ผู้แจ้งผ่าน LINE';
 
         if (requesterEmail) {
-            const usersRef = collection(db, 'users');
-            const userQ = query(usersRef, where('email', '==', requesterEmail), limit(1));
-            const userSnap = await getDocs(userQ);
+            const userSnap = await adminDb.collection('users')
+                .where('email', '==', requesterEmail)
+                .limit(1)
+                .get();
 
             if (!userSnap.empty) {
                 const userData = userSnap.docs[0].data();
-                // ใช้ displayName ถ้ามี ถ้าไม่มีใช้ชื่อเดิม
                 if (userData.displayName) {
                     finalRequesterName = userData.displayName;
                 }
@@ -312,10 +296,9 @@ export async function createRepairFromAI(
 
         if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
 
-        // Debug: Log what side value comes from AI
         const trimmedSide = side.trim().toLowerCase();
         const normalizedSide = SIDE_MAPPING[trimmedSide] || SIDE_MAPPING[side.toLowerCase()] || 'common';
-        console.log(`[createRepairFromAI] side input: "${side}" -> trimmed: "${trimmedSide}" -> normalized: "${normalizedSide}"`);
+        console.log(`[createRepairFromAI] side input: "${side}" -> normalized: "${normalizedSide}"`);
 
         const images: string[] = imageUrl && imageUrl !== 'pending_upload' && imageUrl !== '' ? [imageUrl] : [];
 
@@ -323,15 +306,14 @@ export async function createRepairFromAI(
             room, description,
             zone: normalizedSide as 'junior_high' | 'senior_high' | 'common',
             images,
-            requesterName: finalRequesterName, // ใช้ชื่อจริงที่หาเจอ
+            requesterName: finalRequesterName,
             requesterEmail: requesterEmail || '',
             position: 'แจ้งผ่าน LINE', phone: '-', status: 'pending' as const,
-            createdAt: serverTimestamp(), updatedAt: serverTimestamp(), source: 'line_ai',
+            createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), source: 'line_ai',
         };
 
-        const docRef = await addDoc(collection(db, 'repair_tickets'), repairData);
+        const docRef = await adminDb.collection('repair_tickets').add(repairData);
 
-        // Notify technicians via LINE (เรียกโดยตรง ไม่ผ่าน HTTP)
         await notifyTechniciansDirectly({
             ticketId: docRef.id,
             requesterName: finalRequesterName,
@@ -346,17 +328,24 @@ export async function createRepairFromAI(
             ticketId: docRef.id,
             data: {
                 ...repairData,
-                roomName: getRoomDisplayName(room), // แปลงชื่อห้องให้ AI ตอบ
-                createdAt: formatToThaiTime(new Date()) // แปลงเวลาให้ AI ตอบ
+                roomName: getRoomDisplayName(room),
+                createdAt: formatToThaiTime(new Date())
             }
         };
-    } catch (error) { return { success: false, error: 'เกิดข้อผิดพลาด' }; }
+    } catch (error) {
+        console.error('Error creating repair:', error);
+        return { success: false, error: 'เกิดข้อผิดพลาด' };
+    }
 }
 
 export async function getRepairsByEmail(email: string): Promise<any[]> {
     try {
-        const q = query(collection(db, 'repair_tickets'), where('requesterEmail', '==', email), orderBy('createdAt', 'desc'), limit(5));
-        const snapshot = await getDocs(q);
+        const snapshot = await adminDb.collection('repair_tickets')
+            .where('requesterEmail', '==', email)
+            .orderBy('createdAt', 'desc')
+            .limit(5)
+            .get();
+
         const repairs: any[] = [];
         snapshot.forEach((doc) => {
             const d = doc.data();
@@ -369,25 +358,55 @@ export async function getRepairsByEmail(email: string): Promise<any[]> {
             });
         });
         return repairs;
-    } catch (error) { return []; }
+    } catch (error) {
+        console.error('Error getting repairs:', error);
+        return [];
+    }
 }
 
 export async function getRepairsForTechnician(zone: string | 'all', date?: string): Promise<RepairTicket[]> {
     try {
-        const repairsRef = collection(db, 'repair_tickets');
-        let q;
-        if (zone === 'all') { q = query(repairsRef, where('status', 'in', ['pending', 'in_progress', 'waiting_parts']), orderBy('createdAt', 'desc'), limit(50)); }
-        else { q = query(repairsRef, where('zone', '==', zone), where('status', 'in', ['pending', 'in_progress', 'waiting_parts']), orderBy('createdAt', 'desc'), limit(50)); }
-        const snapshot = await getDocs(q);
+        let queryRef = adminDb.collection('repair_tickets')
+            .where('status', 'in', ['pending', 'in_progress', 'waiting_parts'])
+            .orderBy('createdAt', 'desc')
+            .limit(50);
+
+        if (zone !== 'all') {
+            queryRef = adminDb.collection('repair_tickets')
+                .where('zone', '==', zone)
+                .where('status', 'in', ['pending', 'in_progress', 'waiting_parts'])
+                .orderBy('createdAt', 'desc')
+                .limit(50);
+        }
+
+        const snapshot = await queryRef.get();
         let repairs: RepairTicket[] = [];
         snapshot.forEach((doc) => repairs.push({ id: doc.id, ...doc.data() } as RepairTicket));
-        if (date) { const targetYMD = date.split('T')[0]; repairs = repairs.filter(r => { const rDate = r.createdAt instanceof Timestamp ? r.createdAt.toDate() : new Date(r.createdAt as any); const thDate = new Date(rDate.getTime() + (7 * 60 * 60 * 1000)); return thDate.toISOString().split('T')[0] === targetYMD; }); }
+
+        if (date) {
+            const targetYMD = date.split('T')[0];
+            repairs = repairs.filter(r => {
+                const rDate = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt as any);
+                const thDate = new Date(rDate.getTime() + (7 * 60 * 60 * 1000));
+                return thDate.toISOString().split('T')[0] === targetYMD;
+            });
+        }
         return repairs;
-    } catch (error) { return []; }
+    } catch (error) {
+        console.error('Error getting repairs for technician:', error);
+        return [];
+    }
 }
 
 export async function getRepairByTicketId(ticketId: string): Promise<RepairTicket | null> {
-    try { const docRef = doc(db, 'repair_tickets', ticketId); const docSnap = await getDoc(docRef); if (!docSnap.exists()) return null; return { id: docSnap.id, ...docSnap.data() } as RepairTicket; } catch (error) { return null; }
+    try {
+        const docSnap = await adminDb.collection('repair_tickets').doc(ticketId).get();
+        if (!docSnap.exists) return null;
+        return { id: docSnap.id, ...docSnap.data() } as RepairTicket;
+    } catch (error) {
+        console.error('Error getting repair:', error);
+        return null;
+    }
 }
 
 // --- BOOKING FUNCTIONS ---
@@ -398,8 +417,13 @@ export async function checkRoomAvailability(room: string, date: string, startTim
     try {
         const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
         const { start, end } = getThaiDateRange(date);
-        const q = query(collection(db, 'bookings'), where('roomId', '==', normalizedRoom), where('startTime', '>=', start), where('startTime', '<=', end), where('status', 'in', ['pending', 'approved', 'confirmed']));
-        const snapshot = await getDocs(q);
+
+        const snapshot = await adminDb.collection('bookings')
+            .where('roomId', '==', normalizedRoom)
+            .where('startTime', '>=', start)
+            .where('startTime', '<=', end)
+            .where('status', 'in', ['pending', 'approved', 'confirmed'])
+            .get();
 
         const conflicts: any[] = [];
         const [reqStartH, reqStartM] = startTime.split(':').map(Number);
@@ -409,8 +433,8 @@ export async function checkRoomAvailability(room: string, date: string, startTim
 
         snapshot.forEach((doc) => {
             const b = doc.data();
-            const bStart = b.startTime instanceof Timestamp ? b.startTime.toDate() : new Date(b.startTime);
-            const bEnd = b.endTime instanceof Timestamp ? b.endTime.toDate() : new Date(b.endTime);
+            const bStart = b.startTime?.toDate ? b.startTime.toDate() : new Date(b.startTime);
+            const bEnd = b.endTime?.toDate ? b.endTime.toDate() : new Date(b.endTime);
             const thStart = new Date(bStart.getTime() + (7 * 60 * 60 * 1000));
             const thEnd = new Date(bEnd.getTime() + (7 * 60 * 60 * 1000));
             const bStartM = thStart.getUTCHours() * 60 + thStart.getUTCMinutes();
@@ -425,23 +449,29 @@ export async function checkRoomAvailability(room: string, date: string, startTim
             }
         });
         return { available: conflicts.length === 0, conflicts: conflicts.length > 0 ? conflicts : undefined };
-    } catch (error) { return { available: false }; }
+    } catch (error) {
+        console.error('Error checking availability:', error);
+        return { available: false };
+    }
 }
 
 export async function getRoomSchedule(room: string, date: string): Promise<any[]> {
     try {
         const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
         const { start, end } = getThaiDateRange(date);
-        const q = query(collection(db, 'bookings'), where('roomId', '==', normalizedRoom), where('startTime', '>=', start), where('startTime', '<=', end), where('status', 'in', ['pending', 'approved', 'confirmed']));
-        const snapshot = await getDocs(q);
+
+        const snapshot = await adminDb.collection('bookings')
+            .where('roomId', '==', normalizedRoom)
+            .where('startTime', '>=', start)
+            .where('startTime', '<=', end)
+            .where('status', 'in', ['pending', 'approved', 'confirmed'])
+            .get();
 
         const bookings: any[] = [];
         snapshot.forEach((doc) => {
             const data = doc.data();
-            // แปลงเวลาเป็น HH:mm เพื่อให้ AI จัดรูปแบบได้ถูกต้อง
-            const startDT = data.startTime instanceof Timestamp ? data.startTime.toDate() : new Date(data.startTime);
-            const endDT = data.endTime instanceof Timestamp ? data.endTime.toDate() : new Date(data.endTime);
-            // แปลงเป็นเวลาไทย (+7)
+            const startDT = data.startTime?.toDate ? data.startTime.toDate() : new Date(data.startTime);
+            const endDT = data.endTime?.toDate ? data.endTime.toDate() : new Date(data.endTime);
             const thStartDT = new Date(startDT.getTime() + (7 * 60 * 60 * 1000));
             const thEndDT = new Date(endDT.getTime() + (7 * 60 * 60 * 1000));
 
@@ -451,16 +481,18 @@ export async function getRoomSchedule(room: string, date: string): Promise<any[]
                 room: getRoomDisplayName(data.room || data.roomId),
                 status: data.status,
                 requester: data.requesterName,
-                // ส่งเป็น HH:mm เท่านั้น
                 startTime: `${thStartDT.getUTCHours().toString().padStart(2, '0')}:${thStartDT.getUTCMinutes().toString().padStart(2, '0')}`,
                 endTime: `${thEndDT.getUTCHours().toString().padStart(2, '0')}:${thEndDT.getUTCMinutes().toString().padStart(2, '0')}`,
                 rawStart: data.startTime
             });
         });
 
-        bookings.sort((a, b) => (a.rawStart?.toMillis() || 0) - (b.rawStart?.toMillis() || 0));
+        bookings.sort((a, b) => (a.rawStart?.toMillis?.() || 0) - (b.rawStart?.toMillis?.() || 0));
         return bookings.map(({ rawStart, ...rest }) => rest);
-    } catch (error) { return []; }
+    } catch (error) {
+        console.error('Error getting room schedule:', error);
+        return [];
+    }
 }
 
 export async function createBookingFromAI(room: string, date: string, startTime: string, endTime: string, title: string, requesterName: string, requesterEmail: string): Promise<any> {
@@ -475,10 +507,14 @@ export async function createBookingFromAI(room: string, date: string, startTime:
         const sDT = new Date(d); sDT.setHours(sH, sM, 0, 0);
         const eDT = new Date(d); eDT.setHours(eH, eM, 0, 0);
 
-        const docRef = await addDoc(collection(db, 'bookings'), {
-            room: normalizedRoom, roomId: normalizedRoom, startTime: Timestamp.fromDate(sDT), endTime: Timestamp.fromDate(eDT),
-            title, description: 'จองผ่าน LINE AI', requesterName, requesterEmail, department: 'บุคลากร', position: 'บุคลากร', phoneNumber: '-', status: 'pending', createdAt: serverTimestamp(), source: 'line_ai'
+        const docRef = await adminDb.collection('bookings').add({
+            room: normalizedRoom, roomId: normalizedRoom,
+            startTime: Timestamp.fromDate(sDT), endTime: Timestamp.fromDate(eDT),
+            title, description: 'จองผ่าน LINE AI', requesterName, requesterEmail,
+            department: 'บุคลากร', position: 'บุคลากร', phoneNumber: '-',
+            status: 'pending', createdAt: FieldValue.serverTimestamp(), source: 'line_ai'
         });
+
         return {
             success: true,
             bookingId: docRef.id,
@@ -488,13 +524,20 @@ export async function createBookingFromAI(room: string, date: string, startTime:
                 time: `${startTime} - ${endTime}`
             }
         };
-    } catch (e) { return { success: false, error: 'เกิดข้อผิดพลาด' }; }
+    } catch (e) {
+        console.error('Error creating booking:', e);
+        return { success: false, error: 'เกิดข้อผิดพลาด' };
+    }
 }
 
 export async function getBookingsByEmail(email: string): Promise<any[]> {
     try {
-        const q = query(collection(db, 'bookings'), where('requesterEmail', '==', email), orderBy('startTime', 'desc'), limit(10));
-        const snapshot = await getDocs(q);
+        const snapshot = await adminDb.collection('bookings')
+            .where('requesterEmail', '==', email)
+            .orderBy('startTime', 'desc')
+            .limit(10)
+            .get();
+
         const bookings: any[] = [];
         snapshot.forEach((doc) => {
             const d = doc.data();
@@ -507,13 +550,20 @@ export async function getBookingsByEmail(email: string): Promise<any[]> {
             });
         });
         return bookings;
-    } catch (e) { return []; }
+    } catch (e) {
+        console.error('Error getting bookings:', e);
+        return [];
+    }
 }
 
 export async function getPendingBookings(date?: string): Promise<any[]> {
     try {
-        const q = query(collection(db, 'bookings'), where('status', '==', 'pending'), orderBy('startTime', 'asc'), limit(50));
-        const snapshot = await getDocs(q);
+        const snapshot = await adminDb.collection('bookings')
+            .where('status', '==', 'pending')
+            .orderBy('startTime', 'asc')
+            .limit(50)
+            .get();
+
         let bookings: any[] = [];
         snapshot.forEach((doc) => {
             const d = doc.data();
@@ -529,30 +579,50 @@ export async function getPendingBookings(date?: string): Promise<any[]> {
         if (date) {
             const target = date.split('T')[0];
             bookings = bookings.filter(b => {
-                const t = new Date((b.rawStart instanceof Timestamp ? b.rawStart.toDate() : new Date(b.rawStart)).getTime() + (7 * 60 * 60 * 1000));
+                const t = new Date((b.rawStart?.toDate ? b.rawStart.toDate() : new Date(b.rawStart)).getTime() + (7 * 60 * 60 * 1000));
                 return t.toISOString().split('T')[0] === target;
             });
         }
         return bookings.map(({ rawStart, ...rest }) => rest);
-    } catch (e) { return []; }
+    } catch (e) {
+        console.error('Error getting pending bookings:', e);
+        return [];
+    }
 }
 
 export async function getDailySummary(date: Date = new Date()): Promise<any> {
     try {
         const s = new Date(date); s.setHours(0, 0, 0, 0);
         const e = new Date(date); e.setHours(23, 59, 59, 999);
-        const sT = Timestamp.fromDate(s); const eT = Timestamp.fromDate(e);
-        const rQ = query(collection(db, 'repair_tickets'), where('createdAt', '>=', sT), where('createdAt', '<=', eT));
-        const bQ = query(collection(db, 'bookings'), where('startTime', '>=', sT), where('startTime', '<=', eT));
-        const jQ = query(collection(db, 'photography_jobs'), where('startTime', '>=', sT), where('startTime', '<=', eT));
-        const [rS, bS, jS] = await Promise.all([getDocs(rQ), getDocs(bQ), getDocs(jQ)]);
-        let rP = 0, rIP = 0; rS.forEach(d => { if (d.data().status === 'pending') rP++; if (d.data().status === 'in_progress') rIP++; });
-        let bP = 0, bA = 0; bS.forEach(d => { if (d.data().status === 'pending') bP++; if (d.data().status === 'approved') bA++; });
+        const sT = Timestamp.fromDate(s);
+        const eT = Timestamp.fromDate(e);
+
+        const [rS, bS, jS] = await Promise.all([
+            adminDb.collection('repair_tickets').where('createdAt', '>=', sT).where('createdAt', '<=', eT).get(),
+            adminDb.collection('bookings').where('startTime', '>=', sT).where('startTime', '<=', eT).get(),
+            adminDb.collection('photography_jobs').where('startTime', '>=', sT).where('startTime', '<=', eT).get()
+        ]);
+
+        let rP = 0, rIP = 0;
+        rS.forEach(d => {
+            if (d.data().status === 'pending') rP++;
+            if (d.data().status === 'in_progress') rIP++;
+        });
+
+        let bP = 0, bA = 0;
+        bS.forEach(d => {
+            if (d.data().status === 'pending') bP++;
+            if (d.data().status === 'approved') bA++;
+        });
+
         return {
             date: formatToThaiTime(date),
             repairs: { total: rS.size, pending: rP, inProgress: rIP },
             bookings: { total: bS.size, pending: bP, approved: bA },
             photoJobs: { total: jS.size, pending: 0 }
         };
-    } catch (e) { return { error: 'Failed to get summary' }; }
+    } catch (e) {
+        console.error('Error getting daily summary:', e);
+        return { error: 'Failed to get summary' };
+    }
 }
