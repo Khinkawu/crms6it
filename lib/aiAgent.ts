@@ -52,7 +52,9 @@ interface ConversationContext {
         | 'awaiting_intent_confirm'
         | 'awaiting_room'
         | 'awaiting_side'
-        | 'awaiting_final_confirm';
+        | 'awaiting_final_confirm'
+        | 'awaiting_link_email'
+        | 'awaiting_otp';
         galleryResults?: any[];
     };
     lastActivity: any;
@@ -483,9 +485,15 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
     let context = await getConversationContext(lineUserId);
     if (!context) { context = { messages: [], lastActivity: new Date() }; }
 
-    // 1. Account Binding Check
-    if (['ผูกบัญชี', 'เชื่อมบัญชี'].some(k => userMessage.includes(k))) {
-        return userProfile ? `✅ ผูกบัญชีแล้ว: ${userProfile.displayName}` : `❌ ยังไม่ผูกบัญชีค่ะ\nไปที่เว็บ crms6it.vercel.app เพื่อเชื่อมต่อนะคะ`;
+    // 1. Account Binding Check - OTP Flow
+    if (['ผูกบัญชี', 'เชื่อมบัญชี', 'link account'].some(k => userMessage.toLowerCase().includes(k))) {
+        if (userProfile) {
+            return `✅ ผูกบัญชีแล้วค่ะ: ${userProfile.displayName} (${userProfile.email})`;
+        }
+        // Start OTP binding flow
+        context.pendingAction = { intent: 'LINK_ACCOUNT', params: {}, repairStep: 'awaiting_link_email' };
+        await saveConversationContext(lineUserId, context);
+        return `🔗 ผูกบัญชี LINE กับระบบ\n\nกรุณาพิมพ์ email @tesaban6.ac.th ของคุณค่ะ\nตัวอย่าง: kawin@tesaban6.ac.th`;
     }
 
     // 2. Booking Intercept
@@ -520,6 +528,73 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
         if (['ยกเลิก', 'cancel'].includes(msg.toLowerCase())) {
             await clearPendingAction(lineUserId);
             return 'ยกเลิกเรียบร้อยค่ะ';
+        }
+        // Handle LINK_ACCOUNT flow (OTP-based account binding)
+        if (intent === 'LINK_ACCOUNT') {
+            if (repairStep === 'awaiting_link_email') {
+                const email = msg.toLowerCase().trim();
+
+                // Validate email format
+                if (!email.endsWith('@tesaban6.ac.th')) {
+                    return `❌ กรุณาใช้ email @tesaban6.ac.th เท่านั้นค่ะ\nตัวอย่าง: kawin@tesaban6.ac.th`;
+                }
+
+                // Call send-otp API
+                try {
+                    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
+                    const response = await fetch(`${appUrl}/api/send-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, lineUserId })
+                    });
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        await clearPendingAction(lineUserId);
+                        return `❌ ${result.error}`;
+                    }
+
+                    context.pendingAction.params.email = email;
+                    context.pendingAction.repairStep = 'awaiting_otp';
+                    await saveConversationContext(lineUserId, context);
+
+                    return `✉️ ส่งรหัส OTP 6 หลักไปที่ ${email} แล้วค่ะ\n\n📩 กรุณาเช็คอีเมล (รวมถึง Spam) แล้วพิมพ์รหัส OTP ที่ได้รับ\n⏰ รหัสจะหมดอายุใน 5 นาที`;
+                } catch (error) {
+                    console.error('[LINK_ACCOUNT] Send OTP Error:', error);
+                    await clearPendingAction(lineUserId);
+                    return '❌ เกิดข้อผิดพลาดในการส่ง OTP กรุณาลองใหม่ค่ะ';
+                }
+            }
+
+            if (repairStep === 'awaiting_otp') {
+                const otp = msg.replace(/\s/g, ''); // Remove spaces
+
+                // Validate OTP format (6 digits)
+                if (!/^\d{6}$/.test(otp)) {
+                    return '❌ รหัส OTP ต้องเป็นตัวเลข 6 หลักค่ะ กรุณาพิมพ์ใหม่';
+                }
+
+                // Call verify-otp API
+                try {
+                    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
+                    const response = await fetch(`${appUrl}/api/verify-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ otp, lineUserId })
+                    });
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        return `❌ ${result.error}`;
+                    }
+
+                    await clearPendingAction(lineUserId);
+                    return `✅ ผูกบัญชีสำเร็จค่ะ!\n\n👤 ชื่อ: ${result.displayName}\n📧 Email: ${result.email}\n\nตอนนี้สามารถแจ้งซ่อม จองห้อง และใช้งานระบบได้เลยค่ะ 🎉`;
+                } catch (error) {
+                    console.error('[LINK_ACCOUNT] Verify OTP Error:', error);
+                    return '❌ เกิดข้อผิดพลาดในการตรวจสอบ OTP กรุณาลองใหม่ค่ะ';
+                }
+            }
         }
 
         if (intent === 'CREATE_REPAIR') {

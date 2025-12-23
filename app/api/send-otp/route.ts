@@ -1,0 +1,69 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { generateOtp, sendOtpEmail } from '@/lib/emailService';
+import { FieldValue } from 'firebase-admin/firestore';
+
+export async function POST(request: NextRequest) {
+    try {
+        const { email, lineUserId } = await request.json();
+
+        // Validate email domain
+        if (!email || !email.endsWith('@tesaban6.ac.th')) {
+            return NextResponse.json(
+                { success: false, error: 'กรุณาใช้ email @tesaban6.ac.th เท่านั้น' },
+                { status: 400 }
+            );
+        }
+
+        if (!lineUserId) {
+            return NextResponse.json(
+                { success: false, error: 'ไม่พบข้อมูล LINE User ID' },
+                { status: 400 }
+            );
+        }
+
+        // Check if already bound
+        const existingBinding = await adminDb.collection('line_bindings').doc(lineUserId).get();
+        if (existingBinding.exists) {
+            return NextResponse.json(
+                { success: false, error: 'บัญชี LINE นี้ถูกผูกแล้ว' },
+                { status: 400 }
+            );
+        }
+
+        // Generate OTP
+        const otp = generateOtp();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+        // Store OTP in Firestore
+        await adminDb.collection('otp_codes').doc(lineUserId).set({
+            email,
+            otp,
+            createdAt: FieldValue.serverTimestamp(),
+            expiresAt,
+            attempts: 0
+        });
+
+        // Send OTP via email
+        const emailSent = await sendOtpEmail(email, otp);
+
+        if (!emailSent) {
+            return NextResponse.json(
+                { success: false, error: 'ไม่สามารถส่ง OTP ได้ กรุณาลองใหม่' },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json({
+            success: true,
+            message: `ส่ง OTP ไปที่ ${email} แล้ว กรุณาตรวจสอบอีเมล`
+        });
+
+    } catch (error) {
+        console.error('[send-otp] Error:', error);
+        return NextResponse.json(
+            { success: false, error: 'เกิดข้อผิดพลาดภายในระบบ' },
+            { status: 500 }
+        );
+    }
+}
