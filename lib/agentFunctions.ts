@@ -4,6 +4,7 @@
  */
 
 import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebaseAdmin';
 import {
     collection,
     query,
@@ -18,6 +19,7 @@ import {
     getDoc
 } from 'firebase/firestore';
 import { RepairTicket } from '@/types';
+import { createRepairNewFlexMessage } from '@/utils/flexMessageTemplates';
 
 // ============================================================================
 // 1. MAPPINGS & HELPERS
@@ -90,6 +92,90 @@ function getThaiDateRange(dateStr: string): { start: Timestamp, end: Timestamp }
     const thaiStart = new Date(utcMidnight.getTime() - (7 * 60 * 60 * 1000));
     const thaiEnd = new Date(thaiStart.getTime() + (24 * 60 * 60 * 1000) - 1);
     return { start: Timestamp.fromDate(thaiStart), end: Timestamp.fromDate(thaiEnd) };
+}
+
+/**
+ * Notify technicians directly via LINE (แก้ปัญหา self-referencing URL ใน serverless)
+ */
+async function notifyTechniciansDirectly(data: {
+    ticketId: string;
+    requesterName: string;
+    room: string;
+    description: string;
+    imageOneUrl: string;
+    zone: 'junior_high' | 'senior_high' | 'common';
+}): Promise<void> {
+    try {
+        const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+        if (!token) {
+            console.warn('[Notify Repair] Missing LINE_CHANNEL_ACCESS_TOKEN');
+            return;
+        }
+
+        // 1. Query technicians from Firestore using Admin SDK
+        const techsSnapshot = await adminDb.collection('users').where('role', '==', 'technician').get();
+
+        let targetUserIds: string[] = [];
+        techsSnapshot.forEach(doc => {
+            const techData = doc.data();
+            const responsibility = techData.responsibility || 'all';
+            const lineId = techData.lineUserId;
+
+            if (!lineId) return;
+
+            // Filter by zone responsibility
+            if (data.zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) {
+                targetUserIds.push(lineId);
+            } else if (data.zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all')) {
+                targetUserIds.push(lineId);
+            } else if (data.zone === 'common') {
+                targetUserIds.push(lineId); // Common zone notifies everyone
+            }
+        });
+
+        // Deduplicate
+        targetUserIds = Array.from(new Set(targetUserIds));
+
+        if (targetUserIds.length === 0) {
+            console.warn('[Notify Repair] No technicians found for zone:', data.zone);
+            return;
+        }
+
+        // 2. Create Flex Message
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
+        const deepLink = `${appUrl}/admin/repairs?ticketId=${data.ticketId}`;
+
+        const flexMessage = createRepairNewFlexMessage({
+            description: data.description,
+            room: data.room,
+            requesterName: data.requesterName,
+            imageUrl: data.imageOneUrl || undefined,
+            ticketId: data.ticketId,
+            deepLink
+        });
+
+        // 3. Send via LINE Multicast API
+        const response = await fetch('https://api.line.me/v2/bot/message/multicast', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                to: targetUserIds,
+                messages: [flexMessage],
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[Notify Repair] LINE API Error:', errorText);
+        } else {
+            console.log(`[Notify Repair] Sent to ${targetUserIds.length} technicians`);
+        }
+    } catch (error) {
+        console.error('[Notify Repair] Error:', error);
+    }
 }
 
 // ============================================================================
@@ -226,21 +312,15 @@ export async function createRepairFromAI(
 
         const docRef = await addDoc(collection(db, 'repair_tickets'), repairData);
 
-        // Notify technicians via LINE
-        try {
-            const apiUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
-            await fetch(`${apiUrl}/api/notify-repair`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': process.env.CRMS_API_SECRET_KEY || '',
-                },
-                body: JSON.stringify({
-                    ticketId: docRef.id, requesterName: finalRequesterName,
-                    room, description, imageOneUrl: images[0] || '', zone: normalizedSide
-                })
-            });
-        } catch (e) { console.error('Notify Error', e); }
+        // Notify technicians via LINE (เรียกโดยตรง ไม่ผ่าน HTTP)
+        await notifyTechniciansDirectly({
+            ticketId: docRef.id,
+            requesterName: finalRequesterName,
+            room,
+            description,
+            imageOneUrl: images[0] || '',
+            zone: normalizedSide
+        });
 
         return {
             success: true,
