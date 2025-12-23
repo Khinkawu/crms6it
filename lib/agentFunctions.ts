@@ -544,7 +544,7 @@ export async function getBookingsByEmail(email: string): Promise<any[]> {
             bookings.push({
                 id: doc.id,
                 title: d.title,
-                room: getRoomDisplayName(d.room),
+                room: getRoomDisplayName(d.room || d.roomId),
                 status: d.status,
                 start: formatToThaiTime(d.startTime)
             });
@@ -570,7 +570,7 @@ export async function getPendingBookings(date?: string): Promise<any[]> {
             bookings.push({
                 id: doc.id,
                 title: d.title,
-                room: getRoomDisplayName(d.room),
+                room: getRoomDisplayName(d.room || d.roomId),
                 startTime: formatToThaiTime(d.startTime),
                 rawStart: d.startTime
             });
