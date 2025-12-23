@@ -319,7 +319,7 @@ export async function createRepairFromAI(
             room,
             description,
             imageOneUrl: images[0] || '',
-            zone: normalizedSide
+            zone: normalizedSide as 'junior_high' | 'senior_high' | 'common'
         });
 
         return {
