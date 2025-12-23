@@ -220,8 +220,9 @@ async function handleTrackStatus(replyToken: string, userId: string) {
                 })
                 : '-';
 
-            // Resolve Image
-            const imageUrl = data.images?.[0] || data.imageUrl || data.imageOneUrl || null;
+            // Resolve Image - Only use HTTPS URLs, skip base64 data URLs (too large for LINE API)
+            const rawImageUrl = data.images?.[0] || data.imageUrl || data.imageOneUrl || null;
+            const imageUrl = rawImageUrl && rawImageUrl.startsWith('https://') ? rawImageUrl : null;
 
             bubbles.push({
                 type: 'bubble',

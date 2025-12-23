@@ -145,11 +145,14 @@ async function notifyTechniciansDirectly(data: {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
         const deepLink = `${appUrl}/admin/repairs?ticketId=${data.ticketId}`;
 
+        // Only use HTTPS image URLs (skip base64 data URLs - too large for LINE API)
+        const validImageUrl = data.imageOneUrl && data.imageOneUrl.startsWith('https://') ? data.imageOneUrl : undefined;
+
         const flexMessage = createRepairNewFlexMessage({
             description: data.description,
             room: data.room,
             requesterName: data.requesterName,
-            imageUrl: data.imageOneUrl || undefined,
+            imageUrl: validImageUrl,
             ticketId: data.ticketId,
             deepLink
         });
