@@ -4,20 +4,8 @@
  */
 
 import { UserProfile, RepairTicket } from '@/types';
-import { db } from '@/lib/firebase';
-import {
-    collection,
-    doc,
-    getDoc,
-    setDoc,
-    updateDoc,
-    Timestamp,
-    query,
-    where,
-    getDocs,
-    limit,
-    serverTimestamp
-} from 'firebase/firestore';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { startAIChat, geminiVisionModel, imageToGenerativePart } from './gemini';
 import {
     checkRoomAvailability,
@@ -99,12 +87,13 @@ function formatRawRepair(repair: RepairTicket): string {
 
 async function getConversationContext(lineUserId: string): Promise<ConversationContext | null> {
     try {
-        const contextRef = doc(db, 'ai_conversations', lineUserId);
-        const contextDoc = await getDoc(contextRef);
+        const contextDoc = await adminDb.collection('ai_conversations').doc(lineUserId).get();
 
-        if (!contextDoc.exists()) return null;
+        if (!contextDoc.exists) return null;
 
         const data = contextDoc.data();
+        if (!data) return null;
+
         const lastActivity = data.lastActivity?.toDate() ? data.lastActivity.toDate() : new Date();
 
         const minutesSinceActivity = (Date.now() - lastActivity.getTime()) / 1000 / 60;
@@ -125,13 +114,12 @@ async function getConversationContext(lineUserId: string): Promise<ConversationC
 
 async function saveConversationContext(lineUserId: string, context: ConversationContext): Promise<void> {
     try {
-        const contextRef = doc(db, 'ai_conversations', lineUserId);
         const trimmedMessages = context.messages.slice(-MAX_CONTEXT_MESSAGES);
 
-        await setDoc(contextRef, {
+        await adminDb.collection('ai_conversations').doc(lineUserId).set({
             messages: trimmedMessages,
             pendingAction: context.pendingAction || null,
-            lastActivity: serverTimestamp(),
+            lastActivity: FieldValue.serverTimestamp(),
         });
     } catch (error) {
         console.error('Error saving conversation context:', error);
@@ -140,8 +128,7 @@ async function saveConversationContext(lineUserId: string, context: Conversation
 
 async function clearPendingAction(lineUserId: string): Promise<void> {
     try {
-        const contextRef = doc(db, 'ai_conversations', lineUserId);
-        await updateDoc(contextRef, { pendingAction: null });
+        await adminDb.collection('ai_conversations').doc(lineUserId).update({ pendingAction: null });
     } catch (error) {
         console.error('Error clearing pending action:', error);
     }
@@ -154,21 +141,24 @@ async function clearPendingAction(lineUserId: string): Promise<void> {
 async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserProfile | null> {
     try {
         // Only check line_bindings collection - the official source of truth
-        const bindingDoc = await getDoc(doc(db, 'line_bindings', lineUserId));
-        if (bindingDoc.exists()) {
-            const uid = bindingDoc.data().uid;
+        const bindingDoc = await adminDb.collection('line_bindings').doc(lineUserId).get();
+        if (bindingDoc.exists) {
+            const bindingData = bindingDoc.data();
+            const uid = bindingData?.uid;
             if (uid) {
-                const userDoc = await getDoc(doc(db, 'users', uid));
-                if (userDoc.exists()) {
+                const userDoc = await adminDb.collection('users').doc(uid).get();
+                if (userDoc.exists) {
                     const userData = userDoc.data();
-                    return {
-                        uid,
-                        displayName: userData.displayName || userData.name || 'ผู้ใช้',
-                        email: userData.email,
-                        role: userData.role || 'user',
-                        isPhotographer: userData.isPhotographer || false,
-                        responsibility: userData.responsibility,
-                    };
+                    if (userData) {
+                        return {
+                            uid,
+                            displayName: userData.displayName || userData.name || 'ผู้ใช้',
+                            email: userData.email,
+                            role: userData.role || 'user',
+                            isPhotographer: userData.isPhotographer || false,
+                            responsibility: userData.responsibility,
+                        };
+                    }
                 }
             }
         }
