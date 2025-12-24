@@ -1,27 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import admin from 'firebase-admin';
-
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-    // For development, we use environment variables
-    // For production, consider using service account JSON file
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-
-    if (process.env.FIREBASE_ADMIN_PRIVATE_KEY) {
-        admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId: projectId,
-                clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-                privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-            }),
-        });
-    } else {
-        // Fallback for environments without service account
-        admin.initializeApp({
-            projectId: projectId,
-        });
-    }
-}
+// Import to ensure Firebase Admin is initialized
+import '@/lib/firebaseAdmin';
 
 export async function POST(request: NextRequest) {
     try {
