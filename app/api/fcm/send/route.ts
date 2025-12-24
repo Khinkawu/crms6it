@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import admin from 'firebase-admin';
 // Import to ensure Firebase Admin is initialized
-import '@/lib/firebaseAdmin';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { token, title, body: messageBody, data } = body;
+        const { token, userId, title, body: messageBody, data } = body;
 
         if (!token) {
             return NextResponse.json(
@@ -49,12 +49,35 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
         console.error('FCM Send Error:', error);
 
-        // Handle specific FCM errors
+        // Handle specific FCM errors - cleanup invalid tokens
         if (error.code === 'messaging/invalid-registration-token' ||
             error.code === 'messaging/registration-token-not-registered') {
-            // Token is invalid or expired - could trigger cleanup here
+
+            // Get userId and token from request body for cleanup
+            try {
+                const body = await request.clone().json();
+                const { token, userId } = body;
+
+                if (userId && token) {
+                    // Remove invalid token from user's document
+                    const userRef = adminDb.collection('users').doc(userId);
+                    const userDoc = await userRef.get();
+
+                    if (userDoc.exists) {
+                        const data = userDoc.data();
+                        const tokens: string[] = data?.fcmTokens || [];
+                        const updatedTokens = tokens.filter(t => t !== token);
+
+                        await userRef.update({ fcmTokens: updatedTokens });
+                        console.log(`[FCM Cleanup] Removed invalid token from user ${userId}`);
+                    }
+                }
+            } catch (cleanupError) {
+                console.error('Error during token cleanup:', cleanupError);
+            }
+
             return NextResponse.json(
-                { error: 'Invalid or expired token', needsRefresh: true },
+                { error: 'Invalid or expired token', needsRefresh: true, cleaned: true },
                 { status: 410 }
             );
         }
@@ -65,3 +88,4 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+

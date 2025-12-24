@@ -5,6 +5,8 @@ import { useAuth } from "@/context/AuthContext";
 import { setupPushNotifications, onForegroundMessage, isFCMSupported, unsubscribeFromPushNotifications } from "@/lib/fcm";
 import toast from "react-hot-toast";
 
+const NOTIFICATION_STORAGE_KEY = "push_notifications_enabled";
+
 interface UsePushNotificationsReturn {
     isSupported: boolean;
     isEnabled: boolean;
@@ -21,6 +23,16 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     const [isLoading, setIsLoading] = useState(true);
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission | "unsupported">("default");
 
+    // Sync isEnabled from localStorage for cross-component sync
+    const syncFromStorage = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem(NOTIFICATION_STORAGE_KEY);
+            if (stored !== null) {
+                setIsEnabled(stored === 'true');
+            }
+        }
+    }, []);
+
     // Check FCM support on mount
     useEffect(() => {
         async function checkSupport() {
@@ -28,8 +40,16 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             setIsSupported(supported);
 
             if (supported && typeof Notification !== "undefined") {
-                setPermissionStatus(Notification.permission);
-                setIsEnabled(Notification.permission === "granted");
+                const permission = Notification.permission;
+                setPermissionStatus(permission);
+
+                // Check localStorage first, fallback to permission check
+                const stored = localStorage.getItem(NOTIFICATION_STORAGE_KEY);
+                if (stored !== null) {
+                    setIsEnabled(stored === 'true');
+                } else {
+                    setIsEnabled(permission === "granted");
+                }
             } else {
                 setPermissionStatus("unsupported");
             }
@@ -39,12 +59,29 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         checkSupport();
     }, []);
 
+    // Listen for storage changes (cross-tab/component sync)
+    useEffect(() => {
+        const handleStorage = (e: StorageEvent) => {
+            if (e.key === NOTIFICATION_STORAGE_KEY) {
+                setIsEnabled(e.newValue === 'true');
+            }
+        };
+        window.addEventListener('storage', handleStorage);
+
+        // Also sync on any state changes from other components in same tab
+        const interval = setInterval(syncFromStorage, 1000);
+
+        return () => {
+            window.removeEventListener('storage', handleStorage);
+            clearInterval(interval);
+        };
+    }, [syncFromStorage]);
+
     // Setup foreground message listener
     useEffect(() => {
         if (!isSupported || !isEnabled || !user) return;
 
         const unsubscribe = onForegroundMessage((payload) => {
-            // Show toast for foreground notifications
             const title = payload.notification?.title || "แจ้งเตือน";
             const body = payload.notification?.body || "";
 
@@ -85,6 +122,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             if (success) {
                 setIsEnabled(true);
                 setPermissionStatus("granted");
+                // Save to localStorage for cross-component sync
+                localStorage.setItem(NOTIFICATION_STORAGE_KEY, 'true');
                 toast.success("เปิดการแจ้งเตือนสำเร็จ! 🔔");
                 return true;
             } else {
@@ -109,6 +148,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             const success = await unsubscribeFromPushNotifications(user.uid);
             if (success) {
                 setIsEnabled(false);
+                // Save to localStorage for cross-component sync
+                localStorage.setItem(NOTIFICATION_STORAGE_KEY, 'false');
                 toast.success("ปิดการแจ้งเตือนแล้ว");
                 return true;
             }

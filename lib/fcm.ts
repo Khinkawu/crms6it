@@ -2,7 +2,7 @@
 
 import { getMessaging, getToken, onMessage, isSupported, deleteToken } from "firebase/messaging";
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { doc, setDoc, getDoc, arrayUnion, arrayRemove, updateDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, arrayRemove, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 // Firebase config (same as main app)
@@ -92,6 +92,7 @@ export async function getFCMToken(userId: string): Promise<string | null> {
 
 /**
  * Save FCM token to user's document in Firestore
+ * Smart token management: keeps only last 3 tokens to prevent accumulation
  */
 async function saveTokenToUser(userId: string, token: string): Promise<void> {
     try {
@@ -99,9 +100,22 @@ async function saveTokenToUser(userId: string, token: string): Promise<void> {
         const userDoc = await getDoc(userRef);
 
         if (userDoc.exists()) {
-            // Add token to array (avoid duplicates)
+            const data = userDoc.data();
+            let tokens: string[] = data.fcmTokens || [];
+
+            // Check if token already exists
+            if (!tokens.includes(token)) {
+                // Add new token
+                tokens.push(token);
+
+                // Keep only last 3 tokens (oldest get removed)
+                if (tokens.length > 3) {
+                    tokens = tokens.slice(-3);
+                }
+            }
+
             await updateDoc(userRef, {
-                fcmTokens: arrayUnion(token),
+                fcmTokens: tokens,
                 lastTokenUpdate: new Date(),
             });
         } else {
