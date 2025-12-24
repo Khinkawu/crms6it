@@ -480,7 +480,7 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
     const isChecking = userMessage.includes('ตาราง') || userMessage.includes('ว่างไหม');
     if (bookingKw.some(k => userMessage.toLowerCase().includes(k)) && !isChecking) {
         await clearPendingAction(lineUserId);
-        return `📅 จองห้องประชุม\n\nกรุณาจองผ่านเว็บ: https://crms6it.vercel.app/booking\nหรือกดเมนู "จองห้อง" ด้านล่างค่ะ 😊`;
+        return `📅 จองห้องประชุม\n\nกรุณาจองผ่านเว็บ: https://crms6it.vercel.app/booking\nหรือกด Rich Menu "จองห้องประชุม" ด้านล่างค่ะ 😊`;
     }
 
     // 3. Image Handling

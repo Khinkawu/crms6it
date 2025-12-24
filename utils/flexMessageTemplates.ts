@@ -445,4 +445,157 @@ export function createStatusBubble(data: {
     });
 }
 
+// Create a Flex Message for repair reminder (stale tickets)
+export function createRepairReminderFlexMessage(data: {
+    tickets: Array<{
+        id: string;
+        room: string;
+        description: string;
+        createdAt: string;
+        daysStale: number;
+    }>;
+    zone: string;
+    deepLink: string;
+}) {
+    const ticketCount = data.tickets.length;
+    const ticketItems: any[] = [];
+
+    // Build ticket list (max 5 items to avoid too long message)
+    const displayTickets = data.tickets.slice(0, 5);
+    displayTickets.forEach((ticket, index) => {
+        ticketItems.push({
+            type: 'box',
+            layout: 'vertical',
+            margin: index === 0 ? 'none' : 'lg',
+            contents: [
+                {
+                    type: 'text',
+                    text: `${index + 1}. 🔧 ${ticket.room}`,
+                    weight: 'bold',
+                    size: 'sm',
+                    color: '#1e293b'
+                },
+                {
+                    type: 'text',
+                    text: ticket.description.length > 40
+                        ? ticket.description.substring(0, 40) + '...'
+                        : ticket.description,
+                    size: 'xs',
+                    color: '#64748b',
+                    margin: 'xs',
+                    wrap: true
+                },
+                {
+                    type: 'box',
+                    layout: 'horizontal',
+                    margin: 'xs',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: `📅 ${ticket.createdAt}`,
+                            size: 'xxs',
+                            color: '#94a3b8',
+                            flex: 1
+                        },
+                        {
+                            type: 'text',
+                            text: `⏳ ค้าง ${ticket.daysStale} วัน`,
+                            size: 'xxs',
+                            color: COLORS.warning,
+                            align: 'end'
+                        }
+                    ]
+                }
+            ]
+        });
+
+        // Add separator between items
+        if (index < displayTickets.length - 1) {
+            ticketItems.push({
+                type: 'separator',
+                margin: 'lg',
+                color: '#e2e8f0'
+            });
+        }
+    });
+
+    // Add "more" indicator if there are more tickets
+    if (ticketCount > 5) {
+        ticketItems.push({
+            type: 'text',
+            text: `... และอีก ${ticketCount - 5} รายการ`,
+            size: 'xs',
+            color: '#94a3b8',
+            margin: 'lg',
+            align: 'center'
+        });
+    }
+
+    return {
+        type: 'flex',
+        altText: `⏰ แจ้งเตือนงานซ่อมค้าง (${data.zone}) - ${ticketCount} รายการ`,
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: COLORS.warning,
+                paddingAll: 'lg',
+                contents: [
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            {
+                                type: 'text',
+                                text: '⏰',
+                                size: 'xl'
+                            },
+                            {
+                                type: 'text',
+                                text: 'แจ้งเตือนงานซ่อมค้าง',
+                                weight: 'bold',
+                                size: 'lg',
+                                color: '#ffffff',
+                                margin: 'sm'
+                            }
+                        ]
+                    },
+                    {
+                        type: 'text',
+                        text: `${data.zone} - ${ticketCount} รายการ`,
+                        size: 'sm',
+                        color: '#fef3c7',
+                        margin: 'sm'
+                    }
+                ]
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: 'lg',
+                contents: ticketItems
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: 'lg',
+                contents: [
+                    {
+                        type: 'button',
+                        action: {
+                            type: 'uri',
+                            label: '📋 ดูงานทั้งหมด',
+                            uri: data.deepLink
+                        },
+                        style: 'primary',
+                        color: COLORS.warning
+                    }
+                ]
+            }
+        }
+    };
+}
+
 export { COLORS };
