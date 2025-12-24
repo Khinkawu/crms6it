@@ -22,11 +22,7 @@ const getZoneThai = (zone: string) => {
     switch (zone) {
         case 'senior_high': return 'ม.ปลาย';
         case 'junior_high': return 'ม.ต้น';
-        case 'common': return 'ส่วนกลาง';
-        case 'elementary': return 'ประถม';
-        case 'kindergarten': return 'อนุบาล';
-        case 'auditorium': return 'หอประชุม';
-        default: return zone; // ถ้าไม่ตรงเคสไหนเลย ให้คืนค่าเดิม
+        default: return zone;
     }
 };
 

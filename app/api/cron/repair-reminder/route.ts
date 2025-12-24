@@ -39,17 +39,16 @@ export async function GET(request: NextRequest) {
 
         console.log(`[Cron] Found ${snapshot.size} stale repairs`);
 
-        // Group tickets by zone
+        // Group tickets by zone (only junior_high and senior_high)
         const ticketsByZone: Record<string, any[]> = {
             junior_high: [],
-            senior_high: [],
-            common: []
+            senior_high: []
         };
 
         const now = new Date();
         snapshot.forEach(doc => {
             const data = doc.data();
-            const zone = data.zone || 'common';
+            const zone = data.zone || 'junior_high'; // Default to junior_high
             const updatedAt = data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
             const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
             const daysStale = Math.floor((now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24));
@@ -146,42 +145,7 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // Handle common zone tickets (send to all technicians)
-        const commonTickets = ticketsByZone.common;
-        if (commonTickets.length > 0) {
-            const allTechLineIds = [
-                ...techniciansByZone.junior_high,
-                ...techniciansByZone.senior_high,
-                ...techniciansByZone.all
-            ];
-            const uniqueAllLineIds = Array.from(new Set(allTechLineIds));
 
-            if (uniqueAllLineIds.length > 0) {
-                const deepLink = `${appUrl}/admin/repairs`;
-                const flexMessage = createRepairReminderFlexMessage({
-                    tickets: commonTickets,
-                    zone: 'ส่วนกลาง',
-                    deepLink
-                });
-
-                const response = await fetch('https://api.line.me/v2/bot/message/multicast', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
-                    },
-                    body: JSON.stringify({
-                        to: uniqueAllLineIds,
-                        messages: [flexMessage]
-                    })
-                });
-
-                if (response.ok) {
-                    console.log(`[Cron] Sent common zone reminder to ${uniqueAllLineIds.length} technicians`);
-                    totalNotified += uniqueAllLineIds.length;
-                }
-            }
-        }
 
         console.log(`[Cron] Repair reminder job completed. Total notified: ${totalNotified}`);
 

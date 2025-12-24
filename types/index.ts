@@ -66,7 +66,7 @@ export interface RepairTicket {
     position: string;
     phone: string;
     room: string;
-    zone: 'junior_high' | 'senior_high' | 'common'; // Added zone
+    zone: 'junior_high' | 'senior_high'; // Zone (ม.ต้น or ม.ปลาย)
     description: string;
     images: string[];
     status: RepairStatus;

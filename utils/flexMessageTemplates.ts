@@ -312,9 +312,9 @@ export function createRepairNewFlexMessage(data: {
     imageUrl?: string;
     ticketId?: string;
     deepLink: string;
-    zone?: 'junior_high' | 'senior_high' | 'common';
+    zone?: 'junior_high' | 'senior_high';
 }) {
-    const zoneLabel = data.zone === 'senior_high' ? 'ม.ปลาย' : data.zone === 'junior_high' ? 'ม.ต้น' : 'ส่วนกลาง';
+    const zoneLabel = data.zone === 'senior_high' ? 'ม.ปลาย' : 'ม.ต้น';
     return {
         type: 'flex',
         altText: `🔧 งานซ่อมใหม่: ${data.room} (${zoneLabel})`,

@@ -495,8 +495,25 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
             await saveConversationContext(lineUserId, context);
             return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "ยกเลิก")`;
         }
-        const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, 'วิเคราะห์ทั่วไป');
-        return analysis;
+        // Bug 3 Fix: If user sends image without pending action, start repair flow automatically
+        const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, 'ตรวจสอบอุปกรณ์เพื่อแจ้งซ่อม');
+        let base64 = imageBuffer.toString('base64');
+        if (base64.length > 500 * 1024) base64 = base64.substring(0, 500 * 1024);
+
+        // Start repair flow with analyzed image
+        context.pendingAction = {
+            intent: 'CREATE_REPAIR',
+            params: {
+                description: analysis,
+                imageBuffer: base64,
+                imageMimeType,
+                imageAnalysis: analysis,
+                imageUrl: `data:${imageMimeType};base64,${base64}`
+            },
+            repairStep: 'awaiting_intent_confirm'
+        };
+        await saveConversationContext(lineUserId, context);
+        return `📸 จากภาพที่ส่งมา:\n${analysis}\n\n---\n🔧 ต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "ยกเลิก")`;
     }
 
     // 4. Pending Actions
@@ -618,12 +635,17 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                 if (!userProfile) return 'คุณยังไม่ได้ผูกบัญชี กรุณาผ่านบัญชีก่อนแจ้งซ่อมค่ะ';
 
                 const res = await createRepairFromAI(params.room, params.description, msg, params.imageUrl || '', userProfile.displayName || 'ผู้ใช้ LINE', userProfile.email);
-                await clearPendingAction(lineUserId);
 
                 if (res.success) {
-                    const zoneLabel = res.data?.zone === 'senior_high' ? 'ม.ปลาย' : res.data?.zone === 'junior_high' ? 'ม.ต้น' : 'ส่วนกลาง';
+                    // Bug 1 Fix: Clear entire context to prevent stale data in consecutive repairs
+                    context.messages = [];
+                    context.pendingAction = undefined;
+                    await saveConversationContext(lineUserId, context);
+
+                    const zoneLabel = res.data?.zone === 'senior_high' ? 'ม.ปลาย' : 'ม.ต้น';
                     return `✅ รับแจ้งซ่อมเรียบร้อยค่ะ\nคุณ ${res.data?.requesterName || 'ผู้แจ้ง'}\n📍 สถานที่: ${res.data?.roomName} (${zoneLabel})\n📅 วันที่แจ้ง: ${res.data?.createdAt}\n\nช่างจะเข้าไปตรวจสอบโดยเร็วที่สุดค่ะ`;
                 }
+                await clearPendingAction(lineUserId);
                 return `❌ เกิดข้อผิดพลาด: ${res.error}`;
             }
         }

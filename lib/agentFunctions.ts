@@ -37,7 +37,6 @@ const ROOM_NAME_DISPLAY: Record<string, string> = {
     'sh_king_science': 'ห้องศาสตร์พระราชา (ม.ปลาย)',
     'sh_language_center': 'ห้องศูนย์ภาษา (ม.ปลาย)',
     'sh_admin_3': 'ห้องประชุมชั้น 3 อาคารอำนวยการ',
-    'common': 'ส่วนกลาง',
     'junior_high': 'ม.ต้น',
     'senior_high': 'ม.ปลาย'
 };
@@ -54,9 +53,7 @@ const SIDE_MAPPING: Record<string, string> = {
     'ม.ปราย': 'senior_high', 'มปราย': 'senior_high',
     'ปลาย': 'senior_high', 'ปราย': 'senior_high',
     'senior': 'senior_high', 'senior_high': 'senior_high',
-    'ฝั่งม.ปลาย': 'senior_high', 'ฝั่งมปลาย': 'senior_high',
-    // ส่วนกลาง
-    'ส่วนกลาง': 'common', 'common': 'common', 'กลาง': 'common'
+    'ฝั่งม.ปลาย': 'senior_high', 'ฝั่งมปลาย': 'senior_high'
 };
 
 // --- Helpers ---
@@ -102,7 +99,7 @@ async function notifyTechniciansDirectly(data: {
     room: string;
     description: string;
     imageOneUrl: string;
-    zone: 'junior_high' | 'senior_high' | 'common';
+    zone: 'junior_high' | 'senior_high';
 }): Promise<void> {
     try {
         const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -124,8 +121,6 @@ async function notifyTechniciansDirectly(data: {
             if (data.zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) {
                 targetUserIds.push(lineId);
             } else if (data.zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all')) {
-                targetUserIds.push(lineId);
-            } else if (data.zone === 'common') {
                 targetUserIds.push(lineId);
             }
         });
@@ -297,14 +292,14 @@ export async function createRepairFromAI(
         if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
 
         const trimmedSide = side.trim().toLowerCase();
-        const normalizedSide = SIDE_MAPPING[trimmedSide] || SIDE_MAPPING[side.toLowerCase()] || 'common';
+        const normalizedSide = SIDE_MAPPING[trimmedSide] || SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
         console.log(`[createRepairFromAI] side input: "${side}" -> normalized: "${normalizedSide}"`);
 
         const images: string[] = imageUrl && imageUrl !== 'pending_upload' && imageUrl !== '' ? [imageUrl] : [];
 
         const repairData = {
             room, description,
-            zone: normalizedSide as 'junior_high' | 'senior_high' | 'common',
+            zone: normalizedSide as 'junior_high' | 'senior_high',
             images,
             requesterName: finalRequesterName,
             requesterEmail: requesterEmail || '',
@@ -320,7 +315,7 @@ export async function createRepairFromAI(
             room,
             description,
             imageOneUrl: images[0] || '',
-            zone: normalizedSide as 'junior_high' | 'senior_high' | 'common'
+            zone: normalizedSide as 'junior_high' | 'senior_high'
         });
 
         return {
