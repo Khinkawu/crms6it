@@ -38,13 +38,13 @@ export async function getFCMToken(userId: string): Promise<string | null> {
     try {
         const supported = await isFCMSupported();
         if (!supported) {
-            console.log("FCM not supported in this browser");
+            console.debug("FCM not supported in this browser");
             return null;
         }
 
         // Check notification permission
         if (Notification.permission === "denied") {
-            console.log("Notification permission denied");
+            console.debug("Notification permission denied");
             return null;
         }
 
@@ -52,18 +52,18 @@ export async function getFCMToken(userId: string): Promise<string | null> {
         if (Notification.permission !== "granted") {
             const permission = await Notification.requestPermission();
             if (permission !== "granted") {
-                console.log("Notification permission not granted");
+                console.debug("Notification permission not granted");
                 return null;
             }
         }
 
         // Register service worker
         const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-        console.log("Service Worker registered:", registration);
+        console.debug("Service Worker registered:", registration);
 
         // Wait for service worker to be active to avoid "no active Service Worker" error
         await navigator.serviceWorker.ready;
-        console.log("Service Worker is ready");
+        console.debug("Service Worker is ready");
 
         // Get messaging instance
         const messaging = getMessaging(app);
@@ -76,13 +76,13 @@ export async function getFCMToken(userId: string): Promise<string | null> {
         });
 
         if (token) {
-            console.log("FCM Token obtained:", token.substring(0, 20) + "...");
+            console.debug("FCM Token obtained:", token.substring(0, 20) + "...");
             // Save token to user's document
             await saveTokenToUser(userId, token);
             return token;
         }
 
-        console.log("No FCM token available");
+        console.debug("No FCM token available");
         return null;
     } catch (error) {
         console.error("Error getting FCM token:", error);
@@ -125,7 +125,7 @@ async function saveTokenToUser(userId: string, token: string): Promise<void> {
                 lastTokenUpdate: new Date(),
             }, { merge: true });
         }
-        console.log("FCM token saved to user document");
+        console.debug("FCM token saved to user document");
     } catch (error) {
         console.error("Error saving FCM token:", error);
     }
@@ -140,7 +140,7 @@ export async function removeTokenFromUser(userId: string, token: string): Promis
         await updateDoc(userRef, {
             fcmTokens: arrayRemove(token),
         });
-        console.log("FCM token removed from user document");
+        console.debug("FCM token removed from user document");
     } catch (error) {
         console.error("Error removing FCM token:", error);
     }
@@ -154,7 +154,7 @@ export function onForegroundMessage(callback: (payload: any) => void): () => voi
     try {
         const messaging = getMessaging(app);
         const unsubscribe = onMessage(messaging, (payload) => {
-            console.log("Foreground message received:", payload);
+            console.debug("Foreground message received:", payload);
             callback(payload);
         });
         return unsubscribe;
@@ -197,7 +197,7 @@ export async function unsubscribeFromPushNotifications(userId: string): Promise<
         if (currentToken) {
             await removeTokenFromUser(userId, currentToken);
             await deleteToken(messaging);
-            console.log("FCM token deleted and removed from user");
+            console.debug("FCM token deleted and removed from user");
             return true;
         }
 
