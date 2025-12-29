@@ -541,8 +541,8 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-1 min-w-0">
                             <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">วันที่</label>
-                            <div className="relative overflow-hidden">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <div className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                                     <Calendar size={16} className="text-gray-400" />
                                 </div>
                                 <input
@@ -550,7 +550,8 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                     name="date"
                                     value={formData.date}
                                     onChange={handleInputChange}
-                                    className="w-full h-[46px] pl-10 pr-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none dark:[color-scheme:dark]"
+                                    className="w-full max-w-full h-[46px] pl-10 pr-3 bg-transparent text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-none dark:[color-scheme:dark]"
+                                    style={{ minWidth: 0 }}
                                     required
                                 />
                             </div>
