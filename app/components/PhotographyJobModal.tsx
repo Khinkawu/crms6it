@@ -383,41 +383,41 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                                 </div>
 
                                 <div className="space-y-3 sm:grid sm:grid-cols-3 sm:gap-3 sm:space-y-0">
-                                    <div>
+                                    <div className="min-w-0">
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">วันที่</label>
-                                        <div className="relative">
+                                        <div className="relative overflow-hidden">
                                             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                             <input
                                                 type="date"
                                                 value={date}
                                                 onChange={(e) => setDate(e.target.value)}
-                                                className="w-full h-[44px] pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 focus:ring-2 focus:ring-amber-500 dark:[color-scheme:dark]"
+                                                className="w-full h-[44px] pl-10 pr-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 focus:ring-2 focus:ring-amber-500 dark:[color-scheme:dark]"
                                                 required
                                             />
                                         </div>
                                     </div>
-                                    <div>
+                                    <div className="min-w-0">
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">เวลาเริ่ม</label>
-                                        <div className="relative">
+                                        <div className="relative overflow-hidden">
                                             <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                             <input
                                                 type="time"
                                                 value={startTime}
                                                 onChange={(e) => setStartTime(e.target.value)}
-                                                className="w-full h-[44px] pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 dark:[color-scheme:dark]"
+                                                className="w-full h-[44px] pl-10 pr-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 dark:[color-scheme:dark]"
                                                 required
                                             />
                                         </div>
                                     </div>
-                                    <div>
+                                    <div className="min-w-0">
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ถึงเวลา</label>
-                                        <div className="relative">
+                                        <div className="relative overflow-hidden">
                                             <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                             <input
                                                 type="time"
                                                 value={endTime}
                                                 onChange={(e) => setEndTime(e.target.value)}
-                                                className="w-full h-[44px] pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 dark:[color-scheme:dark]"
+                                                className="w-full h-[44px] pl-10 pr-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 dark:[color-scheme:dark]"
                                                 required
                                             />
                                         </div>
