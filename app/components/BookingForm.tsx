@@ -70,6 +70,10 @@ const CustomSelect = ({
     const containerRef = React.useRef<HTMLDivElement>(null);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
 
+    // Touch tracking to distinguish scroll from tap
+    const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+    const isScrollingRef = React.useRef(false);
+
     // Helper to get label
     const getLabel = (opt: string | SelectOption) => typeof opt === 'string' ? opt : opt.label;
     const getValue = (opt: string | SelectOption) => typeof opt === 'string' ? opt : opt.value;
@@ -108,13 +112,48 @@ const CustomSelect = ({
         }
     }, [isOpen, value]);
 
-    const handleToggle = (e: React.MouseEvent | React.TouchEvent) => {
+    const handleToggle = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setIsOpen(!isOpen);
     };
 
-    const handleSelect = (optValue: string) => (e: React.MouseEvent | React.TouchEvent) => {
+    // Track touch start for scroll detection
+    const handleTouchStart = (e: React.TouchEvent) => {
+        const touch = e.touches[0];
+        touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+        isScrollingRef.current = false;
+    };
+
+    // Detect if user is scrolling
+    const handleTouchMove = () => {
+        isScrollingRef.current = true;
+    };
+
+    // Handle selection only if not scrolling
+    const handleOptionTouchEnd = (optValue: string) => (e: React.TouchEvent) => {
+        e.preventDefault();
+
+        // If user was scrolling, don't select
+        if (isScrollingRef.current) {
+            isScrollingRef.current = false;
+            return;
+        }
+
+        // Check if touch moved significantly (threshold: 10px)
+        if (touchStartRef.current) {
+            const touch = e.changedTouches[0];
+            const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
+            if (deltaY > 10) {
+                return; // Was a scroll, not a tap
+            }
+        }
+
+        onChange(optValue);
+        setIsOpen(false);
+    };
+
+    const handleOptionClick = (optValue: string) => (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
         onChange(optValue);
@@ -125,7 +164,6 @@ const CustomSelect = ({
         <div className="relative w-full" ref={containerRef}>
             <div
                 onClick={handleToggle}
-                onTouchEnd={handleToggle}
                 className={`w-full h-[46px] px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-center cursor-pointer hover:border-blue-500 transition-colors select-none flex items-center justify-center ${!value ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}
                 style={{ WebkitTapHighlightColor: 'transparent' }}
             >
@@ -136,7 +174,9 @@ const CustomSelect = ({
                 <div
                     ref={dropdownRef}
                     className="absolute top-full left-0 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 no-scrollbar"
-                    style={{ WebkitOverflowScrolling: 'touch' }}
+                    style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
                 >
                     {options.map((opt) => {
                         const optValue = getValue(opt);
@@ -145,8 +185,8 @@ const CustomSelect = ({
                             <div
                                 key={optValue}
                                 data-value={optValue}
-                                onClick={handleSelect(optValue)}
-                                onTouchEnd={handleSelect(optValue)}
+                                onClick={handleOptionClick(optValue)}
+                                onTouchEnd={handleOptionTouchEnd(optValue)}
                                 className={`
                                     py-3 px-3 text-sm text-center cursor-pointer transition-colors
                                     ${optValue === value
