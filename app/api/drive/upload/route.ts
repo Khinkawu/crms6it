@@ -18,43 +18,30 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 1. Prepare Folder Logic Params
         // Parse date string (YYYY-MM-DD) directly to avoid timezone issues
         const [yearStr, monthStr, dayStr] = jobDateStr.split('-');
         const year = parseInt(yearStr, 10);
-        const month = parseInt(monthStr, 10) - 1; // 0-indexed for Date
-        const day = parseInt(dayStr, 10);
-
-        // Create date at noon to avoid any edge-case timezone issues
-        const jobDate = new Date(year, month, day, 12, 0, 0);
+        const jobDate = new Date(year, parseInt(monthStr, 10) - 1, parseInt(dayStr, 10), 12, 0, 0);
 
         const { academicYear, semester } = getThaiAcademicYear(jobDate);
-        const monthName = getThaiMonthName(jobDate);
-        const monthNum = monthStr; // Use original string to preserve leading zero
-        const dayNum = dayStr; // Use original string to preserve leading zero
-
-        // Buddhist Era Year (2 digits): 2024 + 543 = 2567 -> "67"
         const buddhistYear = ((year + 543) % 100).toString().padStart(2, '0');
 
-        // Folder Naming Conventions
-        const fullMonthFolderName = monthName;
-        const fullEventFolderName = `${buddhistYear}-${monthNum}-${dayNum} ${eventName}`;
+        // Folder structure: /ปีการศึกษา/ภาคเรียน/เดือน/วันที่-ชื่องาน
+        const monthFolderName = getThaiMonthName(jobDate);
+        const eventFolderName = `${buddhistYear}-${monthStr}-${dayStr} ${eventName}`;
 
-        // Get Client Origin for CORS
         const origin = req.headers.get('origin') || req.headers.get('referer') || '';
 
-        // 2. Initiate Resumable Upload
         const result = await initiateResumableUpload({
-            // These params are not used for initiation but required by interface type
             fileBuffer: Buffer.from([]),
-            fileName: fileName,
-            mimeType: mimeType,
+            fileName,
+            mimeType,
             rootFolderId: process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID!,
             year: academicYear.toString(),
             semester: semester.toString(),
-            month: fullMonthFolderName,
-            eventName: fullEventFolderName,
-            origin: origin // Pass origin for CORS
+            month: monthFolderName,
+            eventName: eventFolderName,
+            origin
         });
 
         return NextResponse.json({

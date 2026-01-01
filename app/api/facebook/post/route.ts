@@ -7,15 +7,12 @@ const ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
 
 /**
  * Convert Google Drive sharing URL to direct download URL
- * Input:  https://drive.google.com/file/d/FILE_ID/view?usp=sharing
- * Output: https://drive.google.com/uc?export=download&id=FILE_ID
  */
 function convertDriveUrl(url: string): string {
-    // Extract file ID from various Google Drive URL formats
     const patterns = [
-        /\/file\/d\/([a-zA-Z0-9_-]+)/,  // /file/d/FILE_ID/...
-        /id=([a-zA-Z0-9_-]+)/,           // ?id=FILE_ID
-        /\/d\/([a-zA-Z0-9_-]+)/,         // /d/FILE_ID
+        /\/file\/d\/([a-zA-Z0-9_-]+)/,
+        /id=([a-zA-Z0-9_-]+)/,
+        /\/d\/([a-zA-Z0-9_-]+)/,
     ];
 
     for (const pattern of patterns) {
@@ -24,8 +21,6 @@ function convertDriveUrl(url: string): string {
             return `https://drive.google.com/uc?export=download&id=${match[1]}`;
         }
     }
-
-    // If no pattern matched, return as-is (might already be a direct URL)
     return url;
 }
 
@@ -38,7 +33,6 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        // Accept JSON body with URLs instead of FormData with files
         const body = await request.json();
         const { caption, jobId, photoUrls } = body as {
             caption: string;
@@ -50,32 +44,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No photo URLs provided' }, { status: 400 });
         }
 
-        console.log('[Facebook Post] Caption received:', caption);
-        console.log('[Facebook Post] Photo URLs:', photoUrls.length);
-
         let postId: string;
 
         if (photoUrls.length === 1) {
-            // Single photo: Post directly with published=true (appears on timeline)
-            const directUrl = convertDriveUrl(photoUrls[0]);
-
+            // Single photo: Post directly
             const params = new URLSearchParams({
-                url: directUrl,
+                url: convertDriveUrl(photoUrls[0]),
                 message: caption,
                 published: 'true',
                 access_token: ACCESS_TOKEN,
             });
-
-            console.log('[Facebook Post] Single photo - posting directly');
 
             const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/photos?${params}`, {
                 method: 'POST',
             });
 
             const responseText = await uploadRes.text();
-            console.log('[Facebook Post] Single Photo Response Status:', uploadRes.status);
-            console.log('[Facebook Post] Single Photo Response:', responseText);
-
             if (!uploadRes.ok) {
                 throw new Error(`Failed to post photo: ${responseText}`);
             }
@@ -85,15 +69,11 @@ export async function POST(request: NextRequest) {
 
         } else {
             // Multiple photos: Upload unpublished, then create feed post
-            console.log('[Facebook Post] Multiple photos - using attached_media');
-
             const photoIds: string[] = [];
 
             for (const originalUrl of photoUrls) {
-                const directUrl = convertDriveUrl(originalUrl);
-
                 const params = new URLSearchParams({
-                    url: directUrl,
+                    url: convertDriveUrl(originalUrl),
                     published: 'false',
                     access_token: ACCESS_TOKEN,
                 });
@@ -120,8 +100,6 @@ export async function POST(request: NextRequest) {
                 access_token: ACCESS_TOKEN,
             };
 
-            console.log('[Facebook Post] Creating feed post with attached_media');
-
             const postRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/feed`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -129,9 +107,6 @@ export async function POST(request: NextRequest) {
             });
 
             const postResponseText = await postRes.text();
-            console.log('[Facebook Post] Feed API Response Status:', postRes.status);
-            console.log('[Facebook Post] Feed API Response:', postResponseText);
-
             if (!postRes.ok) {
                 throw new Error(`Failed to create post: ${postResponseText}`);
             }
@@ -140,14 +115,11 @@ export async function POST(request: NextRequest) {
             postId = postData.id;
         }
 
-        // 3. Generate shareable permalink URL
-        // postId format is "pageId_postId" - we need to extract the actual post ID
+        // Generate shareable permalink URL
         const actualPostId = postId.includes('_') ? postId.split('_')[1] : postId;
         const permalinkUrl = `https://www.facebook.com/permalink.php?story_fbid=${actualPostId}&id=${PAGE_ID}`;
 
-        console.log('[Facebook Post] Permalink URL:', permalinkUrl);
-
-        // 4. Update Firestore Job
+        // Update Firestore Job
         if (jobId) {
             await adminDb.collection('photography_jobs').doc(jobId).update({
                 facebookPostId: postId,
@@ -166,4 +138,3 @@ export async function POST(request: NextRequest) {
         );
     }
 }
-
