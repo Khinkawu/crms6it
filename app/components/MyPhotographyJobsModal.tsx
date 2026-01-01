@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import toast from "react-hot-toast";
 import { PhotographyJob } from "../../types";
 import { compressImage } from "@/utils/imageCompression";
+import { getBangkokDateString } from "@/lib/dateUtils";
 
 interface MyPhotographyJobsModalProps {
     isOpen: boolean;
@@ -293,7 +294,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                     const { ids, folderLink } = await performDriveUpload(
                         jobId,
                         job.title,
-                        job.startTime ? job.startTime.toDate().toISOString() : new Date().toISOString()
+                        job.startTime ? getBangkokDateString(job.startTime.toDate()) : getBangkokDateString()
                     );
                     currentFileIds = ids; // เก็บ IDs ไว้ใช้กับ Facebook
                     finalDriveLink = folderLink; // เก็บ Link ไว้บันทึก

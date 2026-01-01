@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initiateResumableUpload } from '@/lib/googleDrive';
-import { getThaiAcademicYear, getThaiMonthName, getThaiMonthNumber } from '@/lib/academicYear';
+import { getThaiAcademicYear, getThaiMonthName } from '@/lib/academicYear';
 
 // Route segment config for App Router
 export const maxDuration = 10; // 10s is enough for metadata only
@@ -19,14 +19,22 @@ export async function POST(req: NextRequest) {
         }
 
         // 1. Prepare Folder Logic Params
-        const jobDate = new Date(jobDateStr);
+        // Parse date string (YYYY-MM-DD) directly to avoid timezone issues
+        const [yearStr, monthStr, dayStr] = jobDateStr.split('-');
+        const year = parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10) - 1; // 0-indexed for Date
+        const day = parseInt(dayStr, 10);
+
+        // Create date at noon to avoid any edge-case timezone issues
+        const jobDate = new Date(year, month, day, 12, 0, 0);
+
         const { academicYear, semester } = getThaiAcademicYear(jobDate);
         const monthName = getThaiMonthName(jobDate);
-        const monthNum = getThaiMonthNumber(jobDate);
-        const dayNum = jobDate.getDate().toString().padStart(2, '0');
+        const monthNum = monthStr; // Use original string to preserve leading zero
+        const dayNum = dayStr; // Use original string to preserve leading zero
 
         // Buddhist Era Year (2 digits): 2024 + 543 = 2567 -> "67"
-        const buddhistYear = ((jobDate.getFullYear() + 543) % 100).toString().padStart(2, '0');
+        const buddhistYear = ((year + 543) % 100).toString().padStart(2, '0');
 
         // Folder Naming Conventions
         const fullMonthFolderName = monthName;
