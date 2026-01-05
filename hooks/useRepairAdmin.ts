@@ -1,88 +1,41 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, arrayUnion } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../lib/firebase";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
 import { RepairTicket, RepairStatus, Product } from "../types";
-import { logActivity } from "../utils/logger";
-import { compressImage } from "../utils/imageCompression";
-import toast from "react-hot-toast";
+
+// Re-export sub-hooks for granular usage
+export { useRepairFilter } from "./useRepairFilter";
+export { useRepairModal } from "./useRepairModal";
+export { useRepairActions } from "./useRepairActions";
+
+// Import sub-hooks
+import { useRepairFilter } from "./useRepairFilter";
+import { useRepairModal } from "./useRepairModal";
+import { useRepairActions } from "./useRepairActions";
 
 interface UseRepairAdminOptions {
     userId?: string;
     userName?: string;
 }
 
-interface RepairStats {
-    total: number;
-    pending: number;
-    inProgress: number;
-    waitingParts: number;
-    completed: number;
-    cancelled: number;
-}
-
-interface UseRepairAdminReturn {
-    tickets: RepairTicket[];
-    filteredTickets: RepairTicket[];
-    inventory: Product[];
-    stats: RepairStats;
-    filter: RepairStatus | 'all';
-    setFilter: (f: RepairStatus | 'all') => void;
-    searchQuery: string;
-    setSearchQuery: (q: string) => void;
-    dateRange: { start: Date | null; end: Date | null };
-    setDateRange: (range: { start: Date | null; end: Date | null }) => void;
-    loading: boolean;
-    // Modal state
-    selectedTicket: RepairTicket | null;
-    isModalOpen: boolean;
-    openModal: (ticket: RepairTicket) => void;
-    closeModal: () => void;
-    // Form state
-    status: RepairStatus;
-    setStatus: (s: RepairStatus) => void;
-    technicianNote: string;
-    setTechnicianNote: (n: string) => void;
-    completionImage: File | null;
-    setCompletionImage: (f: File | null) => void;
-    // Spare parts
-    selectedPartId: string;
-    setSelectedPartId: (id: string) => void;
-    useQuantity: number;
-    setUseQuantity: (q: number) => void;
-    // Actions
-    handleUpdateTicket: (e: React.FormEvent) => Promise<void>;
-    handleUsePart: (signatureDataUrl?: string) => Promise<void>;
-    isUpdating: boolean;
-    isRequisitioning: boolean;
-}
-
-export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {}): UseRepairAdminReturn {
+/**
+ * Main hook that composes all repair admin functionality.
+ * For more granular control, use the individual hooks directly:
+ * - useRepairFilter: filtering and stats
+ * - useRepairModal: modal state management
+ * - useRepairActions: update and spare parts actions
+ */
+export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {}) {
     const [tickets, setTickets] = useState<RepairTicket[]>([]);
     const [inventory, setInventory] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Filter state
-    const [filter, setFilter] = useState<RepairStatus | 'all'>('all');
-    const [searchQuery, setSearchQuery] = useState("");
-    const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
-
-    // Modal state
-    const [selectedTicket, setSelectedTicket] = useState<RepairTicket | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-
-    // Form state
-    const [status, setStatus] = useState<RepairStatus>('pending');
-    const [technicianNote, setTechnicianNote] = useState("");
-    const [completionImage, setCompletionImage] = useState<File | null>(null);
-    const [isUpdating, setIsUpdating] = useState(false);
-
-    // Spare parts state
-    const [selectedPartId, setSelectedPartId] = useState("");
-    const [useQuantity, setUseQuantity] = useState(1);
-    const [isRequisitioning, setIsRequisitioning] = useState(false);
+    // Compose sub-hooks
+    const filterHook = useRepairFilter({ tickets });
+    const modalHook = useRepairModal();
+    const actionsHook = useRepairActions({ userId, userName });
 
     // Fetch tickets and inventory
     useEffect(() => {
@@ -113,236 +66,63 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
         };
     }, [userId]);
 
-    // Body scroll lock
-    useEffect(() => {
-        if (isModalOpen) {
-            document.body.style.overflow = 'hidden';
-        }
-        return () => {
-            document.body.style.overflow = '';
-        };
-    }, [isModalOpen]);
-
-    // Filter logic
-    const filteredTickets = tickets.filter(t => {
-        const matchesFilter = filter === 'all' || t.status === filter;
-        const matchesSearch =
-            (t.room || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (t.requesterName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (t.description || "").toLowerCase().includes(searchQuery.toLowerCase());
-
-        let matchesDate = true;
-        if (dateRange.start && dateRange.end && t.createdAt) {
-            const ticketDate = t.createdAt.toDate();
-            const start = new Date(dateRange.start); start.setHours(0, 0, 0, 0);
-            const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
-            matchesDate = ticketDate >= start && ticketDate <= end;
-        }
-
-        return matchesFilter && matchesSearch && matchesDate;
-    });
-
-    // Stats
-    const stats: RepairStats = {
-        total: tickets.length,
-        pending: tickets.filter(t => t.status === 'pending').length,
-        inProgress: tickets.filter(t => t.status === 'in_progress').length,
-        waitingParts: tickets.filter(t => t.status === 'waiting_parts').length,
-        completed: tickets.filter(t => t.status === 'completed').length,
-        cancelled: tickets.filter(t => t.status === 'cancelled').length
-    };
-
-    // Modal handlers
-    const openModal = (ticket: RepairTicket) => {
-        setSelectedTicket(ticket);
-        setStatus(ticket.status);
-        setTechnicianNote(ticket.technicianNote || "");
-        setCompletionImage(null);
-        setIsModalOpen(true);
-        setSelectedPartId("");
-        setUseQuantity(1);
-    };
-
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setSelectedTicket(null);
-    };
-
-    // Update ticket
+    // Wrapper for handleUpdateTicket to match old API
     const handleUpdateTicket = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedTicket?.id) return;
-
-        if (status === 'completed' && (!technicianNote || (!selectedTicket.completionImage && !completionImage))) {
-            toast.error("ต้องกรอกหมายเหตุช่างและแนบรูปภาพเพื่อปิดงาน");
-            return;
-        }
-
-        setIsUpdating(true);
-        try {
-            let completionImageUrl = selectedTicket.completionImage;
-
-            if (completionImage) {
-                // Compress image before upload
-                const compressedImage = await compressImage(completionImage, {
-                    maxWidth: 1920,
-                    maxHeight: 1080,
-                    quality: 0.8,
-                    maxSizeMB: 1
-                });
-
-                const storageRef = ref(storage, `repair_completion/${Date.now()}_${compressedImage.name}`);
-                const snapshot = await uploadBytes(storageRef, compressedImage);
-                completionImageUrl = await getDownloadURL(snapshot.ref);
-            }
-
-            const ticketRef = doc(db, "repair_tickets", selectedTicket.id);
-            await updateDoc(ticketRef, {
-                status,
-                technicianNote,
-                technicianId: userId || null,
-                technicianName: userName || 'Technician',
-                completionImage: completionImageUrl || null,
-                updatedAt: serverTimestamp()
-            });
-
-            await logActivity({
-                action: 'repair_update',
-                productName: selectedTicket.room,
-                userName: userName || "Technician",
-                details: technicianNote,
-                status: status,
-                imageUrl: completionImageUrl || selectedTicket.images?.[0],
-                zone: selectedTicket.zone
-            });
-
-            // Send LINE notification if completed
-            if (status === 'completed') {
-                try {
-                    await fetch('/api/notify-user', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            email: selectedTicket.requesterEmail,
-                            ticketId: selectedTicket.id,
-                            room: selectedTicket.room,
-                            problem: selectedTicket.description,
-                            technicianNote,
-                            completionImage: completionImageUrl || selectedTicket.completionImage
-                        })
-                    });
-                } catch (notifyError) {
-                    console.error("Failed to send notification:", notifyError);
-                }
-            }
-
-            toast.success("บันทึกสำเร็จ");
-            closeModal();
-        } catch (error) {
-            console.error("Error updating ticket:", error);
-            toast.error("เกิดข้อผิดพลาดในการบันทึก");
-        } finally {
-            setIsUpdating(false);
-        }
+        await actionsHook.handleUpdateTicket(
+            modalHook.selectedTicket,
+            modalHook.status,
+            modalHook.technicianNote,
+            modalHook.completionImage,
+            modalHook.closeModal
+        );
     };
 
-    // Use spare part with signature
+    // Wrapper for handleUsePart to match old API
     const handleUsePart = async (signatureDataUrl?: string) => {
-        if (!selectedPartId || !selectedTicket?.id) return;
-
-        const part = inventory.find(p => p.id === selectedPartId);
-        if (!part) return;
-
-        if (useQuantity <= 0 || useQuantity > (part.quantity || 0)) {
-            toast.error(`จำนวนไม่ถูกต้อง คงเหลือ: ${part.quantity}`);
-            return;
-        }
-
-        setIsRequisitioning(true);
-        try {
-            let signatureUrl = '';
-
-            // Upload signature if provided
-            if (signatureDataUrl) {
-                const signatureBlob = await (await fetch(signatureDataUrl)).blob();
-                const storageRef = ref(storage, `repair_signatures/${Date.now()}_sig.png`);
-                const snapshot = await uploadBytes(storageRef, signatureBlob);
-                signatureUrl = await getDownloadURL(snapshot.ref);
-            }
-
-            const productRef = doc(db, "products", selectedPartId);
-            const newQuantity = (part.quantity || 0) - useQuantity;
-
-            await updateDoc(productRef, {
-                quantity: newQuantity,
-                status: newQuantity === 0 ? 'requisitioned' : 'available',
-                updatedAt: serverTimestamp()
-            });
-
-            const ticketRef = doc(db, "repair_tickets", selectedTicket.id);
-            await updateDoc(ticketRef, {
-                partsUsed: arrayUnion({
-                    name: part.name,
-                    quantity: useQuantity,
-                    date: new Date(),
-                    signatureUrl: signatureUrl || null
-                }),
-                updatedAt: serverTimestamp()
-            });
-
-            // Log activity for history
-            await logActivity({
-                action: 'requisition',
-                productName: part.name,
-                userName: userName || "Technician",
-                details: `เบิกจากงานซ่อมห้อง ${selectedTicket.room} จำนวน ${useQuantity} ชิ้น`,
-                zone: selectedTicket.zone || 'unknown',
-                status: 'completed',
-                signatureUrl: signatureUrl || undefined
-            });
-
-            toast.success(`เบิก ${useQuantity} x ${part.name} สำเร็จ`);
-            setSelectedPartId("");
-            setUseQuantity(1);
-
-        } catch (error) {
-            console.error("Error using part:", error);
-            toast.error("เกิดข้อผิดพลาดในการเบิกของ");
-        } finally {
-            setIsRequisitioning(false);
+        const part = inventory.find(p => p.id === modalHook.selectedPartId);
+        const success = await actionsHook.handleUsePart(
+            modalHook.selectedTicket,
+            part,
+            modalHook.useQuantity,
+            signatureDataUrl
+        );
+        if (success) {
+            modalHook.setSelectedPartId("");
+            modalHook.setUseQuantity(1);
         }
     };
 
     return {
         tickets,
-        filteredTickets,
+        filteredTickets: filterHook.filteredTickets,
         inventory,
-        stats,
-        filter,
-        setFilter,
-        searchQuery,
-        setSearchQuery,
-        dateRange,
-        setDateRange,
+        stats: filterHook.stats,
+        filter: filterHook.filter,
+        setFilter: filterHook.setFilter,
+        searchQuery: filterHook.searchQuery,
+        setSearchQuery: filterHook.setSearchQuery,
+        dateRange: filterHook.dateRange,
+        setDateRange: filterHook.setDateRange,
         loading,
-        selectedTicket,
-        isModalOpen,
-        openModal,
-        closeModal,
-        status,
-        setStatus,
-        technicianNote,
-        setTechnicianNote,
-        completionImage,
-        setCompletionImage,
-        selectedPartId,
-        setSelectedPartId,
-        useQuantity,
-        setUseQuantity,
+        selectedTicket: modalHook.selectedTicket,
+        isModalOpen: modalHook.isModalOpen,
+        openModal: modalHook.openModal,
+        closeModal: modalHook.closeModal,
+        status: modalHook.status,
+        setStatus: modalHook.setStatus,
+        technicianNote: modalHook.technicianNote,
+        setTechnicianNote: modalHook.setTechnicianNote,
+        completionImage: modalHook.completionImage,
+        setCompletionImage: modalHook.setCompletionImage,
+        selectedPartId: modalHook.selectedPartId,
+        setSelectedPartId: modalHook.setSelectedPartId,
+        useQuantity: modalHook.useQuantity,
+        setUseQuantity: modalHook.setUseQuantity,
         handleUpdateTicket,
         handleUsePart,
-        isUpdating,
-        isRequisitioning
+        isUpdating: actionsHook.isUpdating,
+        isRequisitioning: actionsHook.isRequisitioning
     };
 }
 

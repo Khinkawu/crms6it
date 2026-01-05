@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, Calendar, MapPin, ExternalLink, Save, CheckCircle2, UploadCloud, Image as ImageIcon, Facebook } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db, storage } from "../../lib/firebase";
+import { db, storage, auth } from "../../lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import toast from "react-hot-toast";
 import { PhotographyJob } from "../../types";
@@ -195,16 +195,24 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         const files = jobFiles[jobId] || [];
         if (files.length === 0) return { ids: [], folderLink: "" };
 
+        // Get Firebase Auth Token for API authentication
+        const currentUser = auth.currentUser;
+        if (!currentUser) throw new Error('User not authenticated');
+        const idToken = await currentUser.getIdToken();
+
         let completedCount = 0;
         const totalFiles = files.length;
         let driveFolderLink = "";
         const uploadedIds: string[] = [];
 
-        // Upload ทีละไฟล์ (หรือขนานกันก็ได้ แต่ทีละไฟล์ปลอดภัยกว่าสำหรับ Drive API)
+        // Upload ทีละไฟล์
         for (const file of files) {
             const initResponse = await fetch('/api/drive/upload', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
                 body: JSON.stringify({
                     fileName: file.name,
                     mimeType: file.type,

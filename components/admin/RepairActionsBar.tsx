@@ -7,8 +7,8 @@ import { RepairTicket } from '../../types';
 import { generateStockReport } from '@/lib/generateReport';
 import { exportToExcel } from '../../utils/excelExport';
 import toast from 'react-hot-toast';
-import moment from 'moment';
-import 'moment/locale/th'; // Import locale เพื่อให้แสดงวันที่เป็นภาษาไทย
+import { format, addYears } from 'date-fns';
+import { th } from 'date-fns/locale';
 
 interface RepairActionsBarProps {
     data: RepairTicket[];
@@ -69,7 +69,7 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
         return {
             ticketId: "SUMMARY",
             // ใช้ปี พ.ศ. แบบไทย
-            reportDate: moment().add(543, 'years').format('D MMMM YYYY'),
+            reportDate: format(addYears(new Date(), 543), 'd MMMM yyyy', { locale: th }),
             requester: "Admin System",
             items: tickets.map(t => {
                 // 1. แปลงโซน
@@ -94,7 +94,7 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
                     name: t.description || '-',
                     zone: locationDisplay, // ✅ ใช้ค่าที่รวมห้องแล้ว
                     status: getThaiStatus(t.status),
-                    requestDate: moment(dateObj).add(543, 'years').format('DD/MM/YY HH:mm'), // วันที่แจ้ง (พ.ศ.)
+                    requestDate: format(addYears(dateObj, 543), 'dd/MM/yy HH:mm'), // วันที่แจ้ง (พ.ศ.)
                     requesterName: t.requesterName || '-'
                 };
             })

@@ -1,13 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initiateResumableUpload } from '@/lib/googleDrive';
 import { getThaiAcademicYear, getThaiMonthName } from '@/lib/academicYear';
+import { adminAuth } from '@/lib/firebaseAdmin';
 
 // Route segment config for App Router
-export const maxDuration = 10; // 10s is enough for metadata only
+export const maxDuration = 10;
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
     try {
+        // Security: Verify Firebase Auth Token
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader?.startsWith('Bearer ')) {
+            return NextResponse.json(
+                { error: 'Unauthorized: Missing or invalid Authorization header' },
+                { status: 401 }
+            );
+        }
+
+        const token = authHeader.split('Bearer ')[1];
+        try {
+            await adminAuth.verifyIdToken(token);
+        } catch {
+            return NextResponse.json(
+                { error: 'Unauthorized: Invalid or expired token' },
+                { status: 401 }
+            );
+        }
+
         const body = await req.json();
         const { fileName, mimeType, eventName, jobDate: jobDateStr } = body;
 

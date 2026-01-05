@@ -2,7 +2,7 @@
 
 > **Computer Room Management System - Tessaban 6 IT Department**  
 > **เอกสารระบบฉบับสมบูรณ์ สำหรับนักพัฒนา**  
-> **Last Updated:** 24 ธันวาคม 2567 (เวลา 11:30) | **Version:** 1.5.0
+> **Last Updated:** 4 มกราคม 2569 (เวลา 22:30) | **Version:** 1.7.0
 
 ---
 
@@ -81,7 +81,8 @@ CRMS6-IT เป็นระบบบริหารจัดการห้อ�
 ```json
 {
   "react-big-calendar": "Calendar Component",
-  "moment": "Date Handling",
+  "moment": "Date Handling (Calendar only)",
+  "date-fns": "Date Formatting (Main)",
   "react-hot-toast": "Toast Notifications",
   "html2canvas + jspdf": "PDF Generation",
   "xlsx": "Excel Export",
@@ -122,6 +123,11 @@ crms6it/
 │   ├── repair/                   # หน้าแจ้งซ่อม
 │   ├── components/               # React Components
 │   │   ├── dashboard/            # Dashboard Widgets
+│   │   │   ├── widgets/          # Widget, QuickAction, StatCard
+│   │   │   ├── HeroSection.tsx   # Welcome Header
+│   │   │   ├── RecentActivityList.tsx
+│   │   │   ├── StatsWidgetContent.tsx
+│   │   │   └── PhotoGalleryList.tsx
 │   │   ├── liff/                 # LIFF Components
 │   │   ├── navigation/           # Navigation (TopHeader, BottomNav, etc.)
 │   │   ├── repairs/              # Repair Components
@@ -140,7 +146,10 @@ crms6it/
 │   ├── useInventory.ts           # Inventory CRUD
 │   ├── useLiff.ts                # LINE LIFF
 │   ├── usePagination.ts          # Pagination Helper
-│   ├── useRepairAdmin.ts         # Repair Admin (Stats, CRUD)
+│   ├── useRepairAdmin.ts         # Repair Admin (Composite Hook)
+│   ├── useRepairActions.ts       # Repair Update/Parts Actions
+│   ├── useRepairFilter.ts        # Repair Filtering & Stats
+│   ├── useRepairModal.ts         # Repair Modal State
 │   ├── useRepairTickets.ts       # Repair Tickets
 │   └── useSessionTimeout.ts      # Auto Logout
 ├── lib/                          # Utility Libraries
@@ -160,6 +169,85 @@ crms6it/
 ├── public/                       # Static Assets
 └── SYSTEM_DOCUMENTATION.md       # This File
 ```
+
+---
+
+## 🔗 Dependency Map (Function → Used In)
+
+แสดงความสัมพันธ์ของ function/hook กับไฟล์ที่เรียกใช้
+
+### Contexts
+
+| Context | Function | Used In |
+|---------|----------|---------|
+| `AuthContext.tsx` | `useAuth()` | `page.tsx`, `profile/page.tsx`, `login/page.tsx`, `repair/page.tsx`, `gallery/page.tsx`, `my-work/page.tsx` |
+| | | `admin/repairs/page.tsx`, `admin/bookings/page.tsx`, `admin/inventory/page.tsx`, `admin/users/page.tsx`, `admin/photography/page.tsx`, `admin/dashboard/page.tsx`, `admin/add-product/page.tsx` |
+| | | `BorrowModal.tsx`, `ReturnModal.tsx`, `RequisitionModal.tsx`, `BookingModal.tsx`, `BookingForm.tsx`, `CreateJobModal.tsx`, `UserHistoryModal.tsx` |
+| | | `TopHeader.tsx`, `BottomNavigation.tsx`, `SideQuickAccess.tsx`, `CommandPalette.tsx` |
+| | | `product/[id]/page.tsx` |
+
+---
+
+### Custom Hooks
+
+| Hook | Exported Functions | Used In |
+|------|-------------------|---------|
+| `useBookings.ts` | `useBookings()`, `BookingEvent` | `page.tsx`, `PhotographyJobModal.tsx`, `CalendarSection.tsx` |
+| `useRepairTickets.ts` | `useRepairTickets()` | `page.tsx` |
+| `useRepairAdmin.ts` | `useRepairAdmin()`, `getThaiStatus()`, `getStatusColor()` | `admin/repairs/page.tsx`, `my-work/page.tsx`, `RepairTicketCard.tsx`, `RepairModal.tsx` |
+| `useRepairFilter.ts` | `useRepairFilter()` | `useRepairAdmin.ts` (composite) |
+| `useRepairModal.ts` | `useRepairModal()` | `useRepairAdmin.ts` (composite) |
+| `useRepairActions.ts` | `handleUpdateTicket()`, `handleUsePart()` | `useRepairAdmin.ts` (composite) |
+| `useActivityLogs.ts` | `useActivityLogs()` | `page.tsx` |
+| `useLiff.ts` | `useLiff()` | `liff/booking/page.tsx`, `liff/repair/page.tsx`, `liff/entry/page.tsx` |
+| `useMyRepairs.ts` | `useMyRepairs()` | `my-work/page.tsx` |
+| `useMyPhotographyJobs.ts` | `useMyPhotographyJobs()` | `my-work/page.tsx` |
+| `usePushNotifications.ts` | `usePushNotifications()` | `NotificationToggle.tsx`, `profile/page.tsx` |
+
+---
+
+### Utility Functions
+
+| File | Function | Used In |
+|------|----------|---------|
+| `utils/logger.ts` | `logActivity()` | `useRepairActions.ts`, `RepairForm.tsx`, `BorrowModal.tsx`, `ReturnModal.tsx`, `RequisitionModal.tsx`, `admin/inventory/page.tsx`, `admin/add-product/page.tsx`, `EditProductModal.tsx` |
+| `utils/excelExport.ts` | `exportToExcel()` | `RepairActionsBar.tsx`, `my-work/page.tsx` |
+| `utils/imageCompression.ts` | `compressImage()` | `useRepairActions.ts`, `RepairForm.tsx`, `admin/photography/page.tsx`, `MyPhotographyJobsModal.tsx` |
+| `utils/flexMessageTemplates.ts` | `createRepairNewFlexMessage()` | `api/notify-repair/route.ts`, `lib/agentFunctions.ts` |
+| | `createRepairCompleteFlexMessage()` | `api/notify-user/route.ts` |
+| | `createRepairReminderFlexMessage()` | `api/cron/repair-reminder/route.ts` |
+| | `createPhotographyFlexMessage()` | `PhotographyJobModal.tsx` |
+
+---
+
+### Library Functions
+
+| File | Export | Used In |
+|------|--------|---------|
+| `lib/firebase.ts` | `db`, `auth`, `storage` | **ทุก Client Component** (ผ่าน hooks และ modals) |
+| `lib/firebaseAdmin.ts` | `adminDb`, `adminAuth` | **ทุก API Route** (server-side) |
+| | | `api/notify-repair`, `api/notify-user`, `api/send-otp`, `api/verify-otp`, `api/fcm/send`, `api/facebook/post`, `api/line-webhook`, `api/cron/repair-reminder` |
+| | | `lib/aiAgent.ts`, `lib/agentFunctions.ts` |
+| `lib/generateReport.ts` | `generateStockReport()` | `RepairActionsBar.tsx`, `my-work/page.tsx` |
+| `lib/googleDrive.ts` | `initiateResumableUpload()` | `api/drive/upload/route.ts` |
+| `lib/aiAgent.ts` | `processMessage()` | `api/line-webhook/route.ts` |
+| `lib/agentFunctions.ts` | (all AI functions) | `lib/aiAgent.ts` |
+| `lib/dateUtils.ts` | `toBangkokTime()`, `formatDateThai()` | `BookingForm.tsx`, `PhotographyJobModal.tsx`, `api/drive/upload/route.ts` |
+
+---
+
+### Dashboard Components (New in v1.7.0)
+
+| Component | Used In |
+|-----------|---------|
+| `dashboard/widgets/Widget.tsx` | `page.tsx` |
+| `dashboard/widgets/QuickAction.tsx` | `page.tsx` |
+| `dashboard/widgets/StatCard.tsx` | `page.tsx` |
+| `dashboard/HeroSection.tsx` | `page.tsx` |
+| `dashboard/RecentActivityList.tsx` | `page.tsx` |
+| `dashboard/StatsWidgetContent.tsx` | `page.tsx` |
+| `dashboard/PhotoGalleryList.tsx` | `page.tsx` |
+| `dashboard/CalendarSection.tsx` | `page.tsx` (via LazyComponents) |
 
 ---
 
@@ -702,7 +790,7 @@ interface AuthContextType {
   "fileName": "IMG_001.jpg",
   "mimeType": "image/jpeg",
   "eventName": "กีฬาสี 2567",
-  "jobDate": "2024-12-22T00:00:00.000Z"
+  "jobDate": "2024-12-22"  // YYYY-MM-DD format (Bangkok timezone)
 }
 ```
 
@@ -737,7 +825,8 @@ interface AuthContextType {
 |----------|----------|
 | `getThaiAcademicYear(date)` | คำนวณปีการศึกษาและภาคเรียน |
 | `getThaiMonthName(date)` | แปลงเป็นชื่อเดือนไทย |
-| `getThaiMonthNumber(date)` | แปลงเป็นเลขเดือน |
+
+> ⚠️ **หมายเหตุ Timezone:** API parse date string (YYYY-MM-DD) โดยตรง โดยไม่ใช้ `new Date()` เพื่อป้องกัน UTC timezone shift
 
 ---
 
@@ -1253,6 +1342,12 @@ git push origin main
 - [x] **OTP Account Binding** - ผูกบัญชี LINE ผ่าน AI + Email OTP
 - [x] **Zone Display** - แสดงโซน (ม.ต้น/ม.ปลาย) ใน Repair Tickets และ Flex Messages
 - [x] **Signature Capture** - เพิ่มลายเซ็นในการเบิกอะไหล่
+- [x] **Timezone Bug Fix (v1.6.0)** - แก้ไขปัญหา Google Drive สร้างโฟลเดอร์ผิดวัน (68-12-31 → 69-01-01)
+- [x] **Security: Admin SDK Migration (v1.7.0)** - `/api/notify-repair` ใช้ Admin SDK แทน Client SDK
+- [x] **Security: Drive API Auth (v1.7.0)** - `/api/drive/upload` เพิ่ม Firebase Auth Token Verification
+- [x] **Performance: moment.js → date-fns (v1.7.0)** - ลด bundle size (267KB → 13KB) ใน 4 ไฟล์
+- [x] **Code Splitting: Dashboard (v1.7.0)** - แยก `page.tsx` (752 → 200 lines) เป็น 7 components
+- [x] **Code Splitting: useRepairAdmin (v1.7.0)** - แยก hook (371 → 140 lines) เป็น 3 composable hooks
 
 ### TODOs
 - [ ] เพิ่ม PWA Support เต็มรูปแบบ
@@ -1270,4 +1365,4 @@ git push origin main
 
 ---
 
-*เอกสารนี้อัปเดตโดย Antigravity AI เมื่อ 24 ธ.ค. 2567 เวลา 11:30 น.*
+*เอกสารนี้อัปเดตโดย Antigravity AI เมื่อ 4 ม.ค. 2569 เวลา 18:45 น.*

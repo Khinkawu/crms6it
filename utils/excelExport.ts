@@ -1,9 +1,10 @@
 
 import * as XLSX from 'xlsx';
 import { RepairTicket } from '../types';
-import moment from 'moment';
+import { format, addYears } from 'date-fns';
+import { th } from 'date-fns/locale';
 
-// Helper: แปลง Zone เป็นภาษาไทย (Duplicate Logic from RepairActionsBar to ensure consistency)
+// Helper: แปลง Zone เป็นภาษาไทย
 const getZoneThai = (zone: string) => {
     switch (zone) {
         case 'senior_high': return 'ม.ปลาย';
@@ -28,17 +29,16 @@ const getThaiStatus = (s: string) => {
 };
 
 export const exportToExcel = (data: RepairTicket[], fileName: string) => {
-    // 1. Format data for Excel to match PDF Structure
-    // Columns: ["ลำดับ", "วัน/เวลาแจ้ง", "ผู้แจ้ง", "ปัญหา / อาการ", "สถานที่", "สถานะ"]
     const formattedData = data.map((ticket, index) => {
-        // Prepare Date
         let dateObj: Date;
         if (ticket.createdAt && typeof (ticket.createdAt as any).toDate === 'function') {
             dateObj = (ticket.createdAt as any).toDate();
         } else {
             dateObj = new Date(ticket.createdAt as any);
         }
-        const thaiDate = moment(dateObj).add(543, 'years').format('DD/MM/YY HH:mm');
+        // Add 543 years for Buddhist Era
+        const buddhistDate = addYears(dateObj, 543);
+        const thaiDate = format(buddhistDate, 'dd/MM/yy HH:mm', { locale: th });
 
         // Prepare Location
         const zoneThai = getZoneThai(ticket.zone || '');

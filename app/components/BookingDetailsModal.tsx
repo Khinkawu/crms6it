@@ -6,8 +6,8 @@ import {
     Briefcase, Paperclip, GraduationCap, Box as BoxIcon, Link as LinkIcon, ExternalLink,
     Users, Armchair
 } from 'lucide-react';
-import moment from 'moment';
-import 'moment/locale/th';
+import { format } from 'date-fns';
+import { th } from 'date-fns/locale';
 
 interface BookingEvent {
     id: string;
@@ -71,8 +71,8 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                                     <Calendar size={20} />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-lg">{moment(event.start).format('D MMMM YYYY')}</p>
-                                    <p className="text-white/90">{moment(event.start).format('HH:mm')} - {moment(event.end).format('HH:mm')} น.</p>
+                                    <p className="font-bold text-lg">{format(event.start, 'd MMMM yyyy', { locale: th })}</p>
+                                    <p className="text-white/90">{format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')} น.</p>
                                 </div>
                             </div>
                         </div>

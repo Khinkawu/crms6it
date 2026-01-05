@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import moment from 'moment';
+import { format, addYears } from 'date-fns';
+import { th } from 'date-fns/locale';
 
 // --- 1. Helper Functions ---
 
@@ -175,7 +176,7 @@ export const generateStockReport = async (
         const blob = doc.output('bloburl');
         window.open(blob, '_blank');
     } else {
-        doc.save(`RepairReport_${moment().format('YYYYMMDD_HHmm')}.pdf`);
+        doc.save(`RepairReport_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
     }
 };
 
@@ -211,7 +212,7 @@ export const generateInventoryLogReport = async (
         doc.text("รายงานประวัติการใช้งานวัสดุ (Inventory Log Report)", 40, 25);
 
         doc.setFontSize(14);
-        doc.text(`วันที่พิมพ์: ${moment().add(543, 'years').format('D MMMM YYYY')}`, width - 15, 18, { align: 'right' });
+        doc.text(`วันที่พิมพ์: ${format(addYears(new Date(), 543), 'd MMMM yyyy', { locale: th })}`, width - 15, 18, { align: 'right' });
         doc.text(`พิมพ์โดย: Admin System`, width - 15, 25, { align: 'right' });
 
         doc.setDrawColor(200, 200, 200);
@@ -228,7 +229,7 @@ export const generateInventoryLogReport = async (
         }
 
         return [
-            log.timestamp?.toDate ? moment(log.timestamp.toDate()).add(543, 'years').format('DD/MM/YY HH:mm') : '-',
+            log.timestamp?.toDate ? format(addYears(log.timestamp.toDate(), 543), 'dd/MM/yy HH:mm') : '-',
             getThaiAction(log.action),
             log.productName || '-',
             log.userName || '-',
@@ -301,7 +302,7 @@ export const generateInventoryLogReport = async (
         const blob = doc.output('bloburl');
         window.open(blob, '_blank');
     } else {
-        doc.save(`InventoryLog_${moment().format('YYYYMMDD_HHmm')}.pdf`);
+        doc.save(`InventoryLog_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
     }
 };
 
@@ -352,7 +353,7 @@ export const generatePhotographyJobReport = async (
         doc.text("รายงานประวัติงานถ่ายภาพ (Photography Job Report)", 40, 25);
 
         doc.setFontSize(14);
-        doc.text(`วันที่พิมพ์: ${moment().add(543, 'years').format('D MMMM YYYY')}`, width - 15, 18, { align: 'right' });
+        doc.text(`วันที่พิมพ์: ${format(addYears(new Date(), 543), 'd MMMM yyyy', { locale: th })}`, width - 15, 18, { align: 'right' });
 
         doc.setDrawColor(200, 200, 200);
         doc.line(15, 35, width - 15, 35);
@@ -371,7 +372,7 @@ export const generatePhotographyJobReport = async (
     const tableColumn = ["ลำดับ", "ชื่องาน", "สถานที่", "วัน/เวลา", "สถานะ", "ช่างภาพ"];
     const tableRows = jobs.map((job, index) => {
         const dateObj = job.startTime?.toDate ? job.startTime.toDate() : new Date(job.startTime);
-        const thaiDate = moment(dateObj).add(543, 'years').format('DD/MM/YY HH:mm');
+        const thaiDate = format(addYears(dateObj, 543), 'dd/MM/yy HH:mm');
 
         return [
             index + 1,
@@ -429,6 +430,6 @@ export const generatePhotographyJobReport = async (
         const blob = doc.output('bloburl');
         window.open(blob, '_blank');
     } else {
-        doc.save(`PhotographyReport_${moment().format('YYYYMMDD_HHmm')}.pdf`);
+        doc.save(`PhotographyReport_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
     }
 };
