@@ -189,7 +189,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         setFacebookSelectedOrder(prev => ({ ...prev, [jobId]: [] }));
     };
 
-    // --- Core Logic: Internal Drive Upload Function ---
+    // --- Core Logic: Internal Drive Upload Function (PARALLEL) ---
     // คืนค่า list ของ fileIds ที่อัปโหลดเสร็จแล้ว
     const performDriveUpload = async (jobId: string, jobTitle: string, jobDate: any): Promise<{ ids: string[], folderLink: string }> => {
         const files = jobFiles[jobId] || [];
@@ -203,10 +203,9 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         let completedCount = 0;
         const totalFiles = files.length;
         let driveFolderLink = "";
-        const uploadedIds: string[] = [];
 
-        // Upload ทีละไฟล์
-        for (const file of files) {
+        // Helper: Upload single file
+        const uploadSingleFile = async (file: File, index: number): Promise<{ id: string; folderLink: string }> => {
             const initResponse = await fetch('/api/drive/upload', {
                 method: 'POST',
                 headers: {
@@ -221,7 +220,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                 }),
             });
 
-            if (!initResponse.ok) throw new Error('Failed to initiate upload');
+            if (!initResponse.ok) throw new Error(`Failed to initiate upload for ${file.name}`);
             const { uploadUrl, folderLink } = await initResponse.json();
 
             const uploadResponse = await fetch(uploadUrl, {
@@ -230,30 +229,87 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                 headers: { 'Content-Type': file.type },
             });
 
-            if (!uploadResponse.ok) throw new Error('Failed to upload to Google Drive');
+            if (!uploadResponse.ok) throw new Error(`Failed to upload ${file.name}`);
             const uploadResult = await uploadResponse.json();
-
-            if (uploadResult.id) uploadedIds.push(uploadResult.id);
-            if (!driveFolderLink && folderLink) driveFolderLink = folderLink;
 
             completedCount++;
             setUploadProgress(prev => ({ ...prev, [jobId]: Math.round((completedCount / totalFiles) * 100) }));
+
+            return { id: uploadResult.id || '', folderLink };
+        };
+
+        // Parallel upload with concurrency limit of 5
+        const CONCURRENCY = 5;
+        const results: { id: string; folderLink: string }[] = [];
+
+        for (let i = 0; i < files.length; i += CONCURRENCY) {
+            const batch = files.slice(i, i + CONCURRENCY);
+            const batchResults = await Promise.all(
+                batch.map((file, batchIndex) => uploadSingleFile(file, i + batchIndex))
+            );
+            results.push(...batchResults);
         }
+
+        // Collect results maintaining order
+        const uploadedIds = results.map(r => r.id).filter(id => id);
+        driveFolderLink = results.find(r => r.folderLink)?.folderLink || "";
 
         return { ids: uploadedIds, folderLink: driveFolderLink };
     };
 
-    const performFacebookPost = async (jobId: string, fileIds: string[]) => {
+    // Helper: Convert File to base64
+    const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result as string;
+                // Remove data:image/...;base64, prefix
+                const base64 = result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    };
+
+    const performFacebookPost = async (jobId: string, _fileIds: string[]) => {
         const selectedOrder = facebookSelectedOrder[jobId];
         if (!selectedOrder || selectedOrder.length === 0) return;
 
-        // Map selection index -> fileID -> drive URL
-        const photoUrls = selectedOrder
-            .map(idx => fileIds[idx]) // Get File ID
-            .filter(id => id) // Ensure ID exists
-            .map(id => `https://drive.google.com/file/d/${id}/view`);
+        const files = jobFiles[jobId];
+        if (!files || files.length === 0) throw new Error('ไม่พบไฟล์สำหรับ Facebook');
 
-        if (photoUrls.length === 0) throw new Error('ไม่พบไฟล์ที่เลือกสำหรับ Facebook');
+        // Helper: Compress and convert single file
+        const processFile = async (idx: number): Promise<{ base64: string; mimeType: string } | null> => {
+            const file = files[idx];
+            if (!file) return null;
+
+            // Compress if file is larger than 8MB
+            let fileToUpload = file;
+            if (file.size > 8 * 1024 * 1024) {
+                fileToUpload = await compressImage(file, {
+                    maxWidth: 4096,
+                    maxHeight: 4096,
+                    quality: 0.85,
+                    maxSizeMB: 8
+                });
+            }
+
+            const base64 = await fileToBase64(fileToUpload);
+            return { base64, mimeType: fileToUpload.type };
+        };
+
+        // Parallel compression with concurrency limit of 3 (memory-safe)
+        const CONCURRENCY = 3;
+        const photosData: { base64: string; mimeType: string }[] = [];
+
+        for (let i = 0; i < selectedOrder.length; i += CONCURRENCY) {
+            const batch = selectedOrder.slice(i, i + CONCURRENCY);
+            const batchResults = await Promise.all(batch.map(idx => processFile(idx)));
+            photosData.push(...batchResults.filter((r): r is { base64: string; mimeType: string } => r !== null));
+        }
+
+        if (photosData.length === 0) throw new Error('ไม่สามารถเตรียมภาพสำหรับ Facebook ได้');
 
         const res = await fetch('/api/facebook/post', {
             method: 'POST',
@@ -261,7 +317,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
             body: JSON.stringify({
                 jobId,
                 caption: facebookCaption[jobId] || '',
-                photoUrls
+                photos: photosData // Send base64 instead of URLs
             })
         });
 

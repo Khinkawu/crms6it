@@ -5,23 +5,45 @@ import { FieldValue } from 'firebase-admin/firestore';
 const PAGE_ID = process.env.FACEBOOK_PAGE_ID;
 const ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
 
-/**
- * Convert Google Drive sharing URL to direct download URL
- */
-function convertDriveUrl(url: string): string {
-    const patterns = [
-        /\/file\/d\/([a-zA-Z0-9_-]+)/,
-        /id=([a-zA-Z0-9_-]+)/,
-        /\/d\/([a-zA-Z0-9_-]+)/,
-    ];
+interface PhotoData {
+    base64: string;
+    mimeType: string;
+}
 
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match && match[1]) {
-            return `https://drive.google.com/uc?export=download&id=${match[1]}`;
-        }
+/**
+ * Upload a single photo using FormData (binary upload)
+ * This avoids the 10MB URL-based upload limit
+ */
+async function uploadPhotoWithFormData(
+    photoData: PhotoData,
+    published: boolean,
+    caption?: string
+): Promise<string> {
+    const buffer = Buffer.from(photoData.base64, 'base64');
+
+    // Create form data for multipart upload
+    const formData = new FormData();
+    const blob = new Blob([buffer], { type: photoData.mimeType });
+    formData.append('source', blob, 'photo.jpg');
+    formData.append('access_token', ACCESS_TOKEN!);
+    formData.append('published', published ? 'true' : 'false');
+    if (caption && published) {
+        formData.append('message', caption);
     }
-    return url;
+
+    const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/photos`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!uploadRes.ok) {
+        const error = await uploadRes.json();
+        console.error('Facebook Photo Upload Error:', error);
+        throw new Error(`Failed to upload photo: ${error.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await uploadRes.json();
+    return data.post_id || data.id;
 }
 
 export async function POST(request: NextRequest) {
@@ -34,62 +56,32 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { caption, jobId, photoUrls } = body as {
+        const { caption, jobId, photos } = body as {
             caption: string;
             jobId: string;
-            photoUrls: string[];
+            photos: PhotoData[];
         };
 
-        if (!photoUrls || photoUrls.length === 0) {
-            return NextResponse.json({ error: 'No photo URLs provided' }, { status: 400 });
+        if (!photos || photos.length === 0) {
+            return NextResponse.json({ error: 'No photos provided' }, { status: 400 });
         }
 
         let postId: string;
 
-        if (photoUrls.length === 1) {
-            // Single photo: Post directly
-            const params = new URLSearchParams({
-                url: convertDriveUrl(photoUrls[0]),
-                message: caption,
-                published: 'true',
-                access_token: ACCESS_TOKEN,
-            });
-
-            const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/photos?${params}`, {
-                method: 'POST',
-            });
-
-            const responseText = await uploadRes.text();
-            if (!uploadRes.ok) {
-                throw new Error(`Failed to post photo: ${responseText}`);
-            }
-
-            const data = JSON.parse(responseText);
-            postId = data.post_id || data.id;
-
+        if (photos.length === 1) {
+            // Single photo: Post directly with caption
+            postId = await uploadPhotoWithFormData(photos[0], true, caption);
         } else {
-            // Multiple photos: Upload unpublished, then create feed post
+            // Multiple photos: Upload unpublished in parallel, then create feed post
+            const CONCURRENCY = 5;
             const photoIds: string[] = [];
 
-            for (const originalUrl of photoUrls) {
-                const params = new URLSearchParams({
-                    url: convertDriveUrl(originalUrl),
-                    published: 'false',
-                    access_token: ACCESS_TOKEN,
-                });
-
-                const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/photos?${params}`, {
-                    method: 'POST',
-                });
-
-                if (!uploadRes.ok) {
-                    const error = await uploadRes.json();
-                    console.error('Facebook Photo Upload Error:', error);
-                    throw new Error(`Failed to upload photo: ${error.error?.message}`);
-                }
-
-                const data = await uploadRes.json();
-                photoIds.push(data.id);
+            for (let i = 0; i < photos.length; i += CONCURRENCY) {
+                const batch = photos.slice(i, i + CONCURRENCY);
+                const batchResults = await Promise.all(
+                    batch.map(photoData => uploadPhotoWithFormData(photoData, false))
+                );
+                photoIds.push(...batchResults);
             }
 
             // Create Feed Post with attached media
@@ -130,10 +122,11 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, postId, permalinkUrl });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
         console.error('Facebook API Route Error:', error);
         return NextResponse.json(
-            { error: error.message || 'Internal Server Error' },
+            { error: errorMessage },
             { status: 500 }
         );
     }
