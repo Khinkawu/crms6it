@@ -37,6 +37,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
     const [facebookSent, setFacebookSent] = useState<Record<string, boolean>>({});
     const [facebookCaption, setFacebookCaption] = useState<Record<string, string>>({});
     const [facebookSelectedOrder, setFacebookSelectedOrder] = useState<Record<string, number[]>>({}); // Array to preserve order
+    const [facebookDraftMode, setFacebookDraftMode] = useState<Record<string, boolean>>({}); // true = save as draft, false = publish immediately
     const [uploadedFileIds, setUploadedFileIds] = useState<Record<string, string[]>>({});
     const [lastClickedIndex, setLastClickedIndex] = useState<Record<string, number>>({}); // For Shift+Click
 
@@ -317,7 +318,8 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
             body: JSON.stringify({
                 jobId,
                 caption: facebookCaption[jobId] || '',
-                photos: photosData // Send base64 instead of URLs
+                photos: photosData,
+                asDraft: facebookDraftMode[jobId] || false // true = save as draft
             })
         });
 
@@ -626,6 +628,26 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                                                                         className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500"
                                                                         placeholder="เขียนข้อความสำหรับโพส..."
                                                                     />
+                                                                </div>
+
+                                                                {/* Draft Mode Toggle */}
+                                                                <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={facebookDraftMode[job.id!] || false}
+                                                                            onChange={() => setFacebookDraftMode(prev => ({ ...prev, [job.id!]: !prev[job.id!] }))}
+                                                                            className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                                                                        />
+                                                                        <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                                                                            บันทึกเป็น Draft (ไม่เผยแพร่ทันที)
+                                                                        </span>
+                                                                    </label>
+                                                                    {facebookDraftMode[job.id!] && (
+                                                                        <span className="text-xs text-amber-600 dark:text-amber-500">
+                                                                            • Admin สามารถตรวจสอบและกด Publish ในหน้า Facebook Page ได้
+                                                                        </span>
+                                                                    )}
                                                                 </div>
 
                                                                 <div>

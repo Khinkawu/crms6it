@@ -56,11 +56,14 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { caption, jobId, photos } = body as {
+        const { caption, jobId, photos, asDraft } = body as {
             caption: string;
             jobId: string;
             photos: PhotoData[];
+            asDraft?: boolean;
         };
+
+        const shouldPublish = !asDraft; // true = publish, false = draft
 
         if (!photos || photos.length === 0) {
             return NextResponse.json({ error: 'No photos provided' }, { status: 400 });
@@ -69,8 +72,8 @@ export async function POST(request: NextRequest) {
         let postId: string;
 
         if (photos.length === 1) {
-            // Single photo: Post directly with caption
-            postId = await uploadPhotoWithFormData(photos[0], true, caption);
+            // Single photo: Post directly with caption (or as draft)
+            postId = await uploadPhotoWithFormData(photos[0], shouldPublish, caption);
         } else {
             // Multiple photos: Upload unpublished in parallel, then create feed post
             const CONCURRENCY = 5;
@@ -88,7 +91,7 @@ export async function POST(request: NextRequest) {
             const feedBody = {
                 message: caption,
                 attached_media: photoIds.map(id => ({ media_fbid: id })),
-                published: 'true',
+                published: shouldPublish ? 'true' : 'false',
                 access_token: ACCESS_TOKEN,
             };
 
