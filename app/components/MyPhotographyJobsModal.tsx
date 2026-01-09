@@ -190,7 +190,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         setFacebookSelectedOrder(prev => ({ ...prev, [jobId]: [] }));
     };
 
-    // --- Core Logic: Internal Drive Upload Function (PARALLEL) ---
+    // --- Core Logic: Internal Drive Upload Function (SEQUENTIAL) ---
     // คืนค่า list ของ fileIds ที่อัปโหลดเสร็จแล้ว
     const performDriveUpload = async (jobId: string, jobTitle: string, jobDate: any): Promise<{ ids: string[], folderLink: string }> => {
         const files = jobFiles[jobId] || [];
@@ -204,9 +204,10 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         let completedCount = 0;
         const totalFiles = files.length;
         let driveFolderLink = "";
+        const uploadedIds: string[] = [];
 
-        // Helper: Upload single file
-        const uploadSingleFile = async (file: File, index: number): Promise<{ id: string; folderLink: string }> => {
+        // Upload ทีละไฟล์ (sequential to avoid race condition)
+        for (const file of files) {
             const initResponse = await fetch('/api/drive/upload', {
                 method: 'POST',
                 headers: {
@@ -221,7 +222,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                 }),
             });
 
-            if (!initResponse.ok) throw new Error(`Failed to initiate upload for ${file.name}`);
+            if (!initResponse.ok) throw new Error('Failed to initiate upload');
             const { uploadUrl, folderLink } = await initResponse.json();
 
             const uploadResponse = await fetch(uploadUrl, {
@@ -230,30 +231,15 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                 headers: { 'Content-Type': file.type },
             });
 
-            if (!uploadResponse.ok) throw new Error(`Failed to upload ${file.name}`);
+            if (!uploadResponse.ok) throw new Error('Failed to upload to Google Drive');
             const uploadResult = await uploadResponse.json();
+
+            if (uploadResult.id) uploadedIds.push(uploadResult.id);
+            if (!driveFolderLink && folderLink) driveFolderLink = folderLink;
 
             completedCount++;
             setUploadProgress(prev => ({ ...prev, [jobId]: Math.round((completedCount / totalFiles) * 100) }));
-
-            return { id: uploadResult.id || '', folderLink };
-        };
-
-        // Parallel upload with concurrency limit of 5
-        const CONCURRENCY = 5;
-        const results: { id: string; folderLink: string }[] = [];
-
-        for (let i = 0; i < files.length; i += CONCURRENCY) {
-            const batch = files.slice(i, i + CONCURRENCY);
-            const batchResults = await Promise.all(
-                batch.map((file, batchIndex) => uploadSingleFile(file, i + batchIndex))
-            );
-            results.push(...batchResults);
         }
-
-        // Collect results maintaining order
-        const uploadedIds = results.map(r => r.id).filter(id => id);
-        driveFolderLink = results.find(r => r.folderLink)?.folderLink || "";
 
         return { ids: uploadedIds, folderLink: driveFolderLink };
     };
@@ -280,52 +266,67 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         const files = jobFiles[jobId];
         if (!files || files.length === 0) throw new Error('ไม่พบไฟล์สำหรับ Facebook');
 
-        // Helper: Compress and convert single file
-        const processFile = async (idx: number): Promise<{ base64: string; mimeType: string } | null> => {
-            const file = files[idx];
-            if (!file) return null;
+        const asDraft = facebookDraftMode[jobId] || false;
+        const caption = facebookCaption[jobId] || '';
 
-            // Compress if file is larger than 8MB
+        // Upload photos one by one to avoid 413 Payload Too Large
+        const photoIds: string[] = [];
+
+        for (let i = 0; i < selectedOrder.length; i++) {
+            const idx = selectedOrder[i];
+            const file = files[idx];
+            if (!file) continue;
+
+            // Always compress for Facebook to stay under Vercel 4.5MB limit
+            // (3MB file → ~4MB after base64 → under 4.5MB limit)
             let fileToUpload = file;
-            if (file.size > 8 * 1024 * 1024) {
+            if (file.size > 3 * 1024 * 1024) {
                 fileToUpload = await compressImage(file, {
-                    maxWidth: 4096,
-                    maxHeight: 4096,
-                    quality: 0.85,
-                    maxSizeMB: 8
+                    maxWidth: 2048,
+                    maxHeight: 2048,
+                    quality: 0.8,
+                    maxSizeMB: 3
                 });
             }
 
             const base64 = await fileToBase64(fileToUpload);
-            return { base64, mimeType: fileToUpload.type };
-        };
 
-        // Parallel compression with concurrency limit of 3 (memory-safe)
-        const CONCURRENCY = 3;
-        const photosData: { base64: string; mimeType: string }[] = [];
+            // Upload single photo
+            const res = await fetch('/api/facebook/upload-photo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    photo: { base64, mimeType: fileToUpload.type },
+                    published: false // Always unpublished first
+                })
+            });
 
-        for (let i = 0; i < selectedOrder.length; i += CONCURRENCY) {
-            const batch = selectedOrder.slice(i, i + CONCURRENCY);
-            const batchResults = await Promise.all(batch.map(idx => processFile(idx)));
-            photosData.push(...batchResults.filter((r): r is { base64: string; mimeType: string } => r !== null));
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.error || `Failed to upload photo ${i + 1}`);
+            }
+
+            const data = await res.json();
+            if (data.photoId) photoIds.push(data.photoId);
         }
 
-        if (photosData.length === 0) throw new Error('ไม่สามารถเตรียมภาพสำหรับ Facebook ได้');
+        if (photoIds.length === 0) throw new Error('ไม่สามารถอัปโหลดภาพไป Facebook ได้');
 
-        const res = await fetch('/api/facebook/post', {
+        // Create post with all uploaded photos
+        const postRes = await fetch('/api/facebook/post', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 jobId,
-                caption: facebookCaption[jobId] || '',
-                photos: photosData,
-                asDraft: facebookDraftMode[jobId] || false // true = save as draft
+                caption,
+                photoIds, // Send photo IDs instead of base64
+                asDraft
             })
         });
 
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.error || 'Failed to post to Facebook');
+        if (!postRes.ok) {
+            const error = await postRes.json();
+            throw new Error(error.error || 'Failed to create Facebook post');
         }
     };
 

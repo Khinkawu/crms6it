@@ -5,47 +5,10 @@ import { FieldValue } from 'firebase-admin/firestore';
 const PAGE_ID = process.env.FACEBOOK_PAGE_ID;
 const ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
 
-interface PhotoData {
-    base64: string;
-    mimeType: string;
-}
-
 /**
- * Upload a single photo using FormData (binary upload)
- * This avoids the 10MB URL-based upload limit
+ * Create a Facebook post from already-uploaded photo IDs
+ * Photos should be uploaded first via /api/facebook/upload-photo
  */
-async function uploadPhotoWithFormData(
-    photoData: PhotoData,
-    published: boolean,
-    caption?: string
-): Promise<string> {
-    const buffer = Buffer.from(photoData.base64, 'base64');
-
-    // Create form data for multipart upload
-    const formData = new FormData();
-    const blob = new Blob([buffer], { type: photoData.mimeType });
-    formData.append('source', blob, 'photo.jpg');
-    formData.append('access_token', ACCESS_TOKEN!);
-    formData.append('published', published ? 'true' : 'false');
-    if (caption && published) {
-        formData.append('message', caption);
-    }
-
-    const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/photos`, {
-        method: 'POST',
-        body: formData,
-    });
-
-    if (!uploadRes.ok) {
-        const error = await uploadRes.json();
-        console.error('Facebook Photo Upload Error:', error);
-        throw new Error(`Failed to upload photo: ${error.error?.message || 'Unknown error'}`);
-    }
-
-    const data = await uploadRes.json();
-    return data.post_id || data.id;
-}
-
 export async function POST(request: NextRequest) {
     if (!PAGE_ID || !ACCESS_TOKEN) {
         return NextResponse.json(
@@ -56,38 +19,46 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { caption, jobId, photos, asDraft } = body as {
+        const { caption, jobId, photoIds, asDraft } = body as {
             caption: string;
             jobId: string;
-            photos: PhotoData[];
+            photoIds: string[];
             asDraft?: boolean;
         };
 
-        const shouldPublish = !asDraft; // true = publish, false = draft
+        const shouldPublish = !asDraft;
 
-        if (!photos || photos.length === 0) {
-            return NextResponse.json({ error: 'No photos provided' }, { status: 400 });
+        if (!photoIds || photoIds.length === 0) {
+            return NextResponse.json({ error: 'No photo IDs provided' }, { status: 400 });
         }
 
         let postId: string;
 
-        if (photos.length === 1) {
-            // Single photo: Post directly with caption (or as draft)
-            postId = await uploadPhotoWithFormData(photos[0], shouldPublish, caption);
-        } else {
-            // Multiple photos: Upload unpublished in parallel, then create feed post
-            const CONCURRENCY = 5;
-            const photoIds: string[] = [];
+        if (photoIds.length === 1) {
+            // Single photo: Already uploaded, just need to publish it
+            // For single photos uploaded as unpublished, we need to create a post
+            const feedBody = {
+                message: caption,
+                attached_media: [{ media_fbid: photoIds[0] }],
+                published: shouldPublish ? 'true' : 'false',
+                access_token: ACCESS_TOKEN,
+            };
 
-            for (let i = 0; i < photos.length; i += CONCURRENCY) {
-                const batch = photos.slice(i, i + CONCURRENCY);
-                const batchResults = await Promise.all(
-                    batch.map(photoData => uploadPhotoWithFormData(photoData, false))
-                );
-                photoIds.push(...batchResults);
+            const postRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/feed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(feedBody),
+            });
+
+            const postResponseText = await postRes.text();
+            if (!postRes.ok) {
+                throw new Error(`Failed to create post: ${postResponseText}`);
             }
 
-            // Create Feed Post with attached media
+            const postData = JSON.parse(postResponseText);
+            postId = postData.id;
+        } else {
+            // Multiple photos: Create feed post with all attached media
             const feedBody = {
                 message: caption,
                 attached_media: photoIds.map(id => ({ media_fbid: id })),
