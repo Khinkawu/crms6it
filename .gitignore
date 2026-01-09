@@ -9,3 +9,7 @@
 .env.local
 .vercel
 project_summary.md
+
+# Debug/utility scripts
+debug_firestore_count.ts
+rename_fonts.js
