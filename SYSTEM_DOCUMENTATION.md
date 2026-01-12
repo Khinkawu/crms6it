@@ -2,7 +2,7 @@
 
 > **Computer Room Management System - Tessaban 6 IT Department**  
 > **เอกสารระบบฉบับสมบูรณ์ สำหรับนักพัฒนา**  
-> **Last Updated:** 4 มกราคม 2569 (เวลา 22:30) | **Version:** 1.7.0
+> **Last Updated:** 12 มกราคม 2569 (เวลา 11:38) | **Version:** 1.8.0
 
 ---
 
@@ -100,15 +100,24 @@ crms6it/
 ├── app/                          # Next.js App Router
 │   ├── api/                      # API Routes
 │   │   ├── auth/                 # LINE Custom Token
+│   │   ├── cron/                 # Cron Jobs (Repair Reminder)
 │   │   ├── drive/upload/         # Google Drive Upload
+│   │   ├── facebook/             # Facebook Integration
+│   │   │   ├── post/             # Post to Facebook Page
+│   │   │   └── upload-photo/     # Upload Photo to Facebook
+│   │   ├── fcm/send/             # FCM Push Notifications
 │   │   ├── line/                 # LINE Login/Callback/Push
-│   │   ├── line-webhook/         # LINE Bot Webhook
+│   │   ├── line-webhook/         # LINE Bot Webhook + AI Agent
 │   │   ├── notify-repair/        # Notify Technicians
-│   │   └── notify-user/          # Notify Users
+│   │   ├── notify-user/          # Notify Users
+│   │   ├── send-otp/             # Send OTP for Account Binding
+│   │   └── verify-otp/           # Verify OTP
 │   ├── admin/                    # Admin Pages
 │   │   ├── add-product/          # เพิ่มอุปกรณ์
 │   │   ├── bookings/             # จัดการการจอง
+│   │   ├── dashboard/            # Admin Dashboard
 │   │   ├── inventory/            # จัดการอุปกรณ์
+│   │   ├── photography/          # จัดการงานถ่ายภาพ
 │   │   ├── repairs/              # จัดการงานซ่อม
 │   │   └── users/                # จัดการผู้ใช้
 │   ├── booking/                  # หน้าจองห้อง
@@ -118,25 +127,51 @@ crms6it/
 │   │   ├── entry/                # LIFF Entry Point
 │   │   └── repair/               # LIFF แจ้งซ่อม
 │   ├── login/                    # หน้า Login
+│   ├── my-work/                  # หน้างานของฉัน (ซ่อม/ถ่ายภาพ)
 │   ├── product/[id]/             # รายละเอียดอุปกรณ์
 │   ├── profile/                  # หน้าโปรไฟล์
 │   ├── repair/                   # หน้าแจ้งซ่อม
 │   ├── components/               # React Components
-│   │   ├── dashboard/            # Dashboard Widgets
+│   │   ├── admin/                # Admin Components
+│   │   │   ├── ActivityFeed.tsx  # Admin Activity Feed
+│   │   │   └── StatsCard.tsx     # Admin Stats Card
+│   │   ├── dashboard/            # Dashboard Components
 │   │   │   ├── widgets/          # Widget, QuickAction, StatCard
-│   │   │   ├── HeroSection.tsx   # Welcome Header
+│   │   │   ├── ActivityFeed.tsx  # Dashboard Activity Feed
+│   │   │   ├── CalendarSection.tsx
+│   │   │   ├── HeroSection.tsx
+│   │   │   ├── PhotoGalleryList.tsx
+│   │   │   ├── QuickActions.tsx
 │   │   │   ├── RecentActivityList.tsx
-│   │   │   ├── StatsWidgetContent.tsx
-│   │   │   └── PhotoGalleryList.tsx
+│   │   │   └── StatsWidgetContent.tsx
 │   │   ├── liff/                 # LIFF Components
-│   │   ├── navigation/           # Navigation (TopHeader, BottomNav, etc.)
+│   │   │   ├── LiffComponents.tsx
+│   │   │   └── LiffGuard.tsx
+│   │   ├── navigation/           # Navigation Components
+│   │   │   ├── BottomNavigation.tsx
+│   │   │   ├── CommandPalette.tsx
+│   │   │   ├── SideQuickAccess.tsx
+│   │   │   └── TopHeader.tsx
 │   │   ├── repairs/              # Repair Components
+│   │   │   ├── RepairModal.tsx
+│   │   │   └── RepairTicketCard.tsx
 │   │   ├── shared/               # Shared Components
+│   │   │   ├── FilterBar.tsx
+│   │   │   ├── PageHeader.tsx
+│   │   │   └── StatsCard.tsx
 │   │   └── ui/                   # UI Components
+│   │       ├── EmptyState.tsx
+│   │       ├── LoadingSpinner.tsx
+│   │       ├── OptimizedImage.tsx
+│   │       ├── Pagination.tsx
+│   │       └── Skeleton.tsx
 │   ├── globals.css               # Global Styles
 │   ├── layout.tsx                # Root Layout
+│   ├── manifest.ts               # PWA Manifest
 │   └── page.tsx                  # Dashboard (Home)
 ├── components/                   # Legacy Components
+│   ├── admin/                    # Legacy Admin Components
+│   └── repair/                   # Legacy Repair Components
 ├── context/                      # React Contexts
 │   ├── AuthContext.tsx           # Authentication Context
 │   └── ThemeContext.tsx          # Dark/Light Mode
@@ -145,19 +180,31 @@ crms6it/
 │   ├── useBookings.ts            # Bookings CRUD
 │   ├── useInventory.ts           # Inventory CRUD
 │   ├── useLiff.ts                # LINE LIFF
+│   ├── useMyPhotographyJobs.ts   # My Photography Jobs
+│   ├── useMyRepairs.ts           # My Repair Jobs
 │   ├── usePagination.ts          # Pagination Helper
-│   ├── useRepairAdmin.ts         # Repair Admin (Composite Hook)
+│   ├── usePushNotifications.ts   # FCM Push Notifications
 │   ├── useRepairActions.ts       # Repair Update/Parts Actions
+│   ├── useRepairAdmin.ts         # Repair Admin (Composite Hook)
 │   ├── useRepairFilter.ts        # Repair Filtering & Stats
 │   ├── useRepairModal.ts         # Repair Modal State
 │   ├── useRepairTickets.ts       # Repair Tickets
 │   └── useSessionTimeout.ts      # Auto Logout
 ├── lib/                          # Utility Libraries
 │   ├── academicYear.ts           # Thai Academic Year Helper
+│   ├── agentFunctions.ts         # AI Agent Database Functions
+│   ├── aiAgent.ts                # AI Agent Main Processor
+│   ├── dateUtils.ts              # Bangkok Timezone Utilities
+│   ├── emailService.ts           # Email OTP Service (Nodemailer)
+│   ├── fcm.ts                    # FCM Push Notification Service
 │   ├── firebase.ts               # Firebase Client Init
 │   ├── firebaseAdmin.ts          # Firebase Admin Init
+│   ├── gemini.ts                 # Gemini AI Configuration
 │   ├── generateReport.ts         # PDF Report Generator
 │   └── googleDrive.ts            # Google Drive Upload
+├── scripts/                      # Utility Scripts
+│   ├── get-fb-token.js           # Get Facebook Token
+│   └── refresh-facebook-token.js # Refresh Facebook Token
 ├── types/                        # TypeScript Types
 │   └── index.ts                  # All Type Definitions
 ├── utils/                        # Utility Functions
@@ -165,8 +212,12 @@ crms6it/
 │   ├── excelExport.ts            # Excel Export (Repair Reports)
 │   ├── flexMessageTemplates.ts   # LINE Flex Message Templates
 │   ├── imageCompression.ts       # Client-side Image Compression
-│   └── logger.ts                 # Activity Logging
+│   ├── logger.ts                 # Activity Logging
+│   └── photographyExport.ts      # Photography Jobs Export
 ├── public/                       # Static Assets
+│   ├── font/                     # Custom Fonts
+│   ├── firebase-messaging-sw.js  # FCM Service Worker
+│   └── *.png                     # Icons & Logos
 └── SYSTEM_DOCUMENTATION.md       # This File
 ```
 
@@ -784,15 +835,24 @@ interface AuthContextType {
 
 **วิธีการทำงาน:** ใช้ **Resumable Upload** - API คืน URL ให้ client อัปโหลดไฟล์โดยตรงไปยัง Google Drive
 
+**🔐 Security:** ต้องส่ง Firebase Auth Token ใน Header
+
+**Headers:**
+```
+Authorization: Bearer <FIREBASE_ID_TOKEN>
+```
+
 **Request:**
 ```json
 {
   "fileName": "IMG_001.jpg",
   "mimeType": "image/jpeg",
   "eventName": "กีฬาสี 2567",
-  "jobDate": "2024-12-22"  // YYYY-MM-DD format (Bangkok timezone)
+  "jobDate": "2024-12-22"
 }
 ```
+
+> ⚠️ **หมายเหตุ:** `jobDate` ต้องเป็น format `YYYY-MM-DD` (Bangkok timezone)
 
 **Response:**
 ```json
@@ -802,6 +862,13 @@ interface AuthContextType {
   "folderLink": "https://drive.google.com/drive/folders/..."
 }
 ```
+
+**Error Responses:**
+| Status | Error |
+|--------|-------|
+| 401 | Missing or invalid Authorization header |
+| 400 | Missing required fields |
+| 500 | Internal Server Error |
 
 **Google Drive Folder Structure:**
 ```
@@ -826,23 +893,73 @@ interface AuthContextType {
 | `getThaiAcademicYear(date)` | คำนวณปีการศึกษาและภาคเรียน |
 | `getThaiMonthName(date)` | แปลงเป็นชื่อเดือนไทย |
 
-> ⚠️ **หมายเหตุ Timezone:** API parse date string (YYYY-MM-DD) โดยตรง โดยไม่ใช้ `new Date()` เพื่อป้องกัน UTC timezone shift
+---
+
+### 📘 Facebook Integration (2-Step Upload)
+
+ระบบใช้ **2-Step Upload Flow** เพื่อโพสภาพไป Facebook Page:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 1: Upload Photos (ทีละรูป)                                 │
+│  POST /api/facebook/upload-photo                                │
+│  ────────────────────────────────────────────────────────────── │
+│  Input: { photo: { base64, mimeType }, published: false }       │
+│  Output: { photoId: "12345678" }                                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Step 2: Create Post (รวมทุกรูป)                                 │
+│  POST /api/facebook/post                                        │
+│  ────────────────────────────────────────────────────────────── │
+│  Input: { jobId, caption, photoIds: [...], asDraft? }           │
+│  Output: { postId, permalinkUrl }                               │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-### 📘 `/api/facebook/post` (POST) - Facebook Auto Post
+### 📷 `/api/facebook/upload-photo` (POST) - Upload Photo
 
-**วิธีการทำงาน:** ใช้ **URL-based upload** - Facebook ดึงรูปจาก Google Drive โดยตรง (ไม่ต้องอัปโหลดไฟล์ผ่าน server)
+**วิธีการทำงาน:** อัปโหลดรูปไป Facebook Page แบบ unpublished ก่อน
+
+**Request:**
+```json
+{
+  "photo": {
+    "base64": "<BASE64_ENCODED_IMAGE>",
+    "mimeType": "image/jpeg"
+  },
+  "published": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "photoId": "1234567890123456"
+}
+```
+
+**หมายเหตุ:**
+- `maxDuration`: 60 วินาที (รองรับไฟล์ใหญ่)
+- ส่ง `published: false` เพื่ออัปโหลดแบบ unpublished ก่อน
+
+---
+
+### 📬 `/api/facebook/post` (POST) - Create Post
+
+**วิธีการทำงาน:** สร้างโพสจาก Photo IDs ที่อัปโหลดไว้แล้ว
 
 **Request:**
 ```json
 {
   "jobId": "photography_job_id",
   "caption": "ภาพกิจกรรมกีฬาสี 2567 🏃‍♂️",
-  "photoUrls": [
-    "https://drive.google.com/file/d/FILE_ID_1/view",
-    "https://drive.google.com/file/d/FILE_ID_2/view"
-  ]
+  "photoIds": ["1234567890", "0987654321"],
+  "asDraft": false
 }
 ```
 
@@ -851,26 +968,16 @@ interface AuthContextType {
 {
   "success": true,
   "postId": "PAGE_ID_POST_ID",
-  "permalinkUrl": "https://www.facebook.com/permalink.php?story_fbid=..."
+  "permalinkUrl": "https://www.facebook.com/permalink.php?story_fbid=...&id=PAGE_ID"
 }
 ```
 
 **การทำงานภายใน:**
 
-1. **Single Photo (1 รูป):**
-   - POST to `/PAGE_ID/photos` with `published=true`
-   - ปรากฏบน Timeline ทันที
-
-2. **Multiple Photos (หลายรูป):**
-   - POST each to `/PAGE_ID/photos` with `published=false` (unpublished)
-   - POST to `/PAGE_ID/feed` with `attached_media` array
-   - สร้างเป็น Album Post บน Timeline
-
-**URL Conversion:**
-```
-Input:  https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-Output: https://drive.google.com/uc?export=download&id=FILE_ID
-```
+| จำนวนรูป | การทำงาน |
+|----------|----------|
+| 1 รูป | POST to `/PAGE_ID/feed` with `attached_media` |
+| หลายรูป | POST to `/PAGE_ID/feed` with `attached_media` array |
 
 **Firestore Update:**
 ```typescript
@@ -882,9 +989,8 @@ Output: https://drive.google.com/uc?export=download&id=FILE_ID
 ```
 
 **หมายเหตุ:**
-- ภาพใน Drive ต้องเป็น **Public** หรือ **Anyone with link**
-- ลำดับใน `photoUrls` = ลำดับในอัลบั้ม Facebook
-- Token หมดอายุ 60 วัน (ใช้ script refresh)
+- `asDraft: true` = สร้างเป็น Draft (ไม่เผยแพร่)
+- Token หมดอายุ 60 วัน (ใช้ `scripts/refresh-facebook-token.js`)
 
 ---
 
@@ -1002,36 +1108,6 @@ Handle LINE Login Callback
 - OTP หมดอายุ 5 นาที
 - พิมพ์ผิดได้สูงสุด 3 ครั้ง
 - สร้าง `line_bindings` doc และอัปเดต `users` collection
-
----
-
-### `/api/facebook/post` (POST)
-โพสภาพไป Facebook Page
-
-**Request:**
-```json
-{
-  "jobId": "photography_job_id",
-  "caption": "ข้อความสำหรับโพส",
-  "photoUrls": [
-    "https://drive.google.com/file/d/FILE_ID_1/view",
-    "https://drive.google.com/file/d/FILE_ID_2/view"
-  ]
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "postId": "PAGE_ID_POST_ID"
-}
-```
-
-**หมายเหตุ:**
-- ใช้ URL-based upload (Facebook fetch จาก Drive โดยตรง)
-- ภาพใน Drive ต้องเป็น Public หรือ Anyone with link
-- ลำดับภาพใน `photoUrls` = ลำดับในอัลบั้ม Facebook
 
 ---
 
@@ -1360,9 +1436,9 @@ git push origin main
 
 ## 📞 ติดต่อ
 
-**ผู้พัฒนา:** IT Department, Tessaban 6 School  
+**ผู้พัฒนา:** IT Department, CRMS6 School  
 **Repository:** https://github.com/Khinkawu/crms6it
 
 ---
 
-*เอกสารนี้อัปเดตโดย Antigravity AI เมื่อ 4 ม.ค. 2569 เวลา 18:45 น.*
+*เอกสารนี้อัปเดตโดย Antigravity AI เมื่อ 12 ม.ค. 2569 เวลา 11:38 น.*

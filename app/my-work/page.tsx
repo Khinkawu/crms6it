@@ -58,6 +58,7 @@ export default function MyWorkPage() {
     // Modals
     const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
     const [isSubmitJobModalOpen, setIsSubmitJobModalOpen] = useState(false);
+    const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
     // Filtered photo jobs
     const filteredPhotoJobs = useMemo(() => {
@@ -386,7 +387,10 @@ export default function MyWorkPage() {
                                     </h3>
                                     <div className="grid gap-3">
                                         {assignedJobs.map((job) => (
-                                            <PhotographyJobCard key={job.id} job={job} onSubmit={() => setIsSubmitJobModalOpen(true)} />
+                                            <PhotographyJobCard key={job.id} job={job} onSubmit={() => {
+                                                setSelectedJobId(job.id || null);
+                                                setIsSubmitJobModalOpen(true);
+                                            }} />
                                         ))}
                                     </div>
                                 </div>
@@ -515,8 +519,12 @@ export default function MyWorkPage() {
                     />
                     <MyPhotographyJobsModal
                         isOpen={isSubmitJobModalOpen}
-                        onClose={() => setIsSubmitJobModalOpen(false)}
+                        onClose={() => {
+                            setIsSubmitJobModalOpen(false);
+                            setSelectedJobId(null);
+                        }}
                         userId={user?.uid || ''}
+                        selectedJobId={selectedJobId}
                     />
                 </>
             )}

@@ -13,9 +13,10 @@ interface MyPhotographyJobsModalProps {
     isOpen: boolean;
     onClose: () => void;
     userId: string;
+    selectedJobId?: string | null; // When provided, show only this job (Single Job Mode)
 }
 
-export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPhotographyJobsModalProps) {
+export default function MyPhotographyJobsModal({ isOpen, onClose, userId, selectedJobId }: MyPhotographyJobsModalProps) {
     const [jobs, setJobs] = useState<PhotographyJob[]>([]);
     const [loading, setLoading] = useState(true);
     const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -440,6 +441,57 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
         });
     };
 
+    // === Computed Values ===
+    // Filter jobs based on selectedJobId (Single Job Mode)
+    const displayJobs = selectedJobId
+        ? jobs.filter(j => j.id === selectedJobId)
+        : jobs;
+
+    const isSingleJobMode = !!selectedJobId;
+    const singleJob = isSingleJobMode && displayJobs.length > 0 ? displayJobs[0] : null;
+
+    // === Stepper State (for Single Job Mode) ===
+    const [currentStep, setCurrentStep] = useState(1);
+    const [showConfirmation, setShowConfirmation] = useState(false);
+
+    // Stepper steps config
+    const steps = [
+        { id: 1, label: 'รูปปก', icon: ImageIcon },
+        { id: 2, label: 'รูปกิจกรรม', icon: UploadCloud },
+        { id: 3, label: 'Facebook', icon: Facebook },
+        { id: 4, label: 'ยืนยัน', icon: CheckCircle2 },
+    ];
+
+    // Get current step validation
+    const canProceedFromStep = (step: number, jobId: string) => {
+        switch (step) {
+            case 1: return true; // Cover is optional
+            case 2: return (jobFiles[jobId]?.length > 0) || !!driveLinks[jobId];
+            case 3: return !facebookEnabled[jobId] || (facebookSelectedOrder[jobId]?.length > 0);
+            case 4: return true;
+            default: return true;
+        }
+    };
+
+    // Handle step navigation
+    const goToStep = (step: number) => {
+        setCurrentStep(step);
+    };
+
+    const nextStep = () => {
+        if (currentStep < 4) setCurrentStep(currentStep + 1);
+    };
+
+    const prevStep = () => {
+        if (currentStep > 1) setCurrentStep(currentStep - 1);
+    };
+
+    // === Confirmation Dialog ===
+    const handleConfirmSubmit = async (jobId: string) => {
+        setShowConfirmation(false);
+        await handleSubmit(jobId);
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -460,45 +512,170 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden pointer-events-auto flex flex-col max-h-[90vh]"
                         >
-                            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <span className="p-2 rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30">📸</span>
-                                    งานถ่ายภาพของฉัน
+                            {/* Header - Dynamic based on mode */}
+                            <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gradient-to-r from-purple-500/10 to-blue-500/10">
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                                    <span className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-lg">📸</span>
+                                    {isSingleJobMode && singleJob ? (
+                                        <div>
+                                            <span className="text-sm font-medium text-purple-600 dark:text-purple-400 block">ส่งงาน</span>
+                                            <span className="text-base">{singleJob.title}</span>
+                                        </div>
+                                    ) : (
+                                        <>งานถ่ายภาพของฉัน</>
+                                    )}
                                 </h2>
-                                <button onClick={onClose}>
-                                    <X size={24} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" />
+                                <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                    <X size={22} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" />
                                 </button>
                             </div>
 
-                            <div className="p-6 overflow-y-auto">
+                            {/* Stepper - Only in Single Job Mode */}
+                            {isSingleJobMode && singleJob && (
+                                <div className="px-6 pt-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+                                    <div className="flex items-center justify-between">
+                                        {steps.map((step, index) => {
+                                            const StepIcon = step.icon;
+                                            const isActive = currentStep === step.id;
+                                            const isCompleted = currentStep > step.id;
+                                            const canGo = step.id <= currentStep || canProceedFromStep(step.id - 1, singleJob.id!);
+
+                                            return (
+                                                <React.Fragment key={step.id}>
+                                                    <button
+                                                        onClick={() => canGo && goToStep(step.id)}
+                                                        disabled={!canGo}
+                                                        className={`flex flex-col items-center gap-1 transition-all ${isActive
+                                                            ? 'text-purple-600 dark:text-purple-400'
+                                                            : isCompleted
+                                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                                : 'text-gray-300 dark:text-gray-600'
+                                                            } ${canGo ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed'}`}
+                                                    >
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isActive
+                                                            ? 'bg-purple-100 dark:bg-purple-900/50 ring-2 ring-purple-500'
+                                                            : isCompleted
+                                                                ? 'bg-emerald-100 dark:bg-emerald-900/50'
+                                                                : 'bg-gray-100 dark:bg-gray-700'
+                                                            }`}>
+                                                            {isCompleted ? (
+                                                                <CheckCircle2 size={20} />
+                                                            ) : (
+                                                                <StepIcon size={20} />
+                                                            )}
+                                                        </div>
+                                                        <span className="text-xs font-medium">{step.label}</span>
+                                                    </button>
+                                                    {index < steps.length - 1 && (
+                                                        <div className={`flex-1 h-0.5 mx-2 rounded-full transition-colors ${currentStep > step.id ? 'bg-emerald-400' : 'bg-gray-200 dark:bg-gray-700'
+                                                            }`} />
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Confirmation Dialog Overlay */}
+                            <AnimatePresence>
+                                {showConfirmation && singleJob && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+                                        onClick={() => setShowConfirmation(false)}
+                                    >
+                                        <motion.div
+                                            initial={{ scale: 0.9, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            exit={{ scale: 0.9, opacity: 0 }}
+                                            className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div className="text-center mb-6">
+                                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-2xl shadow-lg">
+                                                    ✓
+                                                </div>
+                                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">ยืนยันส่งงาน?</h3>
+                                                <p className="text-gray-500 dark:text-gray-400 text-sm">{singleJob.title}</p>
+                                            </div>
+
+                                            <div className="space-y-3 mb-6 text-sm">
+                                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                                                    <span className="text-gray-600 dark:text-gray-400">รูปปก</span>
+                                                    <span className={`font-medium ${coverFiles[singleJob.id!] ? 'text-emerald-600' : 'text-gray-400'}`}>
+                                                        {coverFiles[singleJob.id!] ? '✓ เลือกแล้ว' : 'ไม่มี'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                                                    <span className="text-gray-600 dark:text-gray-400">รูปกิจกรรม</span>
+                                                    <span className="font-medium text-emerald-600">
+                                                        {jobFiles[singleJob.id!]?.length || 0} รูป
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                                                    <span className="text-gray-600 dark:text-gray-400">โพส Facebook</span>
+                                                    <span className={`font-medium ${facebookEnabled[singleJob.id!] ? 'text-blue-600' : 'text-gray-400'}`}>
+                                                        {facebookEnabled[singleJob.id!]
+                                                            ? `✓ ${facebookSelectedOrder[singleJob.id!]?.length || 0} รูป ${facebookDraftMode[singleJob.id!] ? '(Draft)' : ''}`
+                                                            : 'ไม่โพส'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={() => setShowConfirmation(false)}
+                                                    className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                                >
+                                                    ยกเลิก
+                                                </button>
+                                                <button
+                                                    onClick={() => handleConfirmSubmit(singleJob.id!)}
+                                                    className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+                                                >
+                                                    ยืนยันส่งงาน
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <div className="p-6 overflow-y-auto flex-1">
                                 {loading ? (
                                     <div className="text-center py-8 text-gray-400">Loading...</div>
-                                ) : jobs.length === 0 ? (
+                                ) : displayJobs.length === 0 ? (
                                     <div className="text-center py-12 text-gray-400 flex flex-col items-center">
                                         <CheckCircle2 size={48} className="mb-4 opacity-20" />
-                                        <p>ไม่มีงานที่ได้รับมอบหมายในขณะนี้</p>
+                                        <p>{isSingleJobMode ? 'ไม่พบงานที่เลือก' : 'ไม่มีงานที่ได้รับมอบหมายในขณะนี้'}</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        {jobs.map((job) => (
-                                            <div key={job.id} className="p-4 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <h3 className="font-semibold text-gray-900 dark:text-white text-lg">{job.title}</h3>
-                                                        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                                            <div className="flex items-center gap-1">
-                                                                <Calendar size={14} />
-                                                                <span>
-                                                                    {job.startTime?.toDate().toLocaleDateString('th-TH')} {job.startTime?.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
-                                                                <MapPin size={14} />
-                                                                <span>{job.location}</span>
+                                        {displayJobs.map((job) => (
+                                            <div key={job.id} className={`rounded-2xl border border-gray-100 dark:border-gray-700 ${isSingleJobMode ? '' : 'p-4 bg-gray-50 dark:bg-gray-700/30'}`}>
+                                                {/* Job Header - Hide in single job mode (shown in main header) */}
+                                                {!isSingleJobMode && (
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div>
+                                                            <h3 className="font-semibold text-gray-900 dark:text-white text-lg">{job.title}</h3>
+                                                            <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                                                <div className="flex items-center gap-1">
+                                                                    <Calendar size={14} />
+                                                                    <span>
+                                                                        {job.startTime?.toDate().toLocaleDateString('th-TH')} {job.startTime?.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <MapPin size={14} />
+                                                                    <span>{job.location}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                )}
 
                                                 <div className="flex flex-col gap-4 w-full">
                                                     {/* 1. Cover Image Section */}
@@ -695,10 +872,18 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId }: MyPh
                                                     </div>
 
                                                     <button
-                                                        onClick={() => handleSubmit(job.id!)}
+                                                        onClick={() => {
+                                                            if (isSingleJobMode) {
+                                                                setShowConfirmation(true);
+                                                            } else {
+                                                                handleSubmit(job.id!);
+                                                            }
+                                                        }}
                                                         disabled={submittingId === job.id}
-                                                        className={`w-full sm:w-auto self-end px-6 py-2 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 shadow-sm disabled:opacity-50
-                                                            ${(facebookEnabled[job.id!] && !facebookSent[job.id!]) ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700'}
+                                                        className={`w-full sm:w-auto self-end px-6 py-2.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all
+                                                            ${(facebookEnabled[job.id!] && !facebookSent[job.id!])
+                                                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-purple-500/30 hover:shadow-xl'
+                                                                : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:shadow-blue-500/30 hover:shadow-xl'}
                                                         `}
                                                     >
                                                         {submittingId === job.id ? 'กำลังประมวลผล...' : (facebookEnabled[job.id!] ? 'ส่งงาน + อัปโหลด + โพสต์ Facebook' : 'ส่งงาน + อัปโหลด')}
