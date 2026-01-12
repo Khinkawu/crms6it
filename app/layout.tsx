@@ -53,6 +53,9 @@ export default function RootLayout({
                         </ClientLayout>
                         <Toaster
                             position="top-center"
+                            containerStyle={{
+                                zIndex: 99999,
+                            }}
                             toastOptions={{
                                 style: {
                                     background: 'var(--card)',
