@@ -43,7 +43,7 @@ interface UseBookingsReturn {
  * @returns Booking events and calendar state
  */
 export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn {
-    const { filterApprovedOnly = true, monthsRange = 3, includePhotographyJobs = false } = options;
+    const { filterApprovedOnly = true, monthsRange = 1, includePhotographyJobs = false } = options;
 
     const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
     const [photographyEvents, setPhotographyEvents] = useState<BookingEvent[]>([]);

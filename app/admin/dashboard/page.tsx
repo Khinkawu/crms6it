@@ -153,48 +153,33 @@ export default function AdminDashboard() {
         }
     }, [user, role, loading, router]);
 
-    // Real-time stats
+    // Fetch stats on page load (not realtime to reduce reads)
     useEffect(() => {
         if (!user) return;
 
-        const unsubscribers: (() => void)[] = [];
+        const fetchStats = async () => {
+            try {
+                const [pendingRepairs, inProgressRepairs, pendingBookings, lowStock, totalUsers] = await Promise.all([
+                    getDocs(query(collection(db, "repair_tickets"), where("status", "==", "pending"))),
+                    getDocs(query(collection(db, "repair_tickets"), where("status", "==", "in_progress"))),
+                    getDocs(query(collection(db, "bookings"), where("status", "==", "pending"))),
+                    getDocs(query(collection(db, "products"), where("quantity", "<", 5))),
+                    getDocs(collection(db, "users"))
+                ]);
 
-        // Pending Repairs
-        unsubscribers.push(
-            onSnapshot(query(collection(db, "repair_tickets"), where("status", "==", "pending")), (snap) => {
-                setStats(prev => ({ ...prev, pendingRepairs: snap.size }));
-            })
-        );
+                setStats({
+                    pendingRepairs: pendingRepairs.size,
+                    inProgressRepairs: inProgressRepairs.size,
+                    pendingBookings: pendingBookings.size,
+                    lowStock: lowStock.size,
+                    totalUsers: totalUsers.size
+                });
+            } catch (error) {
+                console.error("Error fetching stats:", error);
+            }
+        };
 
-        // In Progress Repairs
-        unsubscribers.push(
-            onSnapshot(query(collection(db, "repair_tickets"), where("status", "==", "in_progress")), (snap) => {
-                setStats(prev => ({ ...prev, inProgressRepairs: snap.size }));
-            })
-        );
-
-        // Pending Bookings
-        unsubscribers.push(
-            onSnapshot(query(collection(db, "bookings"), where("status", "==", "pending")), (snap) => {
-                setStats(prev => ({ ...prev, pendingBookings: snap.size }));
-            })
-        );
-
-        // Low Stock
-        unsubscribers.push(
-            onSnapshot(query(collection(db, "products"), where("quantity", "<", 5)), (snap) => {
-                setStats(prev => ({ ...prev, lowStock: snap.size }));
-            })
-        );
-
-        // Total Users
-        unsubscribers.push(
-            onSnapshot(collection(db, "users"), (snap) => {
-                setStats(prev => ({ ...prev, totalUsers: snap.size }));
-            })
-        );
-
-        return () => unsubscribers.forEach(unsub => unsub());
+        fetchStats();
     }, [user]);
 
     // Helper functions
