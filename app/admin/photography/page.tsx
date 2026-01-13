@@ -512,7 +512,8 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
         assigneeIds: [] as string[],
         driveLink: '',
         status: 'assigned' as 'assigned' | 'completed' | 'cancelled',
-        coverImage: ''
+        coverImage: '',
+        showInAgenda: true
     });
     const [saving, setSaving] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -543,7 +544,8 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
                 assigneeIds: job.assigneeIds || [],
                 driveLink: job.driveLink || '',
                 status: job.status || 'assigned',
-                coverImage: job.coverImage || ''
+                coverImage: job.coverImage || '',
+                showInAgenda: job.showInAgenda !== false // Default to true if undefined
             });
             setImagePreview(job.coverImage || '');
             setImageFile(null);
@@ -615,7 +617,8 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
                 assigneeNames,
                 driveLink: formData.driveLink,
                 status: formData.status,
-                coverImage: coverImageUrl
+                coverImage: coverImageUrl,
+                showInAgenda: formData.showInAgenda
             });
 
             toast.success("บันทึกสำเร็จ");
@@ -828,6 +831,25 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
                                 placeholder="https://drive.google.com/..."
                                 className="w-full px-4 py-2.5 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                             />
+                        </div>
+
+                        {/* Show in Agenda */}
+                        <div className="flex items-center gap-3 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-100 dark:border-purple-800/50">
+                            <input
+                                type="checkbox"
+                                id="editShowInAgenda"
+                                checked={formData.showInAgenda}
+                                onChange={(e) => setFormData(prev => ({ ...prev, showInAgenda: e.target.checked }))}
+                                className="w-5 h-5 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                            />
+                            <label htmlFor="editShowInAgenda" className="flex-1 cursor-pointer">
+                                <span className="text-sm font-medium text-purple-800 dark:text-purple-300 flex items-center gap-2">
+                                    📅 แสดงในปฏิทิน (Agenda)
+                                </span>
+                                <span className="text-xs text-purple-600 dark:text-purple-400 block mt-0.5">
+                                    ติ๊กเพื่อให้งานนี้ปรากฏในหน้า Dashboard ปฏิทิน
+                                </span>
+                            </label>
                         </div>
 
                         {/* Status */}

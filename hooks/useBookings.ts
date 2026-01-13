@@ -16,11 +16,13 @@ export interface BookingEvent {
     requesterName: string;
     status: string;
     needsPhotographer?: boolean;
+    eventType?: 'booking' | 'photography'; // New: distinguish event types
 }
 
 interface UseBookingsOptions {
     filterApprovedOnly?: boolean;
     monthsRange?: number; // How many months before and after to fetch
+    includePhotographyJobs?: boolean; // New: include photography jobs with showInAgenda=true
 }
 
 interface UseBookingsReturn {
@@ -41,15 +43,18 @@ interface UseBookingsReturn {
  * @returns Booking events and calendar state
  */
 export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn {
-    const { filterApprovedOnly = true, monthsRange = 3 } = options;
+    const { filterApprovedOnly = true, monthsRange = 3, includePhotographyJobs = false } = options;
 
-    const [events, setEvents] = useState<BookingEvent[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
+    const [photographyEvents, setPhotographyEvents] = useState<BookingEvent[]>([]);
+    const [bookingsLoading, setBookingsLoading] = useState(true);
+    const [photographyLoading, setPhotographyLoading] = useState(includePhotographyJobs);
     const [view, setView] = useState<View>(Views.MONTH);
     const [date, setDate] = useState(moment().startOf('day').toDate());
 
+    // Fetch bookings
     useEffect(() => {
-        // Calculate date range: 3 months before and after current date
+        // Calculate date range: N months before and after current date
         const startRange = moment().subtract(monthsRange, 'months').startOf('month').toDate();
         const endRange = moment().add(monthsRange, 'months').endOf('month').toDate();
 
@@ -71,7 +76,8 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                     requesterName: data.requesterName,
                     status: data.status,
                     needsPhotographer: data.needsPhotographer || false,
-                    resource: data
+                    resource: data,
+                    eventType: 'booking' as const
                 };
             });
 
@@ -80,12 +86,62 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                 loadedEvents = loadedEvents.filter(event => event.status === 'approved');
             }
 
-            setEvents(loadedEvents);
-            setLoading(false);
+            setBookingEvents(loadedEvents);
+            setBookingsLoading(false);
         });
 
         return () => unsubscribe();
     }, [filterApprovedOnly, monthsRange]);
+
+    // Fetch photography jobs (only if includePhotographyJobs is true)
+    useEffect(() => {
+        if (!includePhotographyJobs) {
+            setPhotographyEvents([]);
+            setPhotographyLoading(false);
+            return;
+        }
+
+        // Calculate date range
+        const startRange = moment().subtract(monthsRange, 'months').startOf('month').toDate();
+        const endRange = moment().add(monthsRange, 'months').endOf('month').toDate();
+
+        // Query photography jobs with showInAgenda = true
+        const q = query(
+            collection(db, "photography_jobs"),
+            where("showInAgenda", "==", true),
+            where("startTime", ">=", Timestamp.fromDate(startRange)),
+            where("startTime", "<=", Timestamp.fromDate(endRange))
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const loadedEvents: BookingEvent[] = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: `photo_${doc.id}`, // Prefix to avoid ID collision
+                    title: `📸 ${data.title}`,
+                    start: data.startTime.toDate(),
+                    end: data.endTime.toDate(),
+                    roomName: data.location || '',
+                    requesterName: data.assigneeNames?.join(', ') || '',
+                    status: data.status,
+                    resource: { ...data, isPhotographyJob: true },
+                    eventType: 'photography' as const
+                };
+            });
+
+            setPhotographyEvents(loadedEvents);
+            setPhotographyLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [includePhotographyJobs, monthsRange]);
+
+    // Merge booking and photography events
+    const events = useMemo(() => {
+        return [...bookingEvents, ...photographyEvents];
+    }, [bookingEvents, photographyEvents]);
+
+    const loading = bookingsLoading || photographyLoading;
 
     // Compute visible events based on current view and date
     const visibleEvents = useMemo(() => {

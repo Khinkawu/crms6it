@@ -40,7 +40,7 @@ export default function Dashboard() {
     const router = useRouter();
 
     // Custom hooks for data fetching
-    const { visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true });
+    const { visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true });
     const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true });
     const { stats: repairStats } = useRepairTickets();
 

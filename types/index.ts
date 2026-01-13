@@ -122,6 +122,9 @@ export interface PhotographyJob {
     // [New] Fields for tracking who completed the job
     completedBy?: string; // UID of the photographer who submitted the work
     completedAt?: any;    // Timestamp when the work was submitted
+
+    // [New] Display in calendar agenda
+    showInAgenda?: boolean; // If true, show this job in the main calendar
 }
 
 export interface Booking {
