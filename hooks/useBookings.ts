@@ -105,29 +105,30 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         const startRange = moment().subtract(monthsRange, 'months').startOf('month').toDate();
         const endRange = moment().add(monthsRange, 'months').endOf('month').toDate();
 
-        // Query photography jobs with showInAgenda = true
+        // Query photography jobs by date range only (filter showInAgenda client-side to avoid composite index)
         const q = query(
             collection(db, "photography_jobs"),
-            where("showInAgenda", "==", true),
             where("startTime", ">=", Timestamp.fromDate(startRange)),
             where("startTime", "<=", Timestamp.fromDate(endRange))
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const loadedEvents: BookingEvent[] = snapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    id: `photo_${doc.id}`, // Prefix to avoid ID collision
-                    title: `📸 ${data.title}`,
-                    start: data.startTime.toDate(),
-                    end: data.endTime.toDate(),
-                    roomName: data.location || '',
-                    requesterName: data.assigneeNames?.join(', ') || '',
-                    status: data.status,
-                    resource: { ...data, isPhotographyJob: true },
-                    eventType: 'photography' as const
-                };
-            });
+            const loadedEvents: BookingEvent[] = snapshot.docs
+                .filter(doc => doc.data().showInAgenda === true) // Client-side filter
+                .map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: `photo_${doc.id}`, // Prefix to avoid ID collision
+                        title: `📸 ${data.title}`,
+                        start: data.startTime.toDate(),
+                        end: data.endTime.toDate(),
+                        roomName: data.location || '',
+                        requesterName: data.assigneeNames?.join(', ') || '',
+                        status: data.status,
+                        resource: { ...data, isPhotographyJob: true },
+                        eventType: 'photography' as const
+                    };
+                });
 
             setPhotographyEvents(loadedEvents);
             setPhotographyLoading(false);
