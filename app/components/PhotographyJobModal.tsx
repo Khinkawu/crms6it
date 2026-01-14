@@ -231,7 +231,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
 
             toast.success(`มอบหมายงานให้ ${assigneeNames.length} คนเรียบร้อยแล้ว`);
             onClose();
-            // Reset form
+            // Reset form - including selectedBookingId and showInAgenda to prevent bugs
             setTitle("");
             setLocation("");
             setDate("");
@@ -239,6 +239,8 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
             setEndTime("");
             setDescription("");
             setAssigneeIds([]);
+            setSelectedBookingId(""); // Reset to prevent stale bookingId on next job
+            setShowInAgenda(true); // Reset to default
         } catch (error) {
             console.error("Error creating job:", error);
             toast.error("เกิดข้อผิดพลาดในการสร้างงาน");

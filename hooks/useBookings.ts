@@ -117,9 +117,10 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                 .filter(doc => {
                     const data = doc.data();
                     // Only show in agenda if:
-                    // 1. showInAgenda is true
+                    // 1. showInAgenda is NOT explicitly false (undefined = show by default for old jobs)
                     // 2. AND it's not from a booking (to avoid duplicates with booking events)
-                    return data.showInAgenda === true && !data.bookingId;
+                    const shouldShowInAgenda = data.showInAgenda !== false;
+                    return shouldShowInAgenda && !data.bookingId;
                 })
                 .map(doc => {
                     const data = doc.data();
