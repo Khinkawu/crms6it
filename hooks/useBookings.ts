@@ -113,6 +113,8 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            console.log('[useBookings] Photography jobs query returned:', snapshot.docs.length, 'docs');
+
             const loadedEvents: BookingEvent[] = snapshot.docs
                 .filter(doc => {
                     const data = doc.data();
@@ -120,7 +122,11 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                     // 1. showInAgenda is NOT explicitly false (undefined = show by default for old jobs)
                     // 2. AND it's not from a booking (to avoid duplicates with booking events)
                     const shouldShowInAgenda = data.showInAgenda !== false;
-                    return shouldShowInAgenda && !data.bookingId;
+                    const hasNoBookingId = !data.bookingId;
+
+                    console.log('[useBookings] Job:', data.title, '| showInAgenda:', data.showInAgenda, '| bookingId:', data.bookingId, '| pass:', shouldShowInAgenda && hasNoBookingId);
+
+                    return shouldShowInAgenda && hasNoBookingId;
                 })
                 .map(doc => {
                     const data = doc.data();
@@ -137,7 +143,11 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                     };
                 });
 
+            console.log('[useBookings] Photography events after filter:', loadedEvents.length);
             setPhotographyEvents(loadedEvents);
+            setPhotographyLoading(false);
+        }, (error) => {
+            console.error('[useBookings] Photography jobs query ERROR:', error);
             setPhotographyLoading(false);
         });
 
