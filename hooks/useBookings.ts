@@ -163,10 +163,18 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
 
     // Compute visible events based on current view and date
     const visibleEvents = useMemo(() => {
+        console.log('[useBookings] Computing visibleEvents. View:', view, '| Date:', date.toDateString(), '| Total events:', events.length);
+
         if (view === Views.AGENDA) {
-            return events.filter(event =>
-                moment(event.start).isSame(date, 'day')
-            );
+            const filtered = events.filter(event => {
+                const matches = moment(event.start).isSame(date, 'day');
+                if (!matches && event.eventType === 'photography') {
+                    console.log('[useBookings] AGENDA filtered out:', event.title, '| Event date:', event.start.toDateString());
+                }
+                return matches;
+            });
+            console.log('[useBookings] AGENDA view visible events:', filtered.length);
+            return filtered;
         }
         return events;
     }, [events, view, date]);
