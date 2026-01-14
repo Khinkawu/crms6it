@@ -156,6 +156,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
 
     // Merge booking and photography events
     const events = useMemo(() => {
+        console.log('[useBookings] Merging events. Bookings:', bookingEvents.length, '| Photography:', photographyEvents.length);
         return [...bookingEvents, ...photographyEvents];
     }, [bookingEvents, photographyEvents]);
 
