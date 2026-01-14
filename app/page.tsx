@@ -124,10 +124,13 @@ export default function Dashboard() {
         document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // Stats calculations
+    // Stats calculations - include both approved bookings AND assigned photography jobs
     const todayActivities = visibleEvents.filter(e => {
         const today = new Date();
-        return e.start.toDateString() === today.toDateString() && e.status === 'approved';
+        const isToday = e.start.toDateString() === today.toDateString();
+        // Bookings have status 'approved', photography jobs have status 'assigned' or 'completed'
+        const isActiveEvent = e.status === 'approved' || e.status === 'assigned';
+        return isToday && isActiveEvent;
     }).length;
 
     return (
