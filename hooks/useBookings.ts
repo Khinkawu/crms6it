@@ -113,8 +113,6 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            console.log('[useBookings] Photography jobs query returned:', snapshot.docs.length, 'docs');
-
             const loadedEvents: BookingEvent[] = snapshot.docs
                 .filter(doc => {
                     const data = doc.data();
@@ -122,11 +120,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                     // 1. showInAgenda is NOT explicitly false (undefined = show by default for old jobs)
                     // 2. AND it's not from a booking (to avoid duplicates with booking events)
                     const shouldShowInAgenda = data.showInAgenda !== false;
-                    const hasNoBookingId = !data.bookingId;
-
-                    console.log('[useBookings] Job:', data.title, '| showInAgenda:', data.showInAgenda, '| bookingId:', data.bookingId, '| pass:', shouldShowInAgenda && hasNoBookingId);
-
-                    return shouldShowInAgenda && hasNoBookingId;
+                    return shouldShowInAgenda && !data.bookingId;
                 })
                 .map(doc => {
                     const data = doc.data();
@@ -143,7 +137,6 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                     };
                 });
 
-            console.log('[useBookings] Photography events after filter:', loadedEvents.length);
             setPhotographyEvents(loadedEvents);
             setPhotographyLoading(false);
         }, (error) => {
@@ -156,7 +149,6 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
 
     // Merge booking and photography events
     const events = useMemo(() => {
-        console.log('[useBookings] Merging events. Bookings:', bookingEvents.length, '| Photography:', photographyEvents.length);
         return [...bookingEvents, ...photographyEvents];
     }, [bookingEvents, photographyEvents]);
 
@@ -164,18 +156,10 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
 
     // Compute visible events based on current view and date
     const visibleEvents = useMemo(() => {
-        console.log('[useBookings] Computing visibleEvents. View:', view, '| Date:', date.toDateString(), '| Total events:', events.length);
-
         if (view === Views.AGENDA) {
-            const filtered = events.filter(event => {
-                const matches = moment(event.start).isSame(date, 'day');
-                if (!matches && event.eventType === 'photography') {
-                    console.log('[useBookings] AGENDA filtered out:', event.title, '| Event date:', event.start.toDateString());
-                }
-                return matches;
-            });
-            console.log('[useBookings] AGENDA view visible events:', filtered.length);
-            return filtered;
+            return events.filter(event =>
+                moment(event.start).isSame(date, 'day')
+            );
         }
         return events;
     }, [events, view, date]);
