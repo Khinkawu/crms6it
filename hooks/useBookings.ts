@@ -114,7 +114,13 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const loadedEvents: BookingEvent[] = snapshot.docs
-                .filter(doc => doc.data().showInAgenda === true) // Client-side filter
+                .filter(doc => {
+                    const data = doc.data();
+                    // Only show in agenda if:
+                    // 1. showInAgenda is true
+                    // 2. AND it's not from a booking (to avoid duplicates with booking events)
+                    return data.showInAgenda === true && !data.bookingId;
+                })
                 .map(doc => {
                     const data = doc.data();
                     return {
