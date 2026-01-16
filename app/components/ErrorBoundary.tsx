@@ -41,8 +41,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             console.error("Error Info:", errorInfo);
         }
 
-        // TODO: Send error to logging service in production
-        // logErrorToService(error, errorInfo);
+        // Optional: Integrate error logging service (e.g., Sentry, LogRocket) for production monitoring
+        // Example: Sentry.captureException(error, { extra: errorInfo });
     }
 
     handleReload = (): void => {

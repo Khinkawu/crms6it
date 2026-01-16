@@ -54,6 +54,110 @@ const getOrCreateFolder = async (drive: any, parentId: string, folderName: strin
     }
 };
 
+interface PrepareFolderParams {
+    rootFolderId: string;
+    year: string;
+    semester: string;
+    month: string;
+    eventName: string;
+}
+
+interface PreparedFolder {
+    folderId: string;
+    folderLink: string;
+}
+
+/**
+ * Pre-create folder hierarchy for an event (call ONCE before parallel uploads)
+ * This prevents race condition when multiple files try to create the same folder
+ */
+export const prepareFolderPath = async ({
+    rootFolderId,
+    year,
+    semester,
+    month,
+    eventName
+}: PrepareFolderParams): Promise<PreparedFolder> => {
+    const drive = getDriveClient();
+
+    // Create folder hierarchy sequentially (safe, no race condition)
+    const yearFolder = await getOrCreateFolder(drive, rootFolderId, `ปีการศึกษา ${year}`);
+    const semesterFolder = await getOrCreateFolder(drive, yearFolder.id, `ภาคเรียนที่ ${semester}`);
+    const monthFolder = await getOrCreateFolder(drive, semesterFolder.id, month);
+    const eventFolder = await getOrCreateFolder(drive, monthFolder.id, eventName);
+
+    return {
+        folderId: eventFolder.id,
+        folderLink: eventFolder.webViewLink
+    };
+};
+
+interface UploadToFolderParams {
+    fileName: string;
+    mimeType: string;
+    folderId: string;  // Use pre-created folder ID
+    origin?: string;
+}
+
+/**
+ * Initiate resumable upload to a specific folder (for parallel uploads)
+ * Call prepareFolderPath first to get the folderId
+ */
+export const initiateResumableUploadToFolder = async ({
+    fileName,
+    mimeType,
+    folderId,
+    origin
+}: UploadToFolderParams): Promise<{ uploadUrl: string }> => {
+    // Prepare metadata with pre-existing folder ID
+    const requestBody = {
+        name: fileName,
+        mimeType: mimeType,
+        parents: [folderId],
+    };
+
+    // Get access token
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+    if (!clientId || !clientSecret || !refreshToken) {
+        throw new Error('Google OAuth credentials missing');
+    }
+
+    const auth = new google.auth.OAuth2(clientId, clientSecret);
+    auth.setCredentials({ refresh_token: refreshToken });
+    const accessToken = await auth.getAccessToken();
+
+    const headers: HeadersInit = {
+        'Authorization': `Bearer ${accessToken.token}`,
+        'Content-Type': 'application/json',
+    };
+
+    if (origin) {
+        headers['X-Upload-Content-Type'] = mimeType;
+        headers['Origin'] = origin;
+    }
+
+    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to initiate upload: ${response.status} ${errorText}`);
+    }
+
+    const uploadUrl = response.headers.get('Location');
+    if (!uploadUrl) {
+        throw new Error('No upload URL received from Google Drive');
+    }
+
+    return { uploadUrl };
+};
+
 interface UploadParams {
     fileBuffer: Buffer;
     fileName: string;

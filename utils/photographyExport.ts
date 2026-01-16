@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { PhotographyJob } from '../types';
-import moment from 'moment';
+import { format, addYears } from 'date-fns';
 
 const getThaiStatus = (status: string) => {
     switch (status) {
@@ -21,7 +21,7 @@ export const exportPhotographyToExcel = (data: PhotographyJob[], fileName: strin
         } else {
             dateObj = new Date(job.startTime as any);
         }
-        const thaiDate = moment(dateObj).add(543, 'years').format('DD/MM/YY HH:mm');
+        const thaiDate = format(addYears(dateObj, 543), 'dd/MM/yy HH:mm');
 
         return {
             'ลำดับ': index + 1,

@@ -9,6 +9,7 @@ import ConfirmationModal from "./ConfirmationModal";
 import toast from "react-hot-toast";
 import { incrementStats, decrementStats, updateStatsOnStatusChange } from "../../utils/aggregation";
 import { Box, Hash, Upload } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 interface EditProductModalProps {
     isOpen: boolean;
@@ -18,6 +19,8 @@ interface EditProductModalProps {
 }
 
 const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, product, onSuccess }) => {
+    const { getDisplayName } = useAuth();
+
     const [formData, setFormData] = useState({
         name: "",
         brand: "",
@@ -251,7 +254,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
             await logActivity({
                 action: 'update',
                 productName: formData.name,
-                userName: "Admin", // TODO: Pass actual user
+                userName: getDisplayName(),
                 details: `Updated details. ${product.type === 'bulk' && stockInput !== 0 ? `Stock updated by ${stockInput}` : ''}`,
                 imageUrl: formData.imageUrl
             });
@@ -278,7 +281,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
             await logActivity({
                 action: 'delete',
                 productName: product.name,
-                userName: "Admin",
+                userName: getDisplayName(),
                 details: `Deleted product: ${product.name}`,
                 imageUrl: product.imageUrl
             });

@@ -191,104 +191,58 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
         setFacebookSelectedOrder(prev => ({ ...prev, [jobId]: [] }));
     };
 
-    // --- Core Logic: Internal Drive Upload Function (PARALLEL with Pre-created Folder) ---
+    // --- Core Logic: Internal Drive Upload Function (SEQUENTIAL) ---
     // คืนค่า list ของ fileIds ที่อัปโหลดเสร็จแล้ว
     const performDriveUpload = async (jobId: string, jobTitle: string, jobDate: any): Promise<{ ids: string[], folderLink: string }> => {
         const files = jobFiles[jobId] || [];
         if (files.length === 0) return { ids: [], folderLink: "" };
-
-        const startTime = performance.now();
-        console.log(`[Drive Upload] Starting upload of ${files.length} files...`);
 
         // Get Firebase Auth Token for API authentication
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error('User not authenticated');
         const idToken = await currentUser.getIdToken();
 
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`
-        };
-
-        // STEP 1: Pre-create folder hierarchy (ONCE, prevents race condition)
-        const folderStartTime = performance.now();
-        const prepareResponse = await fetch('/api/drive/prepare-folder', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                eventName: jobTitle,
-                jobDate: jobDate
-            }),
-        });
-
-        if (!prepareResponse.ok) {
-            const error = await prepareResponse.json();
-            throw new Error(error.error || 'Failed to prepare folder');
-        }
-        const { folderId, folderLink } = await prepareResponse.json();
-        console.log(`[Drive Upload] Folder prepared in ${((performance.now() - folderStartTime) / 1000).toFixed(2)}s`);
-
-        // STEP 2: Upload files in PARALLEL (safe because folder already exists)
-        const BATCH_SIZE = 5; // Upload 5 files at a time for optimal speed
-        const uploadedIds: string[] = [];
         let completedCount = 0;
         const totalFiles = files.length;
-        const totalBatches = Math.ceil(files.length / BATCH_SIZE);
+        let driveFolderLink = "";
+        const uploadedIds: string[] = [];
 
-        console.log(`[Drive Upload] Processing ${totalBatches} batches (${BATCH_SIZE} files each)...`);
-
-        // Process files in batches
-        for (let i = 0; i < files.length; i += BATCH_SIZE) {
-            const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-            const batchStartTime = performance.now();
-            const batch = files.slice(i, i + BATCH_SIZE);
-
-            const batchResults = await Promise.all(batch.map(async (file) => {
-                // Get upload URL from our API
-                const initResponse = await fetch('/api/drive/upload-to-folder', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        fileName: file.name,
-                        mimeType: file.type,
-                        folderId: folderId
-                    }),
-                });
-
-                if (!initResponse.ok) {
-                    const error = await initResponse.json();
-                    throw new Error(error.error || `Failed to initiate upload for ${file.name}`);
-                }
-                const { uploadUrl } = await initResponse.json();
-
-                // Upload file content directly to Google Drive
-                const uploadResponse = await fetch(uploadUrl, {
-                    method: 'PUT',
-                    body: file,
-                    headers: { 'Content-Type': file.type },
-                });
-
-                if (!uploadResponse.ok) throw new Error(`Failed to upload ${file.name} to Google Drive`);
-                const uploadResult = await uploadResponse.json();
-
-                return uploadResult.id || null;
-            }));
-
-            const batchDuration = ((performance.now() - batchStartTime) / 1000).toFixed(2);
-            console.log(`[Drive Upload] Batch ${batchNum}/${totalBatches} completed in ${batchDuration}s`);
-
-            // Collect successful uploads
-            batchResults.forEach(id => {
-                if (id) uploadedIds.push(id);
-                completedCount++;
-                setUploadProgress(prev => ({ ...prev, [jobId]: Math.round((completedCount / totalFiles) * 100) }));
+        // Upload ทีละไฟล์ (sequential to avoid race condition)
+        for (const file of files) {
+            const initResponse = await fetch('/api/drive/upload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    mimeType: file.type,
+                    eventName: jobTitle,
+                    jobDate: jobDate
+                }),
             });
+
+            if (!initResponse.ok) throw new Error('Failed to initiate upload');
+            const { uploadUrl, folderLink } = await initResponse.json();
+
+            const uploadResponse = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file,
+                headers: { 'Content-Type': file.type },
+            });
+
+            if (!uploadResponse.ok) throw new Error('Failed to upload to Google Drive');
+            const uploadResult = await uploadResponse.json();
+
+            if (uploadResult.id) uploadedIds.push(uploadResult.id);
+            if (!driveFolderLink && folderLink) driveFolderLink = folderLink;
+
+            completedCount++;
+            setUploadProgress(prev => ({ ...prev, [jobId]: Math.round((completedCount / totalFiles) * 100) }));
         }
 
-        const totalDuration = ((performance.now() - startTime) / 1000).toFixed(2);
-        console.log(`[Drive Upload] ✅ All ${files.length} files uploaded in ${totalDuration}s (avg: ${(parseFloat(totalDuration) / files.length).toFixed(2)}s/file)`);
-
-        return { ids: uploadedIds, folderLink: folderLink };
+        return { ids: uploadedIds, folderLink: driveFolderLink };
     };
 
     // Helper: Convert File to base64

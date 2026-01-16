@@ -53,7 +53,7 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
                 return;
             }
             toast.loading("Generating PDF...", { id: 'pdf-gen' });
-            // TODO: Implement generateInventoryLogReport in lib/generateReport.ts
+            // Import the report generator (already implemented in lib/generateReport.ts)
             const { generateInventoryLogReport } = await import('@/lib/generateReport');
             await generateInventoryLogReport(filteredLogs, 'download');
             toast.success("PDF Generated", { id: 'pdf-gen' });

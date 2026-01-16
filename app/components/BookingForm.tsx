@@ -8,6 +8,19 @@ import toast from "react-hot-toast";
 import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Camera } from "lucide-react";
 import { getTodayBangkok, getBangkokDateString } from "../../lib/dateUtils";
 
+// Extracted components and config
+import CustomSelect from "./ui/CustomSelect";
+import TimeSelect from "./ui/TimeSelect";
+import {
+    ROOMS,
+    ROOM_EQUIPMENT,
+    POSITIONS,
+    DEPARTMENTS,
+    ROOM_LAYOUTS,
+    getRoomById,
+    getEquipmentForRoom
+} from "../../config/bookingConfig";
+
 interface BookingFormProps {
     onSuccess?: () => void;
     onCancel?: () => void;
@@ -15,232 +28,6 @@ interface BookingFormProps {
     className?: string;
 }
 
-const ROOMS = {
-    junior_high: [
-        { id: "jh_phaya", name: "ห้องพญาสัตบรรณ" },
-        { id: "jh_gym", name: "โรงยิม" },
-        { id: "jh_chamchuri", name: "ห้องจามจุรี" },
-    ],
-    senior_high: [
-        { id: "sh_leelawadee", name: "ห้องลีลาวดี" },
-        { id: "sh_auditorium", name: "หอประชุม" },
-        { id: "sh_king_science", name: "ห้องศาสตร์พระราชา" },
-        { id: "sh_language_center", name: "ห้องศูนย์ภาษา" },
-        { id: "sh_admin_3", name: "ชั้น 3 อาคารอำนวยการ" },
-    ]
-};
-
-// Map roomId to available equipment
-const ROOM_EQUIPMENT: Record<string, string[]> = {
-    // Junior High
-    jh_phaya: ["จอ LED", "ไมค์ลอย", "Pointer"],
-    jh_gym: ["จอ Projector", "Projector", "ไมค์ลอย", "Pointer"],
-    jh_chamchuri: ["จอ TV", "ไมค์ลอย", "Pointer"],
-
-    // Senior High
-    sh_leelawadee: ["จอ LED", "จอ TV", "ไมค์ก้าน", "ไมค์ลอย", "Pointer"],
-    sh_auditorium: ["จอ LED", "ไมค์ลอย", "Pointer"],
-    sh_king_science: ["จอ TV", "ไมค์ลอย", "ไมค์ก้าน", "Pointer"],
-    sh_language_center: ["จอ TV", "ไมค์ลอย", "ไมค์ก้าน", "Pointer"],
-    sh_admin_3: ["จอ Projector", "Projector", "ไมค์สาย", "Pointer"],
-};
-
-
-const POSITIONS = ["ผู้บริหาร", "ครู", "ครู LS", "บุคลากร", "เลขานุการ"];
-const DEPARTMENTS = ["ฝ่ายงานวิชาการ", "ฝ่ายกิจการนักเรียน", "ฝ่ายงานบุคลากร", "ฝ่ายบริหารงานทั่วไป", "ฝ่ายแผนงานและงบประมาณ", "หน่วยงานภายนอก"];
-
-// --- Custom Scrollable Select Component ---
-interface SelectOption {
-    value: string;
-    label: string;
-}
-
-const CustomSelect = ({
-    value,
-    options,
-    onChange,
-    placeholder = "เลือกรายการ"
-}: {
-    value: string,
-    options: (string | SelectOption)[],
-    onChange: (val: string) => void,
-    placeholder?: string
-}) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = React.useRef<HTMLDivElement>(null);
-    const dropdownRef = React.useRef<HTMLDivElement>(null);
-
-    // Touch tracking to distinguish scroll from tap
-    const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
-    const isScrollingRef = React.useRef(false);
-
-    // Helper to get label
-    const getLabel = (opt: string | SelectOption) => typeof opt === 'string' ? opt : opt.label;
-    const getValue = (opt: string | SelectOption) => typeof opt === 'string' ? opt : opt.value;
-
-    const selectedLabel = options.find(opt => getValue(opt) === value)
-        ? getLabel(options.find(opt => getValue(opt) === value)!)
-        : placeholder;
-
-    // Close on click/touch outside - iOS PWA compatible
-    React.useEffect(() => {
-        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-
-        if (isOpen) {
-            // Use both touch and mouse events for iOS PWA compatibility
-            document.addEventListener("touchstart", handleClickOutside, { passive: true });
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener("touchstart", handleClickOutside);
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [isOpen]);
-
-    // Scroll to selected item when opening
-    React.useEffect(() => {
-        if (isOpen && dropdownRef.current) {
-            const selectedEl = dropdownRef.current.querySelector(`[data-value="${value}"]`);
-            if (selectedEl) {
-                selectedEl.scrollIntoView({ block: "center" });
-            }
-        }
-    }, [isOpen, value]);
-
-    const handleToggle = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsOpen(!isOpen);
-    };
-
-    // Track touch start for scroll detection
-    const handleTouchStart = (e: React.TouchEvent) => {
-        const touch = e.touches[0];
-        touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-        isScrollingRef.current = false;
-    };
-
-    // Detect if user is scrolling
-    const handleTouchMove = () => {
-        isScrollingRef.current = true;
-    };
-
-    // Handle selection only if not scrolling
-    const handleOptionTouchEnd = (optValue: string) => (e: React.TouchEvent) => {
-        e.preventDefault();
-
-        // If user was scrolling, don't select
-        if (isScrollingRef.current) {
-            isScrollingRef.current = false;
-            return;
-        }
-
-        // Check if touch moved significantly (threshold: 10px)
-        if (touchStartRef.current) {
-            const touch = e.changedTouches[0];
-            const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
-            if (deltaY > 10) {
-                return; // Was a scroll, not a tap
-            }
-        }
-
-        onChange(optValue);
-        setIsOpen(false);
-    };
-
-    const handleOptionClick = (optValue: string) => (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onChange(optValue);
-        setIsOpen(false);
-    };
-
-    return (
-        <div className="relative w-full" ref={containerRef}>
-            <div
-                onClick={handleToggle}
-                className={`w-full h-[46px] px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-center cursor-pointer hover:border-blue-500 transition-colors select-none flex items-center justify-center ${!value ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-            >
-                {selectedLabel}
-            </div>
-
-            {isOpen && (
-                <div
-                    ref={dropdownRef}
-                    className="absolute top-full left-0 w-full mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 no-scrollbar"
-                    style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                >
-                    {options.map((opt) => {
-                        const optValue = getValue(opt);
-                        const optLabel = getLabel(opt);
-                        return (
-                            <div
-                                key={optValue}
-                                data-value={optValue}
-                                onClick={handleOptionClick(optValue)}
-                                onTouchEnd={handleOptionTouchEnd(optValue)}
-                                className={`
-                                    py-3 px-3 text-sm text-center cursor-pointer transition-colors
-                                    ${optValue === value
-                                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold'
-                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600'}
-                                `}
-                                style={{ WebkitTapHighlightColor: 'transparent' }}
-                            >
-                                {optLabel}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
-};
-
-// --- Time Picker Helper (Split Select) ---
-const TimeSelect = ({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) => {
-    const [hour, minute] = value.split(':');
-
-    const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-    const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
-
-    return (
-        <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">{label}</label>
-            <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                    <CustomSelect
-                        value={hour}
-                        options={hours}
-                        onChange={(val) => onChange(`${val}:${minute}`)}
-                    />
-                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-400 text-xs opacity-0">
-                        น.
-                    </div>
-                </div>
-                <span className="text-gray-400 font-bold">:</span>
-                <div className="relative flex-1">
-                    <CustomSelect
-                        value={minute}
-                        options={minutes}
-                        onChange={(val) => onChange(`${hour}:${val}`)}
-                    />
-                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-400 text-xs opacity-0">
-                        น.
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 export default function BookingForm({ onSuccess, onCancel, initialDate, className = "" }: BookingFormProps) {
     const { user } = useAuth();
@@ -274,11 +61,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
     const [availableEquipment, setAvailableEquipment] = useState<string[]>([]);
 
     useEffect(() => {
-        if (formData.roomId && ROOM_EQUIPMENT[formData.roomId]) {
-            setAvailableEquipment(ROOM_EQUIPMENT[formData.roomId]);
-        } else {
-            setAvailableEquipment([]);
-        }
+        setAvailableEquipment(getEquipmentForRoom(formData.roomId));
     }, [formData.roomId]);
 
 
@@ -400,9 +183,9 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
             // 3. Save Booking
             toast.loading("กำลังบันทึกการจอง...", { id: toastId });
 
-            // Find room name
-            const allRooms = [...ROOMS.junior_high, ...ROOMS.senior_high];
-            const roomName = allRooms.find(r => r.id === formData.roomId)?.name || formData.roomId;
+            // Find room name using helper
+            const room = getRoomById(formData.roomId);
+            const roomName = room?.name || formData.roomId;
 
             await addDoc(collection(db, "bookings"), {
                 roomId: formData.roomId,
@@ -742,12 +525,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                         <div className="space-y-3">
                             <label className="text-sm font-bold text-gray-900 dark:text-white">รูปแบบการจัดห้องประชุม</label>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {[
-                                    { id: 'u_shape', label: 'รูปแบบตัว U' },
-                                    { id: 'classroom', label: 'แถวหน้ากระดาน' },
-                                    { id: 'empty', label: 'ไม่ต้องการโต๊ะ - เก้าอี้' },
-                                    { id: 'other', label: 'รูปแบบอื่น ๆ' },
-                                ].map((layout) => (
+                                {ROOM_LAYOUTS.map((layout) => (
                                     <label
                                         key={layout.id}
                                         onClick={(e) => {

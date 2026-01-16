@@ -8,7 +8,7 @@ import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import { UserProfile } from "@/types";
 import { useBookings } from "@/hooks/useBookings";
-import moment from "moment";
+import { format, isAfter, startOfDay } from "date-fns";
 import { createPhotographyFlexMessage } from "@/utils/flexMessageTemplates";
 
 interface PhotographyJobModalProps {
@@ -101,7 +101,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
     // Filter bookings that don't have jobs yet
     const availableBookings = bookings.filter(booking => {
         const bookingTitle = booking.title.split(' (')[0];
-        const bookingDate = moment(booking.start).format('YYYY-MM-DD');
+        const bookingDate = format(booking.start, 'yyyy-MM-dd');
         const bookingKey = `${bookingTitle}_${bookingDate}`;
         // Filter: Must not have existing job AND must have requested a photographer
         return !existingJobBookingIds.has(bookingKey) && booking.needsPhotographer;
@@ -113,9 +113,9 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
         if (booking) {
             setTitle(booking.title.split(' (')[0]);; // Remove room name if appended in hook
             setLocation(booking.roomName);
-            setDate(moment(booking.start).format('YYYY-MM-DD'));
-            setStartTime(moment(booking.start).format('HH:mm'));
-            setEndTime(moment(booking.end).format('HH:mm'));
+            setDate(format(booking.start, 'yyyy-MM-dd'));
+            setStartTime(format(booking.start, 'HH:mm'));
+            setEndTime(format(booking.end, 'HH:mm'));
             setDescription(`ผู้จอง: ${booking.requesterName}`);
             toast.success("นำเข้าข้อมูลเรียบร้อย");
         }
@@ -349,11 +349,11 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                                     >
                                         <option value="">-- เลือกรายการจองเพื่อเติมข้อมูลอัตโนมัติ --</option>
                                         {availableBookings
-                                            .filter(b => moment(b.start).isSameOrAfter(moment(), 'day'))
+                                            .filter(b => isAfter(b.start, startOfDay(new Date())) || format(b.start, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
                                             .sort((a, b) => a.start.getTime() - b.start.getTime())
                                             .map(b => (
                                                 <option key={b.id} value={b.id}>
-                                                    {moment(b.start).format('DD/MM/YY')} | {b.title}
+                                                    {format(b.start, 'dd/MM/yy')} | {b.title}
                                                 </option>
                                             ))}
                                     </select>

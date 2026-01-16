@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { collection, query, onSnapshot, where, Timestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { View, Views } from "react-big-calendar";
-import moment from "moment";
+import { startOfDay, startOfMonth, endOfMonth, subMonths, addMonths, isSameDay } from "date-fns";
 
 export interface BookingEvent {
     id: string;
@@ -50,13 +50,14 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
     const [bookingsLoading, setBookingsLoading] = useState(true);
     const [photographyLoading, setPhotographyLoading] = useState(includePhotographyJobs);
     const [view, setView] = useState<View>(Views.MONTH);
-    const [date, setDate] = useState(moment().startOf('day').toDate());
+    const [date, setDate] = useState(startOfDay(new Date()));
 
     // Fetch bookings
     useEffect(() => {
         // Calculate date range: N months before and after current date
-        const startRange = moment().subtract(monthsRange, 'months').startOf('month').toDate();
-        const endRange = moment().add(monthsRange, 'months').endOf('month').toDate();
+        const now = new Date();
+        const startRange = startOfMonth(subMonths(now, monthsRange));
+        const endRange = endOfMonth(addMonths(now, monthsRange));
 
         const q = query(
             collection(db, "bookings"),
@@ -102,8 +103,9 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         }
 
         // Calculate date range
-        const startRange = moment().subtract(monthsRange, 'months').startOf('month').toDate();
-        const endRange = moment().add(monthsRange, 'months').endOf('month').toDate();
+        const now = new Date();
+        const startRange = startOfMonth(subMonths(now, monthsRange));
+        const endRange = endOfMonth(addMonths(now, monthsRange));
 
         // Query photography jobs by date range only (filter showInAgenda client-side to avoid composite index)
         const q = query(
@@ -158,7 +160,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
     const visibleEvents = useMemo(() => {
         if (view === Views.AGENDA) {
             return events.filter(event =>
-                moment(event.start).isSame(date, 'day')
+                isSameDay(event.start, date)
             );
         }
         return events;
