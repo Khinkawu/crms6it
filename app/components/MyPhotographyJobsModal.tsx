@@ -197,9 +197,6 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
         const files = jobFiles[jobId] || [];
         if (files.length === 0) return { ids: [], folderLink: "" };
 
-        const startTime = performance.now();
-        console.log(`[Drive Upload] Starting upload of ${files.length} files...`);
-
         // Get Firebase Auth Token for API authentication
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error('User not authenticated');
@@ -211,7 +208,6 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
         };
 
         // STEP 1: Pre-create folder hierarchy (ONCE, prevents race condition)
-        const folderStartTime = performance.now();
         const prepareResponse = await fetch('/api/drive/prepare-folder', {
             method: 'POST',
             headers,
@@ -226,21 +222,15 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
             throw new Error(error.error || 'Failed to prepare folder');
         }
         const { folderId, folderLink } = await prepareResponse.json();
-        console.log(`[Drive Upload] Folder prepared in ${((performance.now() - folderStartTime) / 1000).toFixed(2)}s`);
 
         // STEP 2: Upload files in PARALLEL (safe because folder already exists)
-        const BATCH_SIZE = 5; // Upload 5 files at a time for optimal speed
+        const BATCH_SIZE = 5;
         const uploadedIds: string[] = [];
         let completedCount = 0;
         const totalFiles = files.length;
-        const totalBatches = Math.ceil(files.length / BATCH_SIZE);
-
-        console.log(`[Drive Upload] Processing ${totalBatches} batches (${BATCH_SIZE} files each)...`);
 
         // Process files in batches
         for (let i = 0; i < files.length; i += BATCH_SIZE) {
-            const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-            const batchStartTime = performance.now();
             const batch = files.slice(i, i + BATCH_SIZE);
 
             const batchResults = await Promise.all(batch.map(async (file) => {
@@ -274,9 +264,6 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                 return uploadResult.id || null;
             }));
 
-            const batchDuration = ((performance.now() - batchStartTime) / 1000).toFixed(2);
-            console.log(`[Drive Upload] Batch ${batchNum}/${totalBatches} completed in ${batchDuration}s`);
-
             // Collect successful uploads
             batchResults.forEach(id => {
                 if (id) uploadedIds.push(id);
@@ -284,9 +271,6 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                 setUploadProgress(prev => ({ ...prev, [jobId]: Math.round((completedCount / totalFiles) * 100) }));
             });
         }
-
-        const totalDuration = ((performance.now() - startTime) / 1000).toFixed(2);
-        console.log(`[Drive Upload] ✅ All ${files.length} files uploaded in ${totalDuration}s (avg: ${(parseFloat(totalDuration) / files.length).toFixed(2)}s/file)`);
 
         return { ids: uploadedIds, folderLink: folderLink };
     };
