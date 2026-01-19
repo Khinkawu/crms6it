@@ -443,30 +443,38 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
     const keyword = rawKeyword && rawKeyword !== 'undefined' ? rawKeyword : undefined;
     const date = rawDate && rawDate !== 'undefined' ? rawDate : undefined;
 
+    console.log(`[AI Handler] Video Search - Params: keyword="${keyword}", date="${date}"`);
+
     let searchDate: string | undefined;
     if (date) searchDate = parseThaiDate(date);
 
     let videos = await searchVideoGallery(keyword, searchDate);
+    console.log(`[AI Handler] Initial search result: ${videos.length} videos`);
 
     // Fallback: Try individual words if no results
     if (videos.length === 0 && keyword) {
         const words = keyword.split(/[\s,]+/).filter(w => w.length > 2);
+        console.log(`[AI Handler] No results, trying fallback words:`, words);
         for (const word of words) {
+            console.log(`[AI Handler] Trying fallback word: "${word}"`);
             videos = await searchVideoGallery(word, searchDate);
             if (videos.length > 0) break;
         }
     }
     // Fallback: Try without date filter
     if (videos.length === 0 && keyword && searchDate) {
+        console.log(`[AI Handler] No results with date, trying without date filter`);
         videos = await searchVideoGallery(keyword, undefined);
     }
 
     if (videos.length === 0) {
         const dateDesc = searchDate ? (isNaN(new Date(searchDate).getTime()) ? date : new Date(searchDate).toLocaleDateString('th-TH')) : '';
         const kwDesc = keyword ? `"${keyword}"` : '';
+        console.log(`[AI Handler] Final result: 0 videos found`);
         return { message: `ไม่พบวิดีโอ${kwDesc} ${dateDesc} ค่ะ ลองค้นหาใหม่นะคะ` };
     }
 
+    console.log(`[AI Handler] Final result: ${videos.length} videos found`);
     const listItems = videos.slice(0, 10).map((video, index) => {
         return `${index + 1}. 🎬 ${video.title} (${video.category || 'ไม่ระบุหมวด'})`;
     }).join('\n');

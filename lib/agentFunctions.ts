@@ -230,32 +230,54 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
 // --- VIDEO GALLERY SEARCH (ค้นหาวิดีโอ) ---
 export async function searchVideoGallery(keyword?: string, date?: string): Promise<any[]> {
     try {
-        console.log(`[Video Gallery Search] Input: "${keyword}", Date: "${date}"`);
+        console.log(`[Video Gallery Search] === START ===`);
+        console.log(`[Video Gallery Search] Input keyword: "${keyword}", Date: "${date}"`);
 
-        // Query video_gallery collection - only published videos
-        const snapshot = await adminDb.collection('video_gallery')
-            .where('isPublished', '==', true)
-            .orderBy('createdAt', 'desc')
-            .limit(100)
-            .get();
+        let snapshot;
+
+        // Try with isPublished filter first, fallback to all if index issue
+        try {
+            snapshot = await adminDb.collection('video_gallery')
+                .where('isPublished', '==', true)
+                .orderBy('createdAt', 'desc')
+                .limit(100)
+                .get();
+            console.log(`[Video Gallery Search] Query with isPublished filter: ${snapshot.size} docs`);
+        } catch (indexError: any) {
+            // Fallback: Query without composite index (may happen if index not created)
+            console.warn(`[Video Gallery Search] Index error, trying fallback query:`, indexError?.message || indexError);
+            snapshot = await adminDb.collection('video_gallery')
+                .orderBy('createdAt', 'desc')
+                .limit(100)
+                .get();
+            console.log(`[Video Gallery Search] Fallback query: ${snapshot.size} docs`);
+        }
 
         let videos: any[] = [];
 
         snapshot.forEach((doc) => {
             const data = doc.data();
-            videos.push({
-                id: doc.id,
-                title: data.title,
-                description: data.description || '',
-                category: data.category || '',
-                thumbnailUrl: data.thumbnailUrl || '',
-                videoUrl: data.videoUrl || '',
-                videoLinks: data.videoLinks || [],
-                platform: data.platform || 'other',
-                date: formatToThaiTime(data.eventDate || data.createdAt),
-                rawDate: data.eventDate || data.createdAt
-            });
+            // Filter isPublished in memory if we used fallback query
+            if (data.isPublished !== false) { // Include both true and undefined (legacy data)
+                videos.push({
+                    id: doc.id,
+                    title: data.title || '',
+                    description: data.description || '',
+                    category: data.category || '',
+                    thumbnailUrl: data.thumbnailUrl || '',
+                    videoUrl: data.videoUrl || '',
+                    videoLinks: data.videoLinks || [],
+                    platform: data.platform || 'other',
+                    date: formatToThaiTime(data.eventDate || data.createdAt),
+                    rawDate: data.eventDate || data.createdAt
+                });
+            }
         });
+
+        console.log(`[Video Gallery Search] Total videos after isPublished filter: ${videos.length}`);
+        if (videos.length > 0) {
+            console.log(`[Video Gallery Search] Sample titles:`, videos.slice(0, 3).map(v => v.title));
+        }
 
         // Filter by Date
         if (date) {
@@ -266,23 +288,33 @@ export async function searchVideoGallery(keyword?: string, date?: string): Promi
                 const thDate = new Date(vDate.getTime() + (7 * 60 * 60 * 1000));
                 return thDate.toISOString().split('T')[0] === targetYMD;
             });
+            console.log(`[Video Gallery Search] After date filter: ${videos.length}`);
         }
 
         // Keyword Search (title, description, category)
         if (keyword) {
             const cleanKeyword = keyword.trim().toLowerCase();
+            // Split by spaces, commas, or keep as single token if no separators
             const tokens = cleanKeyword.split(/[\s,]+/).filter(t => t.length > 0);
+            console.log(`[Video Gallery Search] Search tokens:`, tokens);
+
+            const beforeFilter = videos.length;
             videos = videos.filter(video => {
                 const textToSearch = `${video.title} ${video.description} ${video.category}`.toLowerCase();
-                return tokens.some(token => textToSearch.includes(token));
+                const matched = tokens.some(token => textToSearch.includes(token));
+                if (matched) {
+                    console.log(`[Video Gallery Search] Match: "${video.title}" matched token`);
+                }
+                return matched;
             });
+            console.log(`[Video Gallery Search] After keyword filter: ${beforeFilter} -> ${videos.length}`);
         }
 
-        console.log(`[Video Gallery Search] Found ${videos.length} videos`);
+        console.log(`[Video Gallery Search] === END === Found ${videos.length} videos`);
         return videos.slice(0, 10).map(({ rawDate, ...rest }) => rest);
 
     } catch (error) {
-        console.error('Error searching video gallery:', error);
+        console.error('[Video Gallery Search] Fatal error:', error);
         return [];
     }
 }
