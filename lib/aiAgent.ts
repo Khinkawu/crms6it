@@ -171,11 +171,30 @@ async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserPr
     }
 }
 
-function parseAIResponse(responseText: string): AIResponse {
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-        try { return JSON.parse(jsonMatch[0]); } catch { }
+import { AIResponseSchema, AIResponseParsed } from './aiSchemas';
+
+function parseAIResponse(responseText: string): AIResponseParsed {
+    try {
+        // 1. Try to find JSON block
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+
+            // 2. Validate with Zod
+            const validation = AIResponseSchema.safeParse(parsed);
+
+            if (validation.success) {
+                return validation.data;
+            } else {
+                console.warn('AI Response Validation Failed:', validation.error);
+                // Fallback: use parsed object but treat as mixed content if possible, or just log error
+            }
+        }
+    } catch (e) {
+        console.error('Error parsing AI response:', e);
     }
+
+    // 3. Fallback: Treat entire text as message
     return { message: responseText };
 }
 
@@ -664,7 +683,6 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
 
     // 5. NLP (Gemini) with System Prompt Injection
     try {
-        // ใช้ context messages เท่านั้น เพราะ startAIChat มี AI_SYSTEM_PROMPT ครบแล้ว
         const history: { role: 'user' | 'model'; parts: { text: string }[] }[] =
             context.messages.map(m => ({ role: m.role, parts: [{ text: m.content }] }));
 
@@ -672,22 +690,37 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
         const result = await chat.sendMessage(userMessage);
         const responseText = result.response.text();
 
+        // Log raw response for debugging
+        // console.log("Raw AI Response:", responseText);
+
         context.messages.push({ role: 'user', content: userMessage, timestamp: new Date() });
+
+        // NEW: Parse with Zod Schema
         const aiRes = parseAIResponse(responseText);
 
-        if (aiRes.intent) {
+        if (aiRes.intent && aiRes.intent !== 'UNKNOWN') {
             let reply = '';
+
+            // Log reasoning (Thought Process) - Optional: Save to DB
+            if (aiRes.thought) {
+                console.log(`[AI Thought]: ${aiRes.thought}`);
+            }
+
             switch (aiRes.intent) {
                 case 'CHECK_REPAIR':
                     if (!userProfile) { reply = 'กรุณาผูกบัญชีก่อนตรวจสอบสถานะค่ะ'; break; }
                     reply = await handleCheckRepair(aiRes.params || {}, userProfile); break;
-                case 'CHECK_ROOM_SCHEDULE': reply = await handleRoomSchedule(aiRes.params || {}); break;
-                case 'CHECK_AVAILABILITY': reply = await handleCheckAvailability(aiRes.params || {}); break;
+
+                case 'CHECK_ROOM_SCHEDULE':
+                    reply = await handleRoomSchedule(aiRes.params || {}); break;
+
+                case 'CHECK_AVAILABILITY':
+                    reply = await handleCheckAvailability(aiRes.params || {}); break;
+
                 case 'MY_WORK':
-                case 'MY_BOOKINGS':
-                case 'MY_PHOTO_JOBS':
                     if (!userProfile) { reply = 'กรุณาผูกบัญชีก่อนดูงานของคุณค่ะ'; break; }
-                    reply = await handleMyWork(userProfile, aiRes.params); break;
+                    reply = await handleMyWork(userProfile, aiRes.params); break; // aiRes.params is now Record<string, unknown> from Zod
+
                 case 'GALLERY_SEARCH':
                     const searchRes = await handleGallerySearchWithResults(aiRes.params || {});
                     reply = searchRes.message;
@@ -695,22 +728,37 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                         context.pendingAction = { intent: 'GALLERY_SELECT', params: {}, galleryResults: searchRes.jobs };
                     }
                     break;
-                case 'DAILY_SUMMARY': reply = await handleDailySummary(userProfile); break;
+
+                case 'DAILY_SUMMARY':
+                    reply = await handleDailySummary(userProfile); break;
+
                 case 'CREATE_REPAIR':
-                    context.pendingAction = { intent: 'CREATE_REPAIR', repairStep: 'awaiting_symptom', params: aiRes.params || {} };
-                    if (aiRes.params?.description || aiRes.params?.symptom) {
-                        context.pendingAction.params.description = aiRes.params.description || aiRes.params.symptom;
+                    const params = aiRes.params as any; // Cast for now, logic below checks fields
+                    context.pendingAction = { intent: 'CREATE_REPAIR', repairStep: 'awaiting_symptom', params: params || {} };
+
+                    if (params?.description) {
+                        context.pendingAction.params.description = params.description;
                         context.pendingAction.repairStep = 'awaiting_image';
-                        reply = `รับแจ้งซ่อม "${context.pendingAction.params.description}" ค่ะ\n\n📸 มีรูปถ่ายอาการไหมคะ? (ส่งรูปมาได้เลย หรือตอบ "ไม่มี")`;
-                    } else { reply = 'ขอทราบอาการเสีย หรืออุปกรณ์ที่มีปัญหาด้วยค่ะ?'; }
+                        reply = `รับแจ้งซ่อม "${params.description}" ค่ะ\n\n📸 มีรูปถ่ายอาการไหมคะ? (ส่งรูปมาได้เลย หรือตอบ "ไม่มี")`;
+                    } else {
+                        reply = 'ขอทราบอาการเสีย หรืออุปกรณ์ที่มีปัญหาด้วยค่ะ?';
+                    }
                     await saveConversationContext(lineUserId, context);
                     break;
-                default: reply = aiRes.message || 'ขออภัยค่ะ ไม่เข้าใจคำสั่ง';
+
+                default:
+                    reply = aiRes.message || 'ขออภัยค่ะ ไม่เข้าใจคำสั่ง';
             }
+
+            // Fallback if handler returns empty string (shouldn't happen but safe)
+            if (!reply) reply = aiRes.message || 'ดำเนินการเรียบร้อยค่ะ';
+
             context.messages.push({ role: 'model', content: reply, timestamp: new Date() });
             await saveConversationContext(lineUserId, context);
             return reply;
+
         } else {
+            // No Intent -> Chat Message
             const reply = aiRes.message || responseText;
             context.messages.push({ role: 'model', content: reply, timestamp: new Date() });
             await saveConversationContext(lineUserId, context);

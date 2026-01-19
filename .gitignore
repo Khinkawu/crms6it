@@ -10,6 +10,5 @@
 .vercel
 project_summary.md
 SYSTEM_DOCUMENTATION.md
-# Debug/utility scripts
-debug_firestore_count.ts
-rename_fonts.js
+
+
