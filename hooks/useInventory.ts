@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, limit } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { Product, ProductStatus } from "../types";
 
@@ -27,7 +27,12 @@ export function useInventory(options: UseInventoryOptions = {}): UseInventoryRet
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const q = query(collection(db, "products"), orderBy("updatedAt", "desc"));
+        // Limit to 200 products to reduce Firestore reads
+        const q = query(
+            collection(db, "products"),
+            orderBy("updatedAt", "desc"),
+            limit(200)
+        );
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const productList: Product[] = snapshot.docs.map(doc => ({
                 id: doc.id,

@@ -272,8 +272,8 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                                     <span className="p-2 rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/30">📸</span>
                                     มอบหมายงานถ่ายภาพ
                                 </h2>
-                                <button onClick={onClose}>
-                                    <X size={24} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" />
+                                <button onClick={onClose} aria-label="ปิด">
+                                    <X size={24} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-hidden="true" />
                                 </button>
                             </div>
 

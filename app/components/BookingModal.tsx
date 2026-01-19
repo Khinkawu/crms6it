@@ -192,8 +192,8 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialDate }
                         </h2>
                         <p className="text-gray-500 dark:text-gray-400 text-sm">กรอกรายละเอียดเพื่อขอใช้ห้องประชุม</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500 dark:text-gray-400">
-                        <X size={24} />
+                    <button onClick={onClose} aria-label="ปิด" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-500 dark:text-gray-400">
+                        <X size={24} aria-hidden="true" />
                     </button>
                 </div>
 

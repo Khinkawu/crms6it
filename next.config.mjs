@@ -3,7 +3,8 @@ import path from 'path';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     experimental: {
-        serverComponentsExternalPackages: ['undici']
+        serverComponentsExternalPackages: ['undici'],
+        optimizePackageImports: ['lucide-react', 'react-big-calendar']
     },
     images: {
         remotePatterns: [
@@ -16,6 +17,18 @@ const nextConfig = {
             {
                 protocol: 'https',
                 hostname: 'lh3.googleusercontent.com', // Google profile images
+                port: '',
+                pathname: '/**',
+            },
+            {
+                protocol: 'https',
+                hostname: 'www.gstatic.com', // Google favicon/icons
+                port: '',
+                pathname: '/**',
+            },
+            {
+                protocol: 'https',
+                hostname: 'www.google.com', // Google favicon
                 port: '',
                 pathname: '/**',
             },

@@ -123,8 +123,8 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
                         </h2>
                         <p className="text-text-secondary text-sm">ประวัติการใช้งานระบบและกิจกรรมต่างๆ</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-border/50 rounded-full transition-colors text-text-secondary hover:text-text">
-                        <X size={24} />
+                    <button onClick={onClose} aria-label="ปิด" className="p-2 hover:bg-border/50 rounded-full transition-colors text-text-secondary hover:text-text">
+                        <X size={24} aria-hidden="true" />
                     </button>
                 </div>
 
@@ -297,9 +297,10 @@ export default function LogTable({ logs, title, onClose, onGenerateReport, isLoa
                     <div className="bg-white p-2 rounded-xl max-w-lg w-full relative">
                         <button
                             onClick={() => setSelectedSignature(null)}
+                            aria-label="ปิด"
                             className="absolute -top-4 -right-4 bg-white rounded-full p-2 text-black shadow-lg hover:bg-gray-100"
                         >
-                            <X size={20} />
+                            <X size={20} aria-hidden="true" />
                         </button>
                         <img src={selectedSignature} alt="Signature" className="w-full h-auto rounded-lg border" />
                         <p className="text-center text-gray-500 text-sm mt-2">ลายเซ็นผู้ยืม</p>

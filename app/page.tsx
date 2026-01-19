@@ -11,28 +11,24 @@ import {
 import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { PhotographyJob } from "../types";
-import PhotographyJobModal from "./components/PhotographyJobModal";
 
 // Custom Hooks
 import { useBookings, BookingEvent } from "../hooks/useBookings";
 import { useActivityLogs } from "../hooks/useActivityLogs";
 import ReportIssueModal from "./components/ReportIssueModal";
-import MyPhotographyJobsModal from "./components/MyPhotographyJobsModal";
 import { useRepairTickets } from "../hooks/useRepairTickets";
 import { Views } from "react-big-calendar";
 
-// Dashboard Components
 import { Widget, QuickAction } from "./components/dashboard/widgets";
 import HeroSection from "./components/dashboard/HeroSection";
 import RecentActivityList from "./components/dashboard/RecentActivityList";
 import StatsWidgetContent from "./components/dashboard/StatsWidgetContent";
 import PhotoGalleryList from "./components/dashboard/PhotoGalleryList";
+import CalendarSection from "./components/dashboard/CalendarSection";
+import BookingDetailsModal from "./components/BookingDetailsModal";
+import MyPhotographyJobsModal from "./components/MyPhotographyJobsModal";
+import PhotographyJobModal from "./components/PhotographyJobModal";
 
-// Lazy Components
-import {
-    LazyCalendarSection,
-    LazyBookingDetailsModal
-} from "./components/LazyComponents";
 import { PageSkeleton } from "./components/ui/Skeleton";
 
 export default function Dashboard() {
@@ -124,14 +120,13 @@ export default function Dashboard() {
         document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // Stats calculations - include both approved bookings AND assigned photography jobs
     const todayActivities = visibleEvents.filter(e => {
         const today = new Date();
         const isToday = e.start.toDateString() === today.toDateString();
-        // Bookings have status 'approved', photography jobs have status 'assigned' or 'completed'
         const isActiveEvent = e.status === 'approved' || e.status === 'assigned';
         return isToday && isActiveEvent;
     }).length;
+
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -193,7 +188,7 @@ export default function Dashboard() {
                 {/* Calendar + Gallery Section */}
                 <div className="lg:col-span-12 grid grid-cols-1 lg:grid-cols-12 gap-6">
                     <div id="calendar-section" className="lg:col-span-8">
-                        <LazyCalendarSection
+                        <CalendarSection
                             events={visibleEvents}
                             view={view}
                             setView={setView}
@@ -224,7 +219,7 @@ export default function Dashboard() {
 
             {/* Modals */}
             {isDetailsModalOpen && (
-                <LazyBookingDetailsModal
+                <BookingDetailsModal
                     isOpen={isDetailsModalOpen}
                     onClose={() => setIsDetailsModalOpen(false)}
                     event={selectedEvent}

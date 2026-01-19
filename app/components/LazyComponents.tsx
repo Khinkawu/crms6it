@@ -162,3 +162,51 @@ export const LazyConfirmationModal = dynamic(
         loading: () => null // Don't show loading for small modals
     }
 );
+
+/**
+ * My Photography Jobs Modal - heavy modal (63KB) for managing photography jobs
+ * Only loaded when photographer views their jobs
+ */
+export const LazyMyPhotographyJobsModal = dynamic(
+    () => import("./MyPhotographyJobsModal"),
+    {
+        loading: () => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <LoadingSpinner size="lg" text="กำลังโหลด..." />
+            </div>
+        ),
+        ssr: false
+    }
+);
+
+/**
+ * Photography Job Modal - modal for creating/editing photography jobs
+ * Only loaded when admin assigns jobs
+ */
+export const LazyPhotographyJobModal = dynamic(
+    () => import("./PhotographyJobModal"),
+    {
+        loading: () => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <LoadingSpinner size="lg" text="กำลังโหลด..." />
+            </div>
+        ),
+        ssr: false
+    }
+);
+
+/**
+ * Edit Booking Modal - heavy form modal (32KB)
+ * Only loaded when editing a booking
+ */
+export const LazyEditBookingModal = dynamic(
+    () => import("./EditBookingModal"),
+    {
+        loading: () => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <LoadingSpinner size="lg" text="กำลังโหลด..." />
+            </div>
+        ),
+        ssr: false
+    }
+);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, limit, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { RepairTicket, RepairStatus, Product } from "../types";
 
@@ -37,7 +37,12 @@ export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepa
 
     // Fetch repair tickets
     useEffect(() => {
-        const q = query(collection(db, "repair_tickets"), orderBy("createdAt", "desc"));
+        // Limit to recent 100 tickets to reduce Firestore reads
+        const q = query(
+            collection(db, "repair_tickets"),
+            orderBy("createdAt", "desc"),
+            limit(100)
+        );
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const ticketsList: RepairTicket[] = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -52,14 +57,19 @@ export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepa
 
     // Fetch spare parts inventory
     useEffect(() => {
-        const q = query(collection(db, "products"));
+        // Limit to 200 products and only fetch bulk items
+        const q = query(
+            collection(db, "products"),
+            where("type", "==", "bulk"),
+            limit(200)
+        );
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const items: Product[] = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             } as Product));
             // Filter only bulk items with available quantity
-            setInventory(items.filter(i => i.type === 'bulk' && (i.quantity || 0) > 0));
+            setInventory(items.filter(i => (i.quantity || 0) > 0));
         });
 
         return () => unsubscribe();

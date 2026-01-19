@@ -326,7 +326,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
                 <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-soft-lg overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col overscroll-contain overflow-y-auto md:overflow-hidden">
                     <div className="p-6 border-b border-border flex justify-between items-center shrink-0">
                         <h2 className="text-xl font-bold text-text">แก้ไขข้อมูลสินค้า</h2>
-                        <button onClick={onClose} className="text-text-secondary hover:text-text">✕</button>
+                        <button onClick={onClose} aria-label="ปิด" className="text-text-secondary hover:text-text">✕</button>
                     </div>
 
                     <div className="p-6 md:overflow-y-auto">
