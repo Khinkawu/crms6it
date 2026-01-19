@@ -3,7 +3,7 @@
 import React, { useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { RepairTicket, RepairStatus, Product } from "../../../types";
-import { X, User, MapPin, Phone, Calendar, FileText, Package, Wrench, Camera, Save, Eraser, PenTool } from "lucide-react";
+import { X, User, MapPin, Phone, Calendar, FileText, Package, Wrench, Camera, Save, Eraser, PenTool, Bot } from "lucide-react";
 import { getThaiStatus, getStatusColor } from "../../../hooks/useRepairAdmin";
 
 interface RepairModalProps {
@@ -134,10 +134,21 @@ export default function RepairModal({
                                     <p className="text-gray-900 dark:text-white font-medium">{ticket.createdAt?.toDate().toLocaleString('th-TH')}</p>
                                 </div>
                             </div>
+                            {ticket.aiDiagnosis && (
+                                <div className="col-span-2 flex items-start gap-2 bg-blue-50 dark:bg-blue-900/10 p-2 rounded-lg border border-blue-100 dark:border-blue-800">
+                                    <div className="mt-0.5">
+                                        <Bot size={14} className="text-blue-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-blue-500 uppercase mb-0.5">ผลวิเคราะห์จาก AI</p>
+                                        <p className="text-gray-700 dark:text-blue-100 text-sm">{ticket.aiDiagnosis}</p>
+                                    </div>
+                                </div>
+                            )}
                             <div className="col-span-2 flex items-start gap-2">
                                 <FileText size={14} className="text-gray-400 mt-0.5" />
                                 <div>
-                                    <p className="text-[10px] font-medium text-gray-400 uppercase">อาการเสีย</p>
+                                    <p className="text-[10px] font-medium text-gray-400 uppercase">อาการเสีย (จากผู้แจ้ง)</p>
                                     <p className="text-gray-900 dark:text-white">{ticket.description}</p>
                                 </div>
                             </div>

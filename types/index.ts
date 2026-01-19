@@ -68,6 +68,7 @@ export interface RepairTicket {
     room: string;
     zone: 'junior_high' | 'senior_high'; // Zone (ม.ต้น or ม.ปลาย)
     description: string;
+    aiDiagnosis?: string; // AI's analysis of the symptom
     images: string[];
     status: RepairStatus;
     technicianId?: string; // UID of assigned technician

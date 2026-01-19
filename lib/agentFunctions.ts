@@ -270,7 +270,7 @@ export async function getPhotoJobsByPhotographer(userId: string, date?: string):
 export interface CreateRepairResult { success: boolean; ticketId?: string; error?: string; data?: any }
 
 export async function createRepairFromAI(
-    room: string, description: string, side: string, imageUrl: string, requesterName: string, requesterEmail: string
+    room: string, description: string, side: string, imageUrl: string, requesterName: string, requesterEmail: string, aiDiagnosis?: string
 ): Promise<CreateRepairResult> {
     try {
         let finalRequesterName = requesterName || 'ผู้แจ้งผ่าน LINE';
@@ -301,6 +301,7 @@ export async function createRepairFromAI(
             room, description,
             zone: normalizedSide as 'junior_high' | 'senior_high',
             images,
+            aiDiagnosis: aiDiagnosis || '',
             requesterName: finalRequesterName,
             requesterEmail: requesterEmail || '',
             position: 'แจ้งผ่าน LINE', phone: '-', status: 'pending' as const,

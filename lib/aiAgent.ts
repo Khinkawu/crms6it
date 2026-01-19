@@ -42,7 +42,8 @@ interface ConversationContext {
         | 'awaiting_side'
         | 'awaiting_final_confirm'
         | 'awaiting_link_email'
-        | 'awaiting_otp';
+        | 'awaiting_otp'
+        | 'awaiting_description';
         galleryResults?: any[];
     };
     lastActivity: any;
@@ -551,7 +552,8 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                 ...context.pendingAction.params,
                 imageBuffer: base64,
                 imageMimeType,
-                description: ticketDescription, // Override with AI analysis
+                description: '', // Clear description to ask user
+                aiDiagnosis: ticketDescription, // Store AI analysis here
                 imageAnalysis: fullAnalysisText,
                 imageUrl
             };
@@ -563,7 +565,8 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
         context.pendingAction = {
             intent: 'CREATE_REPAIR',
             params: {
-                description: ticketDescription,
+                description: '', // Clear description
+                aiDiagnosis: ticketDescription, // Store AI analysis
                 imageBuffer: base64,
                 imageMimeType,
                 imageAnalysis: fullAnalysisText,
@@ -670,6 +673,12 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
             }
             if (repairStep === 'awaiting_intent_confirm') {
                 if (['ใช่', 'ยืนยัน', 'ok', 'ครับ', 'ค่ะ'].some(k => msg.toLowerCase().includes(k))) {
+                    // Check for description first
+                    if (!params.description) {
+                        context.pendingAction.repairStep = 'awaiting_description';
+                        await saveConversationContext(lineUserId, context);
+                        return 'ขอทราบอาการเสียเพิ่มเติมด้วยค่ะ? (เช่น เปิดไม่ติด, เสียงไม่ออก)';
+                    }
                     if (!params.room) {
                         context.pendingAction.repairStep = 'awaiting_room';
                         await saveConversationContext(lineUserId, context);
@@ -683,6 +692,17 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     return 'ยกเลิกการแจ้งซ่อมแล้วค่ะ';
                 }
             }
+            if (repairStep === 'awaiting_description') {
+                context.pendingAction.params.description = msg;
+                if (!context.pendingAction.params.room) {
+                    context.pendingAction.repairStep = 'awaiting_room';
+                    await saveConversationContext(lineUserId, context);
+                    return 'ขอทราบสถานที่/ห้อง ที่อุปกรณ์มีปัญหาด้วยค่ะ?';
+                }
+                context.pendingAction.repairStep = 'awaiting_side';
+                await saveConversationContext(lineUserId, context);
+                return `อุปกรณ์อยู่ที่ห้อง ${context.pendingAction.params.room} ใช่มั้ยคะ? อยู่ฝั่ง ม.ต้น หรือ ม.ปลาย คะ?`;
+            }
             if (repairStep === 'awaiting_room') {
                 context.pendingAction.params.room = msg;
                 context.pendingAction.repairStep = 'awaiting_side';
@@ -693,7 +713,16 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                 context.pendingAction.params.side = msg;
                 if (!userProfile) return 'คุณยังไม่ได้ผูกบัญชี กรุณาผ่านบัญชีก่อนแจ้งซ่อมค่ะ';
 
-                const res = await createRepairFromAI(params.room, params.description, msg, params.imageUrl || '', userProfile.displayName || 'ผู้ใช้ LINE', userProfile.email);
+                // Pass aiDiagnosis to helper
+                const res = await createRepairFromAI(
+                    params.room,
+                    params.description,
+                    msg,
+                    params.imageUrl || '',
+                    userProfile.displayName || 'ผู้ใช้ LINE',
+                    userProfile.email,
+                    params.aiDiagnosis // New field
+                );
 
                 if (res.success) {
                     // Bug 1 Fix: Clear entire context to prevent stale data in consecutive repairs
