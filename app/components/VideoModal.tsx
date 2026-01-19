@@ -5,7 +5,7 @@ import { X, Video, Link2, Tag, Calendar, Loader2, Save, Sparkles, Plus, Trash2, 
 import { VideoItem, VideoPlatform, VideoLink } from "../../types";
 import { detectPlatform, autoGenerateThumbnail } from "../../hooks/useVideoGallery";
 import { collection, addDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "../../lib/firebase";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
@@ -26,17 +26,26 @@ const platformIcons: Record<VideoPlatform, string> = {
     other: "/Google_Drive_icon.png"
 };
 
-// Compress image before upload
-async function compressImage(file: File, maxWidth = 400, quality = 0.7): Promise<Blob> {
+// Compress image before upload - HIGH QUALITY settings
+// maxWidth: 1280px for high quality thumbnails (HD ready)
+// quality: 0.92 for excellent quality with reasonable file size
+// Skip compression for files under 200KB
+async function compressImage(file: File, maxWidth = 1280, quality = 0.92): Promise<Blob> {
+    // If file is small enough, don't compress (for screenshots/small images)
+    if (file.size < 200 * 1024) {
+        return file;
+    }
+
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new window.Image();
             img.onload = () => {
                 const canvas = document.createElement("canvas");
-                const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
-                canvas.width = img.width * ratio;
-                canvas.height = img.height * ratio;
+                // Only scale down if larger than maxWidth, keep aspect ratio
+                const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
 
                 const ctx = canvas.getContext("2d");
                 if (!ctx) {
@@ -44,13 +53,31 @@ async function compressImage(file: File, maxWidth = 400, quality = 0.7): Promise
                     return;
                 }
 
+                // Use best quality image smoothing
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = "high";
+
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                // Use WebP if supported for better quality/size ratio, fallback to JPEG
+                const mimeType = "image/webp";
                 canvas.toBlob(
                     (blob) => {
-                        if (blob) resolve(blob);
-                        else reject(new Error("Failed to compress image"));
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            // Fallback to JPEG
+                            canvas.toBlob(
+                                (jpegBlob) => {
+                                    if (jpegBlob) resolve(jpegBlob);
+                                    else reject(new Error("Failed to compress image"));
+                                },
+                                "image/jpeg",
+                                quality
+                            );
+                        }
                     },
-                    "image/jpeg",
+                    mimeType,
                     quality
                 );
             };
@@ -62,6 +89,18 @@ async function compressImage(file: File, maxWidth = 400, quality = 0.7): Promise
     });
 }
 
+// Helper to extract storage path from Firebase Storage URL
+function getStoragePathFromUrl(url: string): string | null {
+    if (!url.includes("firebasestorage.googleapis.com")) return null;
+    try {
+        const decodedUrl = decodeURIComponent(url);
+        const match = decodedUrl.match(/\/o\/([^?]+)/);
+        return match ? match[1] : null;
+    } catch {
+        return null;
+    }
+}
+
 export default function VideoModal({ isOpen, onClose, video, categories }: VideoModalProps) {
     const { user } = useAuth();
     const isEditMode = !!video;
@@ -70,6 +109,7 @@ export default function VideoModal({ isOpen, onClose, video, categories }: Video
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [thumbnailUrl, setThumbnailUrl] = useState("");
+    const [originalThumbnailUrl, setOriginalThumbnailUrl] = useState(""); // Track for cleanup
     const [category, setCategory] = useState("");
     const [customCategory, setCustomCategory] = useState("");
     const [eventDate, setEventDate] = useState("");
@@ -88,6 +128,7 @@ export default function VideoModal({ isOpen, onClose, video, categories }: Video
             setTitle(video.title || "");
             setDescription(video.description || "");
             setThumbnailUrl(video.thumbnailUrl || "");
+            setOriginalThumbnailUrl(video.thumbnailUrl || ""); // Track original for cleanup
             setCategory(video.category || "");
             setIsPublished(video.isPublished ?? true);
 
@@ -111,6 +152,7 @@ export default function VideoModal({ isOpen, onClose, video, categories }: Video
             setTitle("");
             setDescription("");
             setThumbnailUrl("");
+            setOriginalThumbnailUrl(""); // Reset
             setCategory("");
             setCustomCategory("");
             setEventDate("");
@@ -155,6 +197,7 @@ export default function VideoModal({ isOpen, onClose, video, categories }: Video
             toast.error("กรุณากรอก URL วีดีโอก่อน");
             return;
         }
+
         const autoThumb = autoGenerateThumbnail(firstUrl);
         if (autoThumb) {
             setThumbnailUrl(autoThumb);
@@ -241,6 +284,19 @@ export default function VideoModal({ isOpen, onClose, video, categories }: Video
             }
 
             if (isEditMode && video?.id) {
+                // Cleanup old thumbnail if changed or removed
+                if (originalThumbnailUrl && originalThumbnailUrl !== thumbnailUrl.trim()) {
+                    const oldPath = getStoragePathFromUrl(originalThumbnailUrl);
+                    if (oldPath) {
+                        try {
+                            await deleteObject(ref(storage, oldPath));
+                            console.log("Deleted old thumbnail:", oldPath);
+                        } catch (err) {
+                            console.warn("Could not delete old thumbnail:", err);
+                        }
+                    }
+                }
+
                 await updateDoc(doc(db, "video_gallery", video.id), videoData);
                 toast.success("บันทึกการแก้ไขแล้ว");
             } else {

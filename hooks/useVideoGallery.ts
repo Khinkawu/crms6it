@@ -124,12 +124,6 @@ export function getGDriveThumbnail(url: string): string {
     const fileId = extractGDriveId(url);
     if (!fileId) return '';
 
-    // Use lh3.googleusercontent.com which works better for public files
-    // Alternative formats to try if one doesn't work:
-    // 1. https://drive.google.com/thumbnail?id=${fileId}&sz=w400
-    // 2. https://lh3.googleusercontent.com/d/${fileId}=w400
-    // 3. https://drive.google.com/uc?export=view&id=${fileId}
-
     return `https://lh3.googleusercontent.com/d/${fileId}=w400`;
 }
 
