@@ -552,7 +552,7 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                 ...context.pendingAction.params,
                 imageBuffer: base64,
                 imageMimeType,
-                description: '', // Clear description to ask user
+                description: context.pendingAction.params.description || '', // Keep existing description if user already told us
                 aiDiagnosis: ticketDescription, // Store AI analysis here
                 imageAnalysis: fullAnalysisText,
                 imageUrl
