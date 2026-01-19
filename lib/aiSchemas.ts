@@ -67,7 +67,7 @@ export const AIResponseSchema = z.object({
         'DAILY_SUMMARY',
         'UNKNOWN'
     ]).optional(),
-    params: z.record(z.unknown()).optional(),
+    params: z.record(z.string(), z.unknown()).optional(),
     message: z.string().describe('Response message to user'),
 });
 
