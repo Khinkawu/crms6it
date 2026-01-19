@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
 import {
     Home, Wrench, Calendar, Package, Users,
-    ClipboardList, LayoutDashboard, Camera
+    ClipboardList, LayoutDashboard, Camera, Video
 } from "lucide-react";
 
 interface SideQuickAccessProps {
@@ -24,6 +24,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
         { name: "Dashboard", icon: LayoutDashboard, path: "/" },
         { name: "แจ้งซ่อม", icon: Wrench, path: "/repair" },
         { name: "จองห้อง", icon: Calendar, path: "/booking" },
+        { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery" },
         { name: "ภาพกิจกรรม", icon: Camera, path: "/gallery" },
     ];
 

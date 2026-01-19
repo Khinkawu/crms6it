@@ -8,7 +8,7 @@ import { useState } from "react";
 import {
     Home, Wrench, Calendar, User,
     Plus, Package, ClipboardList, MoreHorizontal,
-    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard
+    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard, Video
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PhotographyJobModal from "../PhotographyJobModal";
@@ -54,6 +54,7 @@ export default function BottomNavigation() {
         { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician"], allowPhotographer: true },
         { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator"] },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
+        { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician"] },
         { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician"] },
         { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },

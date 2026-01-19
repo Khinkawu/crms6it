@@ -155,3 +155,36 @@ export interface Booking {
 }
 
 export type InventoryItem = Product; // Alias for Dashboard usage
+
+// Video Gallery Types
+export type VideoPlatform = 'youtube' | 'tiktok' | 'gdrive' | 'facebook' | 'other';
+export type VideoStatus = 'pending' | 'assigned' | 'in_progress' | 'completed' | 'published';
+
+// Single video link
+export interface VideoLink {
+    platform: VideoPlatform;
+    url: string;
+}
+
+export interface VideoItem {
+    id?: string;
+    title: string;
+    description?: string;
+    thumbnailUrl: string;           // URL รูป thumbnail
+    videoUrl: string;               // Primary link (ลิงก์หลัก)
+    platform: VideoPlatform;        // Primary platform
+    videoLinks?: VideoLink[];       // Additional links (max 3 total including primary)
+    category: string;               // หมวดหมู่ (กีฬาสี, วันสำคัญ, etc.)
+    eventDate?: Timestamp;          // วันที่กิจกรรม
+    createdAt: Timestamp;
+    createdBy: string;              // userId
+    createdByName?: string;         // display name
+    isPublished: boolean;
+
+    // Future: Video Job Assignment
+    assignedTo?: string;            // userId ของ editor
+    assignedToName?: string;        // display name ของ editor
+    jobStatus?: VideoStatus;
+    relatedPhotographyJobId?: string;  // เชื่อมกับงานถ่ายภาพ
+    completedAt?: Timestamp;
+}
