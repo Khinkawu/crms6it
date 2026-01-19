@@ -16,6 +16,7 @@ import {
     getBookingsByEmail,
     getPhotoJobsByPhotographer,
     searchGallery,
+    searchVideoGallery,
     getDailySummary,
     getRoomSchedule,
     getRepairsForTechnician,
@@ -430,6 +431,52 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     return { message: response, jobs: jobs.slice(0, 10) };
 }
 
+// --- Video Gallery Search Handler ---
+interface VideoGallerySearchResult {
+    message: string;
+    videos?: any[];
+}
+
+async function handleVideoGallerySearchWithResults(params: Record<string, unknown>): Promise<VideoGallerySearchResult> {
+    const rawKeyword = params.keyword as string | undefined;
+    const rawDate = params.date as string | undefined;
+    const keyword = rawKeyword && rawKeyword !== 'undefined' ? rawKeyword : undefined;
+    const date = rawDate && rawDate !== 'undefined' ? rawDate : undefined;
+
+    let searchDate: string | undefined;
+    if (date) searchDate = parseThaiDate(date);
+
+    let videos = await searchVideoGallery(keyword, searchDate);
+
+    // Fallback: Try individual words if no results
+    if (videos.length === 0 && keyword) {
+        const words = keyword.split(/[\s,]+/).filter(w => w.length > 2);
+        for (const word of words) {
+            videos = await searchVideoGallery(word, searchDate);
+            if (videos.length > 0) break;
+        }
+    }
+    // Fallback: Try without date filter
+    if (videos.length === 0 && keyword && searchDate) {
+        videos = await searchVideoGallery(keyword, undefined);
+    }
+
+    if (videos.length === 0) {
+        const dateDesc = searchDate ? (isNaN(new Date(searchDate).getTime()) ? date : new Date(searchDate).toLocaleDateString('th-TH')) : '';
+        const kwDesc = keyword ? `"${keyword}"` : '';
+        return { message: `ไม่พบวิดีโอ${kwDesc} ${dateDesc} ค่ะ ลองค้นหาใหม่นะคะ` };
+    }
+
+    const listItems = videos.slice(0, 10).map((video, index) => {
+        return `${index + 1}. 🎬 ${video.title} (${video.category || 'ไม่ระบุหมวด'})`;
+    }).join('\n');
+    let response = `🎬 พบ ${videos.length} วิดีโอ\n\n${listItems}`;
+    if (videos.length > 10) response += `\n... และอีก ${videos.length - 10} รายการ`;
+    response += '\n\nพิมพ์หมายเลข (เช่น 1) เพื่อดูลิงก์วิดีโอค่ะ';
+
+    return { message: response, videos: videos.slice(0, 10) };
+}
+
 async function handleDailySummary(userProfile: UserProfile | null): Promise<string> {
     const summary = await getDailySummary();
     if (summary.error) return 'ไม่สามารถเรียกดูสรุปงานได้ค่ะ';
@@ -748,6 +795,34 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                 return reply;
             }
         }
+
+        // Handle VIDEO_GALLERY_SELECT - user picks a video by number
+        if (intent === 'VIDEO_GALLERY_SELECT' && galleryResults) {
+            const selectedIndex = parseInt(msg) - 1;
+            if (!isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < galleryResults.length) {
+                const video = galleryResults[selectedIndex];
+                await clearPendingAction(lineUserId);
+
+                // Build video links response
+                let reply = `🎬 ${video.title}\n📁 หมวด: ${video.category || 'ไม่ระบุ'}\n📅 ${video.date}\n`;
+
+                // Primary link
+                if (video.videoUrl) {
+                    reply += `\n🔗 ลิงก์หลัก: ${video.videoUrl}`;
+                }
+
+                // Additional links
+                if (video.videoLinks && video.videoLinks.length > 0) {
+                    video.videoLinks.forEach((link: any, idx: number) => {
+                        if (link.url) {
+                            reply += `\n🔗 ${link.platform || 'Link'}: ${link.url}`;
+                        }
+                    });
+                }
+
+                return reply;
+            }
+        }
     }
 
     // 5. NLP (Gemini) with System Prompt Injection
@@ -795,6 +870,14 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     reply = searchRes.message;
                     if (searchRes.jobs && searchRes.jobs.length > 0) {
                         context.pendingAction = { intent: 'GALLERY_SELECT', params: {}, galleryResults: searchRes.jobs };
+                    }
+                    break;
+
+                case 'VIDEO_GALLERY_SEARCH':
+                    const videoSearchRes = await handleVideoGallerySearchWithResults(aiRes.params || {});
+                    reply = videoSearchRes.message;
+                    if (videoSearchRes.videos && videoSearchRes.videos.length > 0) {
+                        context.pendingAction = { intent: 'VIDEO_GALLERY_SELECT', params: {}, galleryResults: videoSearchRes.videos };
                     }
                     break;
 

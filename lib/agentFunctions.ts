@@ -227,6 +227,66 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
     }
 }
 
+// --- VIDEO GALLERY SEARCH (ค้นหาวิดีโอ) ---
+export async function searchVideoGallery(keyword?: string, date?: string): Promise<any[]> {
+    try {
+        console.log(`[Video Gallery Search] Input: "${keyword}", Date: "${date}"`);
+
+        // Query video_gallery collection - only published videos
+        const snapshot = await adminDb.collection('video_gallery')
+            .where('isPublished', '==', true)
+            .orderBy('createdAt', 'desc')
+            .limit(100)
+            .get();
+
+        let videos: any[] = [];
+
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            videos.push({
+                id: doc.id,
+                title: data.title,
+                description: data.description || '',
+                category: data.category || '',
+                thumbnailUrl: data.thumbnailUrl || '',
+                videoUrl: data.videoUrl || '',
+                videoLinks: data.videoLinks || [],
+                platform: data.platform || 'other',
+                date: formatToThaiTime(data.eventDate || data.createdAt),
+                rawDate: data.eventDate || data.createdAt
+            });
+        });
+
+        // Filter by Date
+        if (date) {
+            const targetYMD = date.split('T')[0];
+            videos = videos.filter(video => {
+                if (!video.rawDate) return false;
+                const vDate = video.rawDate?.toDate ? video.rawDate.toDate() : new Date(video.rawDate);
+                const thDate = new Date(vDate.getTime() + (7 * 60 * 60 * 1000));
+                return thDate.toISOString().split('T')[0] === targetYMD;
+            });
+        }
+
+        // Keyword Search (title, description, category)
+        if (keyword) {
+            const cleanKeyword = keyword.trim().toLowerCase();
+            const tokens = cleanKeyword.split(/[\s,]+/).filter(t => t.length > 0);
+            videos = videos.filter(video => {
+                const textToSearch = `${video.title} ${video.description} ${video.category}`.toLowerCase();
+                return tokens.some(token => textToSearch.includes(token));
+            });
+        }
+
+        console.log(`[Video Gallery Search] Found ${videos.length} videos`);
+        return videos.slice(0, 10).map(({ rawDate, ...rest }) => rest);
+
+    } catch (error) {
+        console.error('Error searching video gallery:', error);
+        return [];
+    }
+}
+
 // --- PHOTO JOBS (งานของฉัน) ---
 export async function getPhotoJobsByPhotographer(userId: string, date?: string): Promise<any[]> {
     try {

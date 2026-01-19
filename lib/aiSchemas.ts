@@ -43,6 +43,12 @@ export const GallerySearchSchema = z.object({
 // 6. Daily Summary
 export const DailySummarySchema = z.object({});
 
+// 7. Video Gallery Search
+export const VideoGallerySearchSchema = z.object({
+    keyword: z.string().describe('Search keyword (title, category, description)'),
+    date: z.string().optional().describe('Optional date filter'),
+});
+
 // Union Schema for all potential parameters
 export const AIParamsSchema = z.union([
     RoomScheduleSchema,
@@ -52,6 +58,7 @@ export const AIParamsSchema = z.union([
     CheckRepairSchema,
     GallerySearchSchema,
     DailySummarySchema,
+    VideoGallerySearchSchema,
 ]);
 
 // AI Response Structure
@@ -64,6 +71,7 @@ export const AIResponseSchema = z.object({
         'CREATE_REPAIR',
         'CHECK_REPAIR',
         'GALLERY_SEARCH',
+        'VIDEO_GALLERY_SEARCH',
         'DAILY_SUMMARY',
         'UNKNOWN'
     ]).optional(),
