@@ -220,84 +220,12 @@ async function sendWithTokenCleanup(userId: string, token: string, message: Mess
 
 ## 4. Google Drive Integration
 
-### Token Refresh Strategy
+> **📁 ดู skill แยก:** สำหรับ Google Drive patterns ที่ละเอียด (folder hierarchy, parallel uploads, resumable upload) ดูที่ `google-drive-integration/SKILL.md`
 
-Google OAuth tokens expire after 1 hour. Handle refresh properly:
-
-```typescript
-// lib/googleDrive.ts
-import { google } from 'googleapis';
-
-class GoogleDriveService {
-  private oauth2Client;
-  
-  constructor() {
-    this.oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
-    );
-    
-    // Set stored tokens
-    this.oauth2Client.setCredentials({
-      access_token: process.env.GOOGLE_ACCESS_TOKEN,
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-    });
-    
-    // Auto-refresh on expiry
-    this.oauth2Client.on('tokens', (tokens) => {
-      console.log('[Google] New access token received');
-      // In production: save new token to secure storage
-      if (tokens.refresh_token) {
-        console.log('[Google] New refresh token - update env/secrets');
-      }
-    });
-  }
-  
-  async uploadFile(fileName: string, mimeType: string, content: Buffer) {
-    const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
-    
-    try {
-      const response = await drive.files.create({
-        requestBody: {
-          name: fileName,
-          parents: [process.env.GOOGLE_DRIVE_FOLDER_ID!],
-        },
-        media: {
-          mimeType,
-          body: Readable.from(content),
-        },
-        fields: 'id, webViewLink',
-      });
-      
-      return response.data;
-    } catch (error) {
-      if (error.code === 401) {
-        console.error('[Google] Token expired and refresh failed');
-        // Trigger re-authentication flow
-      }
-      throw error;
-    }
-  }
-}
-```
-
-### Service Account (Recommended for Server-side)
-
-```typescript
-// Using service account (no refresh needed)
-import { google } from 'googleapis';
-
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_SERVICE_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
-});
-
-const drive = google.drive({ version: 'v3', auth });
-```
+**Quick Reference:**
+- ใช้ OAuth 2.0 with Refresh Token
+- Resumable upload สำหรับไฟล์ใหญ่
+- Parallel upload: เรียก `prepare-folder` ก่อน แล้ว `upload-to-folder` พร้อมกัน
 
 ---
 
