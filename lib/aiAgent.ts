@@ -446,29 +446,60 @@ async function handleDailySummary(userProfile: UserProfile | null): Promise<stri
     return response + `\n\nค่ะ 😊`;
 }
 
-export async function analyzeRepairImage(imageBuffer: Buffer, mimeType: string, symptomDescription: string): Promise<string> {
+interface VisionAnalysisResult {
+    device: string;
+    symptom: string;
+    suggestion: string;
+    is_equipment: boolean;
+    question: string;
+}
+
+export async function analyzeRepairImage(imageBuffer: Buffer, mimeType: string): Promise<VisionAnalysisResult> {
     try {
         const imagePart = imageToGenerativePart(imageBuffer, mimeType);
-        const prompt = `บทบาท: คุณคือผู้เชี่ยวชาญด้าน IT และโสตทัศนูปกรณ์ (AV Specialist)
-งานของคุณ: วิเคราะห์รูปภาพอุปกรณ์ที่ผู้ใช้ส่งมา
+        const prompt = `
+# Role
+Technical Support AI Specialist (Thai Language)
 
-กรณีรูปเป็นอุปกรณ์ IT/โสตฯ:
-1. วิเคราะห์อาการหรือความผิดปกติที่เห็น
-2. แนะนำวิธีแก้ไขเบื้องต้น 2-3 ข้อ (แบบเข้าใจง่าย ทำตามได้จริง)
-3. ถามปิดท้ายอย่างสุภาพว่า "ต้องการเปิดใบแจ้งซ่อมเพื่อให้ช่างเข้าไปตรวจสอบไหมคะ?"
+# Task
+Analyze this image to assist in creating a repair ticket.
+Focus on identifying the IT/AV equipment and any visible defects.
 
-กรณีรูปเป็นสิ่งอื่น (ไม่ใช่อุปกรณ์):
-- แจ้งอย่างสุภาพว่าระบบรองรับเฉพาะงานแจ้งซ่อมอุปกรณ์โสตฯ/IT เท่านั้น
+# Constraints
+- Response must be a Valid JSON Object only.
+- Use Thai language for values.
+- Keep "symptom" concise (under 10 words).
 
-ข้อกำหนด:
-- ห้ามใช้ Markdown (ห้ามใช้ **Bold** หรือ - Bullet)
-- ใช้ภาษาไทยกึ่งทางการ สุภาพ นุ่มนวล
-- กระชับ ไม่เยิ่นเย้อ
-- ลงท้ายประโยคด้วย "ค่ะ"`;
+# Output Format (JSON)
+{
+  "device": "Equipment Name (e.g., โปรเจคเตอร์, มิกเซอร์เสียง)",
+  "symptom": "Observed issue (e.g., ภาพไม่ติด, ปุ่มหลุด, จอแตก)",
+  "suggestion": "1 short troubleshooting tip (optional, empty if none)",
+  "is_equipment": boolean (true if IT/AV related, false if irrelevant photo),
+  "question": "Polite closing question (e.g., ต้องการเปิดใบแจ้งซ่อมไหมคะ?)"
+}`;
+
         const result = await geminiVisionModel.generateContent([prompt, imagePart]);
-        const response = await result.response;
-        return response.text();
-    } catch (e) { console.error(e); return 'ไม่สามารถวิเคราะห์รูปภาพได้ค่ะ'; }
+        const responseText = result.response.text();
+
+        // Safe Parse JSON
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]) as VisionAnalysisResult;
+        }
+        throw new Error("Invalid JSON format");
+
+    } catch (e) {
+        console.error("Vision Analysis Error:", e);
+        // Fallback result
+        return {
+            device: "ไม่ระบุอุปกรณ์",
+            symptom: "ตรวจสอบภาพถ่าย",
+            suggestion: "",
+            is_equipment: true,
+            question: "ต้องการแจ้งซ่อมไหมคะ?"
+        };
+    }
 }
 
 // ============================================
@@ -479,8 +510,6 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
     const userProfile = await getUserProfileFromLineBinding(lineUserId);
     let context = await getConversationContext(lineUserId);
     if (!context) { context = { messages: [], lastActivity: new Date() }; }
-
-
 
     // 1. Account Binding Check - OTP Flow
     if (['ผูกบัญชี', 'เชื่อมบัญชี', 'link account'].some(k => userMessage.toLowerCase().includes(k))) {
@@ -504,35 +533,46 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
 
     // 3. Image Handling
     if (imageBuffer && imageMimeType) {
-        if (context.pendingAction?.intent === 'CREATE_REPAIR' && context.pendingAction.repairStep === 'awaiting_image') {
-            const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, 'ตรวจสอบอุปกรณ์');
-            let base64 = imageBuffer.toString('base64');
-            if (base64.length > 500 * 1024) base64 = base64.substring(0, 500 * 1024);
+        // Run analysis first
+        const analysis = await analyzeRepairImage(imageBuffer, imageMimeType);
 
-            context.pendingAction.repairStep = 'awaiting_intent_confirm';
-            context.pendingAction.params = { ...context.pendingAction.params, imageBuffer: base64, imageMimeType, imageAnalysis: analysis, imageUrl: `data:${imageMimeType};base64,${base64}` };
-            await saveConversationContext(lineUserId, context);
-            return `${analysis}\n\n---\nต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "ยกเลิก")`;
-        }
-        // Bug 3 Fix: If user sends image without pending action, start repair flow automatically
-        const analysis = await analyzeRepairImage(imageBuffer, imageMimeType, 'ตรวจสอบอุปกรณ์เพื่อแจ้งซ่อม');
         let base64 = imageBuffer.toString('base64');
         if (base64.length > 500 * 1024) base64 = base64.substring(0, 500 * 1024);
+        const imageUrl = `data:${imageMimeType};base64,${base64}`;
 
-        // Start repair flow with analyzed image
+        // Construct concise description for ticket: "Device - Symptom"
+        const ticketDescription = analysis.is_equipment ? `${analysis.device} - ${analysis.symptom}` : "แจ้งซ่อมจากรูปภาพ";
+        const fullAnalysisText = `📸 ผลการวิเคราะห์:\nอุปกรณ์: ${analysis.device}\nอาการ: ${analysis.symptom}\n${analysis.suggestion ? `💡 คำแนะนำ: ${analysis.suggestion}\n` : ''}`;
+
+        // If currently in a flow (e.g. asked for image)
+        if (context.pendingAction?.intent === 'CREATE_REPAIR' && context.pendingAction.repairStep === 'awaiting_image') {
+            context.pendingAction.repairStep = 'awaiting_intent_confirm';
+            context.pendingAction.params = {
+                ...context.pendingAction.params,
+                imageBuffer: base64,
+                imageMimeType,
+                description: ticketDescription, // Override with AI analysis
+                imageAnalysis: fullAnalysisText,
+                imageUrl
+            };
+            await saveConversationContext(lineUserId, context);
+            return `${fullAnalysisText}\n---\n${analysis.question || 'ยืนยันการแจ้งซ่อมไหมคะ?'}`;
+        }
+
+        // Start new repair flow
         context.pendingAction = {
             intent: 'CREATE_REPAIR',
             params: {
-                description: analysis,
+                description: ticketDescription,
                 imageBuffer: base64,
                 imageMimeType,
-                imageAnalysis: analysis,
-                imageUrl: `data:${imageMimeType};base64,${base64}`
+                imageAnalysis: fullAnalysisText,
+                imageUrl
             },
             repairStep: 'awaiting_intent_confirm'
         };
         await saveConversationContext(lineUserId, context);
-        return `📸 จากภาพที่ส่งมา:\n${analysis}\n\n---\n🔧 ต้องการแจ้งซ่อมไหมคะ? (ตอบ "ใช่" หรือ "ยกเลิก")`;
+        return `${fullAnalysisText}\n---\n${analysis.question || 'ต้องการแจ้งซ่อมไหมคะ?'}`;
     }
 
     // 4. Pending Actions
