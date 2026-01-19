@@ -123,8 +123,16 @@ export default function Dashboard() {
     const todayActivities = visibleEvents.filter(e => {
         const today = new Date();
         const isToday = e.start.toDateString() === today.toDateString();
-        const isActiveEvent = e.status === 'approved' || e.status === 'assigned';
-        return isToday && isActiveEvent;
+
+        // Fix: Logic was too strict. 
+        // Agenda shows all photography jobs (except hidden ones).
+        // Bookings are already filtered by 'approved' in useBookings Hook.
+        if (e.eventType === 'photography') {
+            return isToday; // Count all visible photography jobs for today
+        }
+
+        // For bookings, double check status (though hook already filters)
+        return isToday && e.status === 'approved';
     }).length;
 
 
