@@ -174,9 +174,10 @@ async function notifyTechniciansDirectly(data: {
 // ============================================================================
 
 // --- GALLERY SEARCH (ค้นหารูปภาพ) ---
-export async function searchGallery(keyword?: string, date?: string): Promise<any[]> {
+export async function searchGallery(keyword?: string, date?: string, limit: number = 10): Promise<any[]> {
     try {
-        console.log(`[Gallery Search] Input: "${keyword}", Date: "${date}"`);
+        console.log(`[Gallery Search] === START ===`);
+        console.log(`[Gallery Search] Keyword: "${keyword}", Date: "${date}", Limit: ${limit}`);
         const snapshot = await adminDb.collection('photography_jobs')
             .orderBy('startTime', 'desc')
             .limit(100)
@@ -219,7 +220,7 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
             });
         }
 
-        return jobs.slice(0, 10).map(({ rawStartTime, ...rest }) => rest);
+        return jobs.slice(0, limit).map(({ rawStartTime, ...rest }) => rest);
 
     } catch (error) {
         console.error('Error searching gallery:', error);

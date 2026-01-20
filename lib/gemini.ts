@@ -225,3 +225,65 @@ export async function rankVideosWithAI(userQuery: string, videos: any[]): Promis
         return videos.slice(0, 5); // Fallback to latest 5
     }
 }
+
+// Rank photos using AI (RAG-lite)
+export async function rankPhotosWithAI(userQuery: string, photos: any[]): Promise<any[]> {
+    if (!photos || photos.length === 0) return [];
+
+    console.log(`[Gemini RAG] Ranking ${photos.length} photos for query: "${userQuery}"`);
+
+    // Prepare lightweight context for AI
+    const photoListShort = photos.map(p => ({
+        id: p.id,
+        title: p.title,
+        location: p.location,
+        date: p.date,
+        facebookLink: p.facebookLink ? 'yes' : 'no'
+    }));
+
+    const prompt = `
+    Analyze this user search query: "${userQuery}"
+    Select the top 5 most relevant photo albums/jobs from this list.
+    Rank them by semantic relevance (meaning > exact match).
+    
+    Context Mapping:
+    - User asks for "รูปกีฬาสี" -> Look for "Sports Day" or related events
+    - User asks for "ห้องประชุม" -> Look for title OR location
+    
+    Photo List:
+    ${JSON.stringify(photoListShort)}
+
+    Output JSON only:
+    [
+        { "id": "photo_id", "reason": "why it matches" }
+    ]
+    `;
+
+    try {
+        const result = await geminiModel.generateContent(prompt);
+        const response = result.response;
+        const text = response.text();
+
+        // Extract JSON from potential markdown blocks (using [\s\S] for dotAll compatibility)
+        const jsonMatch = text.match(/\[[\s\S]*\]/) || text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            console.warn('[Gemini RAG] No JSON found in response');
+            return [];
+        }
+
+        let rankedItems = JSON.parse(jsonMatch[0]);
+        if (!Array.isArray(rankedItems)) rankedItems = [rankedItems];
+
+        console.log(`[Gemini RAG] AI selected ${rankedItems.length} photos`);
+
+        // Re-map back to full objects
+        return rankedItems.map((item: any) => {
+            const fullPhoto = photos.find(p => p.id === item.id);
+            return fullPhoto ? { ...fullPhoto, aiReason: item.reason } : null;
+        }).filter(Boolean);
+
+    } catch (error) {
+        console.error('[Gemini RAG] Error ranking photos:', error);
+        return photos.slice(0, 5); // Fallback to latest 5
+    }
+}

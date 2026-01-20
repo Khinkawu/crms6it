@@ -6,7 +6,7 @@
 import { UserProfile, RepairTicket } from '@/types';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import { startAIChat, geminiVisionModel, imageToGenerativePart, rankVideosWithAI } from './gemini';
+import { startAIChat, geminiVisionModel, imageToGenerativePart, rankVideosWithAI, rankPhotosWithAI } from './gemini';
 import {
     checkRoomAvailability,
     createBookingFromAI,
@@ -402,17 +402,27 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     let searchDate: string | undefined;
     if (date) searchDate = parseThaiDate(date);
 
-    let jobs = await searchGallery(keyword, searchDate);
+    // 1. Fetch BROAD results (limit 50)
+    // Pass undefined for keyword/date to get broad latest list
+    let jobs = await searchGallery(undefined, undefined, 50);
+    console.log(`[AI Handler] Broad fetch for Photos: ${jobs.length} jobs`);
 
-    if (jobs.length === 0 && keyword) {
-        const words = keyword.split(/[\s,]+/).filter(w => w.length > 2);
-        for (const word of words) {
-            jobs = await searchGallery(word, searchDate);
-            if (jobs.length > 0) break;
+    // 2. Rank with AI (RAG-lite)
+    if (jobs.length > 0 && (keyword || date)) {
+        let queryForAI = keyword || '';
+        if (date) queryForAI += ` (Date/Time context: ${date})`;
+
+        const rankedJobs = await rankPhotosWithAI(queryForAI, jobs);
+
+        if (rankedJobs.length > 0) {
+            console.log(`[AI Handler] AI Ranking: selected ${rankedJobs.length} photos`);
+            jobs = rankedJobs;
+        } else {
+            console.log(`[AI Handler] AI Ranking: found no matches in broad pool`);
+            jobs = [];
         }
-    }
-    if (jobs.length === 0 && keyword && searchDate) {
-        jobs = await searchGallery(keyword, undefined);
+    } else if (!keyword && !date) {
+        console.log(`[AI Handler] No keyword/date, showing latest photos`);
     }
 
     if (jobs.length === 0) {
