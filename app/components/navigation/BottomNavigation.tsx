@@ -5,13 +5,14 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
 import { useTheme } from "../../../context/ThemeContext";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import PhotographyJobModal from "../PhotographyJobModal";
+import ReportIssueModal from "../ReportIssueModal";
 import {
     Home, Wrench, Calendar, User,
     Plus, Package, ClipboardList, MoreHorizontal,
-    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard, Video
+    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard, Video, AlertCircle
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import PhotographyJobModal from "../PhotographyJobModal";
 
 export default function BottomNavigation() {
     const { user, role, isPhotographer, signOut } = useAuth();
@@ -20,6 +21,7 @@ export default function BottomNavigation() {
     const [fabOpen, setFabOpen] = useState(false);
     const [moreMenuOpen, setMoreMenuOpen] = useState(false);
     const [photoJobModalOpen, setPhotoJobModalOpen] = useState(false);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
 
     if (!user) return null;
 
@@ -51,6 +53,7 @@ export default function BottomNavigation() {
     // More menu items for admin
     const moreMenuItems = [
         { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician"] },
+        { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "admin", "moderator", "technician"], action: () => setReportModalOpen(true) },
         { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician"], allowPhotographer: true },
         { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator"] },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
@@ -170,20 +173,41 @@ export default function BottomNavigation() {
                     >
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden min-w-[200px]">
                             <div className="p-2">
-                                {moreMenuItems.map((item, index) => (
-                                    <Link
-                                        key={item.path}
-                                        href={item.path}
-                                        onClick={() => setMoreMenuOpen(false)}
-                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === item.path
+                                {moreMenuItems.map((item, index) => {
+                                    const isAction = !!item.action;
+                                    const commonClasses = `flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === item.path
                                             ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                                             : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                                            }`}
-                                    >
-                                        <item.icon size={20} />
-                                        <span className="font-medium text-sm">{item.name}</span>
-                                    </Link>
-                                ))}
+                                        }`;
+
+                                    if (isAction) {
+                                        return (
+                                            <button
+                                                key={index}
+                                                onClick={() => {
+                                                    setMoreMenuOpen(false);
+                                                    item.action?.();
+                                                }}
+                                                className={`w-full ${commonClasses}`}
+                                            >
+                                                <item.icon size={20} />
+                                                <span className="font-medium text-sm">{item.name}</span>
+                                            </button>
+                                        );
+                                    }
+
+                                    return (
+                                        <Link
+                                            key={item.path}
+                                            href={item.path!}
+                                            onClick={() => setMoreMenuOpen(false)}
+                                            className={commonClasses}
+                                        >
+                                            <item.icon size={20} />
+                                            <span className="font-medium text-sm">{item.name}</span>
+                                        </Link>
+                                    );
+                                })}
 
                                 {/* Divider */}
                                 <div className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
@@ -339,6 +363,8 @@ export default function BottomNavigation() {
                     requesterId={user.uid}
                 />
             )}
+
+            <ReportIssueModal isOpen={reportModalOpen} onClose={() => setReportModalOpen(false)} />
         </>
     );
 }

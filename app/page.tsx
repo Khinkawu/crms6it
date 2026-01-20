@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
     Sparkles, TrendingUp, Calendar as CalendarIcon,
     Wrench, Package, Clock,
-    AlertCircle, Users, Camera, Image as ImageIcon
+    AlertCircle, Users, Camera, Image as ImageIcon, Video
 } from "lucide-react";
 import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -150,8 +150,10 @@ export default function Dashboard() {
                         <QuickAction icon={Wrench} title="แจ้งซ่อม" description="แจ้งปัญหาอุปกรณ์" href="/repair" gradient="from-orange-500 to-red-500" delay={0.1} />
                         <QuickAction icon={CalendarIcon} title="จองห้อง" description="จองห้องประชุม" href="/booking" gradient="from-blue-500 to-cyan-500" delay={0.15} />
                         <QuickAction icon={Camera} title="ภาพกิจกรรม" description="ประมวลภาพกิจกรรม" href="/gallery" gradient="from-amber-500 to-yellow-500" delay={0.2} />
+                        <QuickAction icon={Video} title="คลังวิดีโอ" description="รวมวิดีโอกิจกรรม" href="/video-gallery" gradient="from-red-500 to-pink-500" delay={0.25} />
 
-                        {(role === 'admin' || role === 'moderator') && (
+                        {/* Hide from Admin (moved to Command Center) */}
+                        {role === 'moderator' && (
                             <>
                                 <QuickAction icon={Wrench} title="จัดการซ่อม" description="จัดการงานซ่อม" href="/admin/repairs" gradient="from-amber-500 to-orange-500" delay={0.2} />
                                 <QuickAction icon={CalendarIcon} title="จัดการการจอง" description="จัดการการจอง" href="/admin/bookings" gradient="from-rose-500 to-pink-600" delay={0.3} />
@@ -162,16 +164,13 @@ export default function Dashboard() {
                             <QuickAction icon={Camera} title="งานของฉัน" description="ดูภาพรวมและประวัติงาน" href="/my-work" gradient="from-indigo-500 to-purple-600" delay={0.35} badge={pendingPhotoJobsCount} />
                         )}
 
-                        {(role === 'admin' || role === 'technician' || isPhotographer) && (
+                        {/* Hide Admin from Inventory (moved to Command Center) */}
+                        {role !== 'admin' && (role === 'technician' || isPhotographer) && (
                             <QuickAction icon={Package} title="อุปกรณ์" description="จัดการอุปกรณ์" href="/admin/inventory" gradient="from-violet-500 to-purple-500" delay={0.3} />
                         )}
 
                         {role === 'admin' && (
                             <QuickAction icon={Users} title="ผู้ใช้งาน" description="จัดการผู้ใช้" href="/admin/users" gradient="from-emerald-500 to-teal-500" delay={0.35} />
-                        )}
-
-                        {role !== 'admin' && (
-                            <QuickAction icon={AlertCircle} title="แจ้งปัญหา" description="แจ้งปัญหาการใช้งาน" onClick={() => setIsReportModalOpen(true)} gradient="from-gray-500 to-slate-600" delay={0.3} />
                         )}
                     </div>
                 </Widget>
