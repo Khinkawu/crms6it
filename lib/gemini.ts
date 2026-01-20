@@ -103,7 +103,8 @@ Skills: เชี่ยวชาญระบบแจ้งซ่อม, กา�
 5. **MY_WORK** (งานส่วนตัว) -> params: { date }
 6. **GALLERY_SEARCH** (หารูปภาพ/Photo) -> params: { keyword, date }
 7. **VIDEO_GALLERY_SEARCH** (หาวิดีโอ/ดูวิดีโอ/คลิป/vtr) -> params: { keyword, date }
-8. **IT_KNOWLEDGE_SEARCH** (ถามปัญหา IT/ขอรหัส/วิธีแก้) -> params: { query }
+8. **IT_KNOWLEDGE_SEARCH** (ถามปัญหา IT/ขอรหัส/วิธีแก้/General Software usage) -> params: { query }
+   - *Note: tech support, usage questions, how-to, wifi password, printer issues, general software/hardware problems.*
 9. **DAILY_SUMMARY** (สรุปงาน) -> params: {}
 10. **UNKNOWN** (ไม่เข้าใจ/คุยเล่น) -> params: {}
 
@@ -300,6 +301,7 @@ export async function findAnswerWithAI(query: string, knowledgeItems: any[]): Pr
     const prompt = `
     User Question: "${query}"
 
+ 6. ตอบคำถาม IT เบื้องต้น (IT Knowledge Base) รวมถึงการใช้งาน Software (Word, Excel) และ Hardware พื้นฐาน:
     Available Knowledge Base:
     ${context}
 
