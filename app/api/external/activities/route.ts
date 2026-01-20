@@ -63,7 +63,7 @@ export async function GET(request: Request) {
                 facebookLink: fbLink,
                 date: data.endTime ? data.endTime.toDate().toISOString() : new Date().toISOString(),
                 location: data.location || "",
-                description: data.facebookCaption || data.description || "" // Prefer Facebook Caption
+                description: data.facebookCaption || "" // Strictly Facebook Caption only
             });
         });
 
