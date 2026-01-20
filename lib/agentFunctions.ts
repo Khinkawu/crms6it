@@ -228,6 +228,30 @@ export async function searchGallery(keyword?: string, date?: string, limit: numb
     }
 }
 
+// --- IT KNOWLEDGE BASE SEARCH ---
+export async function searchKnowledgeBase(query?: string): Promise<any[]> {
+    try {
+        console.log(`[Knowledge Search] Query: "${query}"`);
+        // For RAG-lite, we fetch a broad set (or all) because the KB is usually small (<100 items)
+        // If it grows, we can add basic keyword filtering here.
+        const snapshot = await adminDb.collection('it_knowledge_base')
+            .limit(50)
+            .get();
+
+        const items: any[] = [];
+        snapshot.forEach(doc => {
+            items.push({ id: doc.id, ...doc.data() });
+        });
+
+        console.log(`[Knowledge Search] Fetched ${items.length} items for valid context`);
+        return items;
+
+    } catch (error) {
+        console.error('Error searching knowledge base:', error);
+        return [];
+    }
+}
+
 // --- VIDEO GALLERY SEARCH (ค้นหาวิดีโอ) ---
 export async function searchVideoGallery(keyword?: string, date?: string, limit: number = 10): Promise<any[]> {
     try {

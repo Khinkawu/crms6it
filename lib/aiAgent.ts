@@ -6,7 +6,7 @@
 import { UserProfile, RepairTicket } from '@/types';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import { startAIChat, geminiVisionModel, imageToGenerativePart, rankVideosWithAI, rankPhotosWithAI } from './gemini';
+import { startAIChat, geminiVisionModel, imageToGenerativePart, rankVideosWithAI, rankPhotosWithAI, findAnswerWithAI } from './gemini';
 import {
     checkRoomAvailability,
     createBookingFromAI,
@@ -20,7 +20,8 @@ import {
     getDailySummary,
     getRoomSchedule,
     getRepairsForTechnician,
-    getPendingBookings
+    getPendingBookings,
+    searchKnowledgeBase
 } from './agentFunctions';
 import { formatThaiDate } from './dateUtils';
 
@@ -905,6 +906,25 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                         context.pendingAction = { intent: 'VIDEO_GALLERY_SELECT', params: {}, galleryResults: videoSearchRes.videos };
                     }
                     break;
+
+
+                case 'IT_KNOWLEDGE_SEARCH':
+                    const kbParams = aiRes.params || {};
+                    console.log(`[Intent] IT_KNOWLEDGE_SEARCH:`, kbParams);
+                    if (!kbParams.query) {
+                        return 'ขอโทษค่ะ รบกวนระบุคำถามให้ชัดเจนอีกนิดได้ไหมคะ? 😅';
+                    }
+                    // 1. Fetch Knowledge from DB
+                    const kbItems = await searchKnowledgeBase(kbParams.query as string);
+
+                    // 2. Ask AI to find answer from fetched items
+                    const answer = await findAnswerWithAI(kbParams.query as string, kbItems);
+
+                    if (answer) {
+                        return answer;
+                    } else {
+                        return 'ขอโทษค่ะ ไม่พบข้อมูลในระบบคลังความรู้ IT ค่ะ 😓\nหากเป็นปัญหาเร่งด่วน แนะนำให้แจ้งซ่อมเข้ามาให้เจ้าหน้าที่ตรวจสอบได้เลยนะคะ';
+                    }
 
                 case 'DAILY_SUMMARY':
                     reply = await handleDailySummary(userProfile); break;

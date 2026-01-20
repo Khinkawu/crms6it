@@ -49,6 +49,11 @@ export const VideoGallerySearchSchema = z.object({
     date: z.string().optional().describe('Optional date filter'),
 });
 
+// 8. IT Knowledge Search
+export const ITKnowledgeSearchSchema = z.object({
+    query: z.string().describe('User question query'),
+});
+
 // Union Schema for all potential parameters
 export const AIParamsSchema = z.union([
     RoomScheduleSchema,
@@ -59,6 +64,7 @@ export const AIParamsSchema = z.union([
     GallerySearchSchema,
     DailySummarySchema,
     VideoGallerySearchSchema,
+    ITKnowledgeSearchSchema,
 ]);
 
 // AI Response Structure
@@ -72,6 +78,7 @@ export const AIResponseSchema = z.object({
         'CHECK_REPAIR',
         'GALLERY_SEARCH',
         'VIDEO_GALLERY_SEARCH',
+        'IT_KNOWLEDGE_SEARCH',
         'DAILY_SUMMARY',
         'UNKNOWN'
     ]).optional(),

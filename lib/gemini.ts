@@ -103,8 +103,9 @@ Skills: เชี่ยวชาญระบบแจ้งซ่อม, กา�
 5. **MY_WORK** (งานส่วนตัว) -> params: { date }
 6. **GALLERY_SEARCH** (หารูปภาพ/Photo) -> params: { keyword, date }
 7. **VIDEO_GALLERY_SEARCH** (หาวิดีโอ/ดูวิดีโอ/คลิป/vtr) -> params: { keyword, date }
-8. **DAILY_SUMMARY** (สรุปงาน) -> params: {}
-9. **UNKNOWN** (ไม่เข้าใจ/คุยเล่น) -> params: {}
+8. **IT_KNOWLEDGE_SEARCH** (ถามปัญหา IT/ขอรหัส/วิธีแก้) -> params: { query }
+9. **DAILY_SUMMARY** (สรุปงาน) -> params: {}
+10. **UNKNOWN** (ไม่เข้าใจ/คุยเล่น) -> params: {}
 
 # EXAMPLES
 User: "วันนี้ห้องลีลาวดีว่างไหม"
@@ -285,5 +286,41 @@ export async function rankPhotosWithAI(userQuery: string, photos: any[]): Promis
     } catch (error) {
         console.error('[Gemini RAG] Error ranking photos:', error);
         return photos.slice(0, 5); // Fallback to latest 5
+    }
+}
+
+// Find answer from Knowledge Base (RAG-lite)
+export async function findAnswerWithAI(query: string, knowledgeItems: any[]): Promise<string | null> {
+    if (!knowledgeItems || knowledgeItems.length === 0) return null;
+
+    console.log(`[Gemini RAG] Finding answer for: "${query}" from ${knowledgeItems.length} items`);
+
+    const context = knowledgeItems.map(item => `- Q: ${item.question}\n- A: ${item.answer}\n`).join('\n');
+
+    const prompt = `
+    User Question: "${query}"
+
+    Available Knowledge Base:
+    ${context}
+
+    Task:
+    1. Find the best matching answer from the knowledge base.
+    2. If found, answer politely in Thai (can paraphrase slightly to be natural).
+    3. If NO matching answer found in context, answer based on your general IT knowledge, BUT start the sentence with "💡 คำแนะนำเบื้องต้น: " (General Suggestion).
+
+    Answer:
+    `;
+
+    try {
+        const result = await geminiModel.generateContent(prompt);
+        const response = result.response.text().trim();
+
+        // If the response is valid (either from KB or General Suggestion), return it.
+        // We no longer return null for general questions.
+        return response;
+
+    } catch (error) {
+        console.error('[Gemini RAG] Error finding answer:', error);
+        return null;
     }
 }

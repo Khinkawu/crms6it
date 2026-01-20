@@ -17,7 +17,8 @@ import {
     TrendingUp,
     Camera,
     ClipboardList,
-    User
+    User,
+    BookOpen
 } from "lucide-react";
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -336,6 +337,13 @@ export default function AdminDashboard() {
                                 color="from-emerald-500 to-teal-500"
                             />
                         )}
+                        <QuickLink
+                            title="คลังความรู้ IT"
+                            description="จัดการ Q&A สำหรับ AI"
+                            icon={BookOpen}
+                            href="/admin/knowledge-base"
+                            color="from-sky-500 to-blue-600"
+                        />
                     </div>
                 </Widget>
 
