@@ -439,7 +439,8 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                     status: 'completed',
                     completedBy: userId,
                     completedAt: serverTimestamp(),
-                    updatedAt: serverTimestamp()
+                    updatedAt: serverTimestamp(),
+                    facebookCaption: facebookCaption[jobId] || null // Save the caption!
                 });
 
                 // Clear State
