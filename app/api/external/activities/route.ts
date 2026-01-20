@@ -62,7 +62,8 @@ export async function GET(request: Request) {
                 coverImage: data.coverImage || "https://placehold.co/600x400?text=No+Image",
                 facebookLink: fbLink,
                 date: data.endTime ? data.endTime.toDate().toISOString() : new Date().toISOString(),
-                location: data.location || ""
+                location: data.location || "",
+                description: data.description || ""
             });
         });
 
