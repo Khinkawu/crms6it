@@ -305,8 +305,10 @@ export async function findAnswerWithAI(query: string, knowledgeItems: any[]): Pr
 
     Task:
     1. Find the best matching answer from the knowledge base.
-    2. If found, answer politely in Thai (can paraphrase slightly to be natural).
-    3. If NO matching answer found in context, answer based on your general IT knowledge, BUT start the sentence with "💡 คำแนะนำเบื้องต้น: " (General Suggestion).
+    2. If found, answer politely in Thai.
+    3. If NO matching answer found in context, answer based on your general IT knowledge, BUT start the sentence with "💡 คำแนะนำเบื้องต้น: ".
+    
+    IMPORTANT: Do NOT use Markdown (bold **, italic *) in the response. Use spaces or Emojis instead to highlight key points.
 
     Answer:
     `;
