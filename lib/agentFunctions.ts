@@ -228,10 +228,10 @@ export async function searchGallery(keyword?: string, date?: string): Promise<an
 }
 
 // --- VIDEO GALLERY SEARCH (ค้นหาวิดีโอ) ---
-export async function searchVideoGallery(keyword?: string, date?: string): Promise<any[]> {
+export async function searchVideoGallery(keyword?: string, date?: string, limit: number = 10): Promise<any[]> {
     try {
         console.log(`[Video Gallery Search] === START ===`);
-        console.log(`[Video Gallery Search] Input keyword: "${keyword}", Date: "${date}"`);
+        console.log(`[Video Gallery Search] Keyword: "${keyword}", Date: "${date}", Limit: ${limit}`);
 
         let snapshot;
 
@@ -301,9 +301,11 @@ export async function searchVideoGallery(keyword?: string, date?: string): Promi
             const beforeFilter = videos.length;
             videos = videos.filter(video => {
                 const textToSearch = `${video.title} ${video.description} ${video.category}`.toLowerCase();
-                const matched = tokens.some(token => textToSearch.includes(token));
+                // Use EVERY (AND logic) instead of SOME (OR logic) for stricter results
+                // All words in the keyword must appear in the video details
+                const matched = tokens.every(token => textToSearch.includes(token));
                 if (matched) {
-                    console.log(`[Video Gallery Search] Match: "${video.title}" matched token`);
+                    console.log(`[Video Gallery Search] Match: "${video.title}" matched ALL tokens`);
                 }
                 return matched;
             });
@@ -311,7 +313,7 @@ export async function searchVideoGallery(keyword?: string, date?: string): Promi
         }
 
         console.log(`[Video Gallery Search] === END === Found ${videos.length} videos`);
-        return videos.slice(0, 10).map(({ rawDate, ...rest }) => rest);
+        return videos.slice(0, limit).map(({ rawDate, ...rest }) => rest);
 
     } catch (error) {
         console.error('[Video Gallery Search] Fatal error:', error);

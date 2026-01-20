@@ -162,3 +162,64 @@ export function imageToGenerativePart(imageBuffer: Buffer, mimeType: string) {
         },
     };
 }
+
+// Rank videos using AI (RAG-lite)
+export async function rankVideosWithAI(userQuery: string, videos: any[]): Promise<any[]> {
+    if (!videos || videos.length === 0) return [];
+
+    console.log(`[Gemini RAG] Ranking ${videos.length} videos for query: "${userQuery}"`);
+
+    // Prepare lightweight context for AI
+    const videoListShort = videos.map(v => ({
+        id: v.id,
+        title: v.title,
+        category: v.category,
+        date: v.date,
+        description: v.description ? v.description.substring(0, 100) : ''
+    }));
+
+    const prompt = `
+    Analyze this user search query: "${userQuery}"
+    Select the top 5 most relevant videos from this list.
+    Rank them by semantic relevance (meaning > exact match).
+    If a video is somewhat relevant but not exact, include it.
+    If nothing is relevant, return empty list.
+
+    Video List:
+    ${JSON.stringify(videoListShort)}
+
+    Output JSON only:
+    [
+        { "id": "video_id", "reason": "why it matches" }
+    ]
+    `;
+
+    try {
+        const result = await geminiModel.generateContent(prompt);
+        const response = result.response;
+        const text = response.text();
+
+        // Extract JSON from potential markdown blocks (using [\s\S] for dotAll compatibility)
+        const jsonMatch = text.match(/\[[\s\S]*\]/) || text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            console.warn('[Gemini RAG] No JSON found in response');
+            return [];
+        }
+
+        let rankedItems = JSON.parse(jsonMatch[0]);
+        // Handle case if AI returns object instead of array
+        if (!Array.isArray(rankedItems)) rankedItems = [rankedItems];
+
+        console.log(`[Gemini RAG] AI selected ${rankedItems.length} videos`);
+
+        // Re-map back to full video objects
+        return rankedItems.map((item: any) => {
+            const fullVideo = videos.find(v => v.id === item.id);
+            return fullVideo ? { ...fullVideo, aiReason: item.reason } : null;
+        }).filter(Boolean);
+
+    } catch (error) {
+        console.error('[Gemini RAG] Error ranking videos:', error);
+        return videos.slice(0, 5); // Fallback to latest 5
+    }
+}

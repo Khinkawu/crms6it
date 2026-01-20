@@ -6,7 +6,7 @@
 import { UserProfile, RepairTicket } from '@/types';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import { startAIChat, geminiVisionModel, imageToGenerativePart } from './gemini';
+import { startAIChat, geminiVisionModel, imageToGenerativePart, rankVideosWithAI } from './gemini';
 import {
     checkRoomAvailability,
     createBookingFromAI,
@@ -448,23 +448,30 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
     let searchDate: string | undefined;
     if (date) searchDate = parseThaiDate(date);
 
-    let videos = await searchVideoGallery(keyword, searchDate);
-    console.log(`[AI Handler] Initial search result: ${videos.length} videos`);
+    // 1. Fetch BROAD results (limit 50) for AI analysis
+    // We explicitly pass undefined for keyword/date to get the raw latest videos
+    let videos = await searchVideoGallery(undefined, undefined, 50);
+    console.log(`[AI Handler] Broad fetch for AI: ${videos.length} videos`);
 
-    // Fallback: Try individual words if no results
-    if (videos.length === 0 && keyword) {
-        const words = keyword.split(/[\s,]+/).filter(w => w.length > 2);
-        console.log(`[AI Handler] No results, trying fallback words:`, words);
-        for (const word of words) {
-            console.log(`[AI Handler] Trying fallback word: "${word}"`);
-            videos = await searchVideoGallery(word, searchDate);
-            if (videos.length > 0) break;
+    // 2. Rank with AI (RAG-lite)
+    if (videos.length > 0 && (keyword || date)) {
+        let queryForAI = keyword || '';
+        if (date) queryForAI += ` (Date/Time context: ${date})`;
+
+        // Pass to Gemini for semantic ranking
+        const rankedVideos = await rankVideosWithAI(queryForAI, videos);
+
+        if (rankedVideos.length > 0) {
+            console.log(`[AI Handler] AI Ranking: selected ${rankedVideos.length} videos`);
+            videos = rankedVideos;
+        } else {
+            console.log(`[AI Handler] AI Ranking: found no matches in broad pool`);
+            // If AI found nothing relevant, we trust it and return empty
+            videos = [];
         }
-    }
-    // Fallback: Try without date filter
-    if (videos.length === 0 && keyword && searchDate) {
-        console.log(`[AI Handler] No results with date, trying without date filter`);
-        videos = await searchVideoGallery(keyword, undefined);
+    } else if (!keyword && !date) {
+        // If no keyword/date, just show latest (already in videos)
+        console.log(`[AI Handler] No keyword/date, showing latest`);
     }
 
     if (videos.length === 0) {
