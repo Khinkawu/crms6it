@@ -126,6 +126,7 @@ export interface PhotographyJob {
 
     // [New] Display in calendar agenda
     showInAgenda?: boolean; // If true, show this job in the main calendar
+    facebookCaption?: string; // The caption used when posting to Facebook
 }
 
 export interface Booking {
