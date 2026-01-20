@@ -12,3 +12,6 @@ project_summary.md
 SYSTEM_DOCUMENTATION.md
 
 
+
+# typescript cache
+*.tsbuildinfo
