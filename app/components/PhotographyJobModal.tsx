@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Calendar, Clock, MapPin, User, Save, Check, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { collection, addDoc, serverTimestamp, getDocs, getDoc, doc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, getDocs, getDoc, doc, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import { UserProfile } from "@/types";
@@ -44,7 +44,8 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
             setLoadingPhotographers(true);
             try {
                 const usersRef = collection(db, "users");
-                const snapshot = await getDocs(usersRef);
+                const q = query(usersRef, where("isPhotographer", "==", true));
+                const snapshot = await getDocs(q);
                 const users: UserProfile[] = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();

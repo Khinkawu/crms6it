@@ -20,7 +20,7 @@ import {
     User,
     BookOpen
 } from "lucide-react";
-import { collection, query, where, getDocs, orderBy, limit, onSnapshot, Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, onSnapshot, Timestamp, getCountFromServer } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
 
@@ -161,19 +161,19 @@ export default function AdminDashboard() {
         const fetchStats = async () => {
             try {
                 const [pendingRepairs, inProgressRepairs, pendingBookings, lowStock, totalUsers] = await Promise.all([
-                    getDocs(query(collection(db, "repair_tickets"), where("status", "==", "pending"))),
-                    getDocs(query(collection(db, "repair_tickets"), where("status", "==", "in_progress"))),
-                    getDocs(query(collection(db, "bookings"), where("status", "==", "pending"))),
-                    getDocs(query(collection(db, "products"), where("quantity", "<", 5))),
-                    getDocs(collection(db, "users"))
+                    getCountFromServer(query(collection(db, "repair_tickets"), where("status", "==", "pending"))),
+                    getCountFromServer(query(collection(db, "repair_tickets"), where("status", "==", "in_progress"))),
+                    getCountFromServer(query(collection(db, "bookings"), where("status", "==", "pending"))),
+                    getCountFromServer(query(collection(db, "products"), where("quantity", "<", 5))),
+                    getCountFromServer(collection(db, "users"))
                 ]);
 
                 setStats({
-                    pendingRepairs: pendingRepairs.size,
-                    inProgressRepairs: inProgressRepairs.size,
-                    pendingBookings: pendingBookings.size,
-                    lowStock: lowStock.size,
-                    totalUsers: totalUsers.size
+                    pendingRepairs: pendingRepairs.data().count,
+                    inProgressRepairs: inProgressRepairs.data().count,
+                    pendingBookings: pendingBookings.data().count,
+                    lowStock: lowStock.data().count,
+                    totalUsers: totalUsers.data().count
                 });
             } catch (error) {
                 console.error("Error fetching stats:", error);
