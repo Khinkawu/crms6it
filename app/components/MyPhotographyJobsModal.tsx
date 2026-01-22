@@ -254,7 +254,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                         const text = await initResponse.text();
                         errorMessage = `Server Error (${initResponse.status}): ${text.slice(0, 50)}`;
                     }
-                    throw new Error(errorMessage || `Failed to initiate upload for ${file.name}`);
+                    throw new Error(`[${file.name}] ${errorMessage || 'Failed to initiate upload'}`);
                 }
                 const { uploadUrl } = await initResponse.json();
 
@@ -351,7 +351,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                         errorMessage = `Upload Error (${res.status}): ${text.substring(0, 100)}`;
                     }
                 }
-                throw new Error(errorMessage || `Failed to upload photo ${i + 1}`);
+                throw new Error(`[${file.name}] ${errorMessage || 'Failed to upload photo ' + (i + 1)}`);
             }
 
             const data = await res.json();
