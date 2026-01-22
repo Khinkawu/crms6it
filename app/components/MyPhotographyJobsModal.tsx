@@ -246,8 +246,15 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                 });
 
                 if (!initResponse.ok) {
-                    const error = await initResponse.json();
-                    throw new Error(error.error || `Failed to initiate upload for ${file.name}`);
+                    let errorMessage;
+                    try {
+                        const error = await initResponse.json();
+                        errorMessage = error.error;
+                    } catch (e) {
+                        const text = await initResponse.text();
+                        errorMessage = `Server Error (${initResponse.status}): ${text.slice(0, 50)}`;
+                    }
+                    throw new Error(errorMessage || `Failed to initiate upload for ${file.name}`);
                 }
                 const { uploadUrl } = await initResponse.json();
 
@@ -330,8 +337,21 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
             });
 
             if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.error || `Failed to upload photo ${i + 1}`);
+                let errorMessage;
+                try {
+                    const error = await res.json();
+                    errorMessage = error.error;
+                } catch (e) {
+                    const text = await res.text();
+                    if (res.status === 413 || text.includes('PAYLOAD_TOO_LARGE')) {
+                        errorMessage = "รูปภาพมีขนาดใหญ่เกินไป (413 Payload Too Large) - กรุณาลดขนาดไฟล์";
+                    } else if (res.status === 504) {
+                        errorMessage = "การเชื่อมต่อหมดเวลา (504 Gateway Timeout) - กรุณาลองใหม่";
+                    } else {
+                        errorMessage = `Upload Error (${res.status}): ${text.substring(0, 100)}`;
+                    }
+                }
+                throw new Error(errorMessage || `Failed to upload photo ${i + 1}`);
             }
 
             const data = await res.json();
@@ -353,8 +373,15 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
         });
 
         if (!postRes.ok) {
-            const error = await postRes.json();
-            throw new Error(error.error || 'Failed to create Facebook post');
+            let errorMessage;
+            try {
+                const error = await postRes.json();
+                errorMessage = error.error;
+            } catch (e) {
+                const text = await postRes.text();
+                errorMessage = `Post Error (${postRes.status}): ${text.substring(0, 100)}`;
+            }
+            throw new Error(errorMessage || 'Failed to create Facebook post');
         }
     };
 
