@@ -6,7 +6,7 @@ import { db, storage, auth } from "../../lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import toast from "react-hot-toast";
 import { PhotographyJob } from "../../types";
-import { compressImage } from "@/utils/imageCompression";
+import { compressImage, compressImageToSize } from "@/utils/imageCompression";
 import { getBangkokDateString } from "@/lib/dateUtils";
 
 interface MyPhotographyJobsModalProps {
@@ -311,14 +311,11 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
             // Always compress for Facebook to stay under Vercel 4.5MB limit
             // (3MB file → ~4MB after base64 → under 4.5MB limit)
             let fileToUpload = file;
-            if (file.size > 3 * 1024 * 1024) {
-                fileToUpload = await compressImage(file, {
-                    maxWidth: 2048,
-                    maxHeight: 2048,
-                    quality: 0.8,
-                    maxSizeMB: 3
-                });
-            }
+            // Use compressImageToSize to GUARANTEE file size is small enough
+            // Vercel Serverless Function Limit: 4.5MB (Body)
+            // Base64 overhead is ~33%. So max safe file size is ~3.3MB.
+            // We set target to 2.5MB to be safe and leave room for JSON overhead.
+            fileToUpload = await compressImageToSize(file, 2.5, 0.7);
 
             const base64 = await fileToBase64(fileToUpload);
 
