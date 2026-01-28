@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Calendar, MapPin, ExternalLink, Save, CheckCircle2, UploadCloud, Image as ImageIcon, Facebook } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { db, storage, auth } from "../../lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import toast from "react-hot-toast";
@@ -82,6 +82,21 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
             document.body.style.overflow = '';
         };
     }, [isOpen]);
+
+    // Auto-close modal when selected job is completed (Fix for Issue #2)
+    useEffect(() => {
+        if (selectedJobId && isOpen && jobs.length > 0) {
+            const currentJob = jobs.find(j => j.id === selectedJobId);
+            // If the selected job was completed (status changed to 'completed'),
+            // it will disappear from the jobs array (which only shows 'assigned' jobs)
+            // or we won't find it anymore
+            if (!currentJob) {
+                // Job was completed and removed from the query results
+                toast.success('งานส่งเสร็จเรียบร้อยแล้ว! 🎉');
+                onClose();
+            }
+        }
+    }, [jobs, selectedJobId, isOpen, onClose]);
 
     const handleLinkChange = (jobId: string, value: string) => {
         setDriveLinks(prev => ({ ...prev, [jobId]: value }));
@@ -304,6 +319,18 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
         const files = jobFiles[jobId];
         if (!files || files.length === 0) throw new Error('ไม่พบไฟล์สำหรับ Facebook');
 
+        // IDEMPOTENCY CHECK: Prevent duplicate Facebook posts (Fix for Issue #1)
+        const jobDocRef = doc(db, "photography_jobs", jobId);
+        const jobSnapshot = await getDoc(jobDocRef);
+        if (jobSnapshot.exists()) {
+            const jobData = jobSnapshot.data();
+            if (jobData.facebookPostId) {
+                console.warn('Facebook post already exists for this job:', jobId);
+                toast.success('งานนี้ได้โพสต์ Facebook ไปแล้ว');
+                return; // Skip posting if already posted
+            }
+        }
+
         const asDraft = facebookDraftMode[jobId] || false;
         const caption = facebookCaption[jobId] || '';
 
@@ -387,6 +414,23 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
 
     // --- Main Submit Handler (One-Click) ---
     const handleSubmit = async (jobId: string) => {
+        // IDEMPOTENCY CHECK 1: Prevent double submission (Fix for Issue #1)
+        if (submittingId === jobId) {
+            console.warn('Submission already in progress for job:', jobId);
+            return;
+        }
+
+        // IDEMPOTENCY CHECK 2: Check if job is already completed (Fix for Issue #1)
+        const job = jobs.find(j => j.id === jobId);
+        if (!job) {
+            toast.error("ไม่พบงานที่ต้องการส่ง");
+            return;
+        }
+        if (job.status === 'completed') {
+            toast.success("งานนี้ส่งเสร็จแล้ว");
+            return;
+        }
+
         // Validation: ต้องมีไฟล์ หรือมี Link อย่างใดอย่างหนึ่ง
         if ((!jobFiles[jobId] || jobFiles[jobId].length === 0) && !driveLinks[jobId]) {
             toast.error("กรุณาเลือกรูปกิจกรรม หรือแนบลิงก์ Google Drive");
@@ -403,6 +447,16 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
 
         const submitPromise = new Promise(async (resolve, reject) => {
             try {
+                // Re-check job status one more time before processing (race condition protection)
+                const jobDocRef = doc(db, "photography_jobs", jobId);
+                const jobSnapshot = await getDoc(jobDocRef);
+                if (!jobSnapshot.exists()) throw new Error("Job not found");
+
+                const currentJobData = jobSnapshot.data();
+                if (currentJobData.status === 'completed') {
+                    throw new Error("งานนี้ถูกส่งไปแล้ว");
+                }
+
                 const job = jobs.find(j => j.id === jobId);
                 if (!job) throw new Error("Job not found");
 
@@ -467,16 +521,26 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                     facebookCaption: facebookCaption[jobId] || null // Save the caption!
                 });
 
-                // Clear State
+                // Clear ALL State (comprehensive cleanup)
                 setCoverFiles(prev => { const n = { ...prev }; delete n[jobId]; return n; });
                 setJobFiles(prev => { const n = { ...prev }; delete n[jobId]; return n; });
                 setIsUploadComplete(prev => { const n = { ...prev }; delete n[jobId]; return n; });
                 setFacebookEnabled(prev => { const n = { ...prev }; delete n[jobId]; return n; });
                 setFacebookSent(prev => { const n = { ...prev }; delete n[jobId]; return n; });
                 setFacebookSelectedOrder(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+                setFacebookCaption(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+                setFacebookDraftMode(prev => { const n = { ...prev }; delete n[jobId]; return n; });
                 setUploadedFileIds(prev => { const n = { ...prev }; delete n[jobId]; return n; });
                 setPreviews(prev => { const n = { ...prev }; delete n[jobId]; return n; });
                 setCoverPreviews(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+                setDriveLinks(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+                setUploadProgress(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+                setIsUploading(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+                setLastClickedIndex(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+                setIsDraggingCover(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+                setIsDraggingFiles(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+
+                // Modal will auto-close via useEffect when the job disappears from the query
 
                 resolve("ส่งงานเรียบร้อยแล้ว!");
             } catch (error: any) {
