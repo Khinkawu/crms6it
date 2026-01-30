@@ -84,10 +84,21 @@ function formatToThaiTime(dateInput: any): string {
 
 function getThaiDateRange(dateStr: string): { start: Timestamp, end: Timestamp } {
     const [year, month, day] = dateStr.split('-').map(Number);
+    
+    // Create Date object for the start of the day in Bangkok time (UTC+7)
+    // We construct UTC date then subtract 7 hours to align with Bangkok midnight
     const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
     const thaiStart = new Date(utcMidnight.getTime() - (7 * 60 * 60 * 1000));
+    
+    // End of day is 23:59:59.999
     const thaiEnd = new Date(thaiStart.getTime() + (24 * 60 * 60 * 1000) - 1);
+    
     return { start: Timestamp.fromDate(thaiStart), end: Timestamp.fromDate(thaiEnd) };
+}
+
+// Check if two time ranges overlap
+function isTimeOverlap(reqStart: number, reqEnd: number, existingStart: number, existingEnd: number): boolean {
+    return reqStart < existingEnd && reqEnd > existingStart;
 }
 
 /**
@@ -533,29 +544,38 @@ export async function checkRoomAvailability(room: string, date: string, startTim
         const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
         const { start, end } = getThaiDateRange(date);
 
+        // Fetch bookings for the ENTIRE day to check for any overlap
+        // We query broadly by day, then filter precisely in memory
         const snapshot = await adminDb.collection('bookings')
             .where('roomId', '==', normalizedRoom)
-            .where('startTime', '>=', start)
-            .where('startTime', '<=', end)
+            .where('startTime', '<=', end) // Starts before end of day
+            .where('endTime', '>=', start)   // Ends after start of day
             .where('status', 'in', ['pending', 'approved', 'confirmed'])
             .get();
 
         const conflicts: any[] = [];
         const [reqStartH, reqStartM] = startTime.split(':').map(Number);
         const [reqEndH, reqEndM] = endTime.split(':').map(Number);
-        const reqStart = reqStartH * 60 + reqStartM;
-        const reqEnd = reqEndH * 60 + reqEndM;
+        
+        // Request time in minutes from start of day
+        const reqStartMins = reqStartH * 60 + reqStartM;
+        const reqEndMins = reqEndH * 60 + reqEndM;
 
         snapshot.forEach((doc) => {
             const b = doc.data();
             const bStart = b.startTime?.toDate ? b.startTime.toDate() : new Date(b.startTime);
             const bEnd = b.endTime?.toDate ? b.endTime.toDate() : new Date(b.endTime);
+            
+            // Convert Firestore timestamp (UTC) to Thai Time
             const thStart = new Date(bStart.getTime() + (7 * 60 * 60 * 1000));
             const thEnd = new Date(bEnd.getTime() + (7 * 60 * 60 * 1000));
-            const bStartM = thStart.getUTCHours() * 60 + thStart.getUTCMinutes();
-            const bEndM = thEnd.getUTCHours() * 60 + thEnd.getUTCMinutes();
+            
+            // Calculate minutes from start of the target day
+            // Note: This assumes bookings don't span multiple days for this check
+            const bStartMins = thStart.getUTCHours() * 60 + thStart.getUTCMinutes();
+            const bEndMins = thEnd.getUTCHours() * 60 + thEnd.getUTCMinutes();
 
-            if (reqStart < bEndM && reqEnd > bStartM) {
+            if (isTimeOverlap(reqStartMins, reqEndMins, bStartMins, bEndMins)) {
                 conflicts.push({
                     title: b.title,
                     timeRange: `${thStart.getUTCHours().toString().padStart(2, '0')}:${thStart.getUTCMinutes().toString().padStart(2, '0')} - ${thEnd.getUTCHours().toString().padStart(2, '0')}:${thEnd.getUTCMinutes().toString().padStart(2, '0')}`,

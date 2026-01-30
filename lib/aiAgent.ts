@@ -279,8 +279,8 @@ async function handleCheckAvailability(params: Record<string, unknown>): Promise
         const displayDate = date.toLowerCase() === 'today' || date === 'วันนี้' ? 'วันนี้' : formatThaiDate(new Date(normalizedDate));
 
         return availability.available
-            ? `${room} ว่างในช่วงเวลา ${startTime}-${endTime} ${displayDate} ค่ะ ✅`
-            : `${room} ไม่ว่างในช่วงเวลาดังกล่าวค่ะ ❌\nที่มีการจอง:\n${availability.conflicts?.map(c => `• ${c.timeRange}: ${c.title || 'ไม่ระบุหัวข้อ'} (${c.requesterName || 'ไม่ระบุชื่อ'})`).join('\n')}`;
+            ? `${getRoomDisplayName(room)} ว่างในช่วงเวลา ${startTime}-${endTime} ${displayDate} ค่ะ ✅`
+            : `${getRoomDisplayName(room)} ไม่ว่างในช่วงเวลาดังกล่าวค่ะ ❌\nที่มีการจอง:\n${availability.conflicts?.map(c => `• ${c.timeRange}: ${c.title || 'ไม่ระบุหัวข้อ'} (${c.requesterName || 'ไม่ระบุชื่อ'})`).join('\n')}`;
     }
     return handleRoomSchedule(params);
 }
@@ -294,13 +294,13 @@ async function handleRoomSchedule(params: Record<string, unknown>): Promise<stri
     if (!room) return `กรุณาระบุห้องที่ต้องการดูตารางด้วยนะคะ (เช่น ขอตารางห้องลีลาวดี วันนี้)`;
 
     const schedule = await getRoomSchedule(room, targetDate);
-    if (schedule.length === 0) return `📅 ตาราง ${room} (${displayDate})\n\n✅ ว่างทั้งวันค่ะ`;
+    if (schedule.length === 0) return `📅 ตาราง ${getRoomDisplayName(room)} (${displayDate})\n\n✅ ว่างทั้งวันค่ะ`;
 
     const scheduleList = schedule.map(booking => {
         return `(${displayDate}) ${booking.startTime} - ${booking.endTime}\n${booking.title || 'ไม่ระบุหัวข้อ'}\nผู้จอง ${booking.requester || 'ไม่ระบุชื่อ'}`;
     }).join('\n\n');
 
-    return `📅 ตาราง ${schedule[0]?.room || room} (${displayDate})\n\n${scheduleList}`;
+    return `📅 ตาราง ${getRoomDisplayName(schedule[0]?.room || room)} (${displayDate})\n\n${scheduleList}`;
 }
 
 async function handleMyWork(userProfile: UserProfile, params?: Record<string, unknown>): Promise<string> {
