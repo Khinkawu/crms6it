@@ -59,7 +59,7 @@ const SIDE_MAPPING: Record<string, string> = {
 // --- Helpers ---
 
 // ฟังก์ชันแปลงรหัสห้องเป็นชื่อไทย
-function getRoomDisplayName(id: string): string {
+export function getRoomDisplayName(id: string): string {
     return ROOM_NAME_DISPLAY[id] || id;
 }
 

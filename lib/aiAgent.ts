@@ -21,7 +21,8 @@ import {
     getRoomSchedule,
     getRepairsForTechnician,
     getPendingBookings,
-    searchKnowledgeBase
+    searchKnowledgeBase,
+    getRoomDisplayName
 } from './agentFunctions';
 import { formatThaiDate } from './dateUtils';
 
