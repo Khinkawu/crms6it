@@ -328,3 +328,32 @@ export async function findAnswerWithAI(query: string, knowledgeItems: any[]): Pr
         return null;
     }
 }
+
+// Check confirmation intent with AI
+export async function checkConfirmationWithAI(userMessage: string, contextDescription: string): Promise<'CONFIRM' | 'CANCEL' | 'OTHER'> {
+    const prompt = `
+    Context: The user is in the middle of a "Repair Ticket Creation" flow.
+    We just asked them: "Confirm this repair ticket? (Description: ${contextDescription})"
+    
+    User replied: "${userMessage}"
+    
+    Task: Classify the user's intent into one of these 3 categories:
+    1. CONFIRM -> They want to proceed (e.g., "yes", "ok", "confirm", "จัดไป", "ลุยเลย", "ซ่อมเลย", "แจ้งซ่อม", "เปิดใบงาน", "ticket", "รับทราบ", "confirm")
+    2. CANCEL -> They want to stop/abort (e.g., "no", "cancel", "ยกเลิก", "ไม่เอาแล้ว", "เดี๋ยวก่อน")
+    3. OTHER -> They are asking a question or changing details (e.g., "room 411", "it's broken", "wait")
+
+    Output ONLY the category name (CONFIRM / CANCEL / OTHER).
+    `;
+
+    try {
+        const result = await geminiModel.generateContent(prompt);
+        const intent = result.response.text().trim().toUpperCase();
+        
+        if (intent.includes('CONFIRM')) return 'CONFIRM';
+        if (intent.includes('CANCEL')) return 'CANCEL';
+        return 'OTHER';
+    } catch (error) {
+        console.error('[Gemini Intent] Error checking confirmation:', error);
+        return 'OTHER'; // Fallback
+    }
+}

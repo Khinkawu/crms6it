@@ -6,7 +6,7 @@
 import { UserProfile, RepairTicket } from '@/types';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import { startAIChat, geminiVisionModel, imageToGenerativePart, rankVideosWithAI, rankPhotosWithAI, findAnswerWithAI } from './gemini';
+import { startAIChat, geminiVisionModel, imageToGenerativePart, rankVideosWithAI, rankPhotosWithAI, findAnswerWithAI, checkConfirmationWithAI } from './gemini';
 import {
     checkRoomAvailability,
     createBookingFromAI,
@@ -746,7 +746,22 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                 return `กรุณาส่งรูป หรือตอบ "ไม่มี" เพื่อข้ามค่ะ`;
             }
             if (repairStep === 'awaiting_intent_confirm') {
-                if (['ใช่', 'ยืนยัน', 'ok', 'ครับ', 'ค่ะ'].some(k => msg.toLowerCase().includes(k))) {
+                // Hybrid Approach:
+                // 1. Fast Path: Check exact keywords (Zero latency)
+                const fastConfirmKeywords = ['ใช่', 'ยืนยัน', 'ok', 'ครับ', 'ค่ะ', 'แจ้งซ่อม', 'ซ่อม', 'เปิดใบงาน', 'ticket', 'confirm', 'จัดไป'];
+                const fastCancelKeywords = ['ยกเลิก', 'ไม่', 'no', 'cancel', 'พอ', 'หยุด'];
+                
+                let intent: 'CONFIRM' | 'CANCEL' | 'OTHER' = 'OTHER';
+
+                if (fastConfirmKeywords.some(k => msg.toLowerCase().includes(k))) intent = 'CONFIRM';
+                else if (fastCancelKeywords.some(k => msg.toLowerCase().includes(k))) intent = 'CANCEL';
+                else {
+                    // 2. AI Path: Ask Gemini to understand context (Smarter but slower)
+                    // Only use if fast path fails
+                    intent = await checkConfirmationWithAI(msg, params.description || 'Repair Ticket');
+                }
+
+                if (intent === 'CONFIRM') {
                     // Check for description first
                     if (!params.description) {
                         context.pendingAction.repairStep = 'awaiting_description';
@@ -761,9 +776,14 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     context.pendingAction.repairStep = 'awaiting_side';
                     await saveConversationContext(lineUserId, context);
                     return `อุปกรณ์อยู่ที่ห้อง ${params.room} ใช่มั้ยคะ? อยู่ฝั่ง ม.ต้น หรือ ม.ปลาย คะ?`;
-                } else {
+                } else if (intent === 'CANCEL') {
                     await clearPendingAction(lineUserId);
                     return 'ยกเลิกการแจ้งซ่อมแล้วค่ะ';
+                } else {
+                    // OTHER -> Maybe user is asking something else? Or providing description?
+                    // For now, assume if not confirm/cancel, treat as potential description update or ask clarification
+                    // But to be safe, let's just ask again gently
+                    return `ขออภัยค่ะ ไม่แน่ใจว่าต้องการ "ยืนยัน" หรือ "ยกเลิก" การแจ้งซ่อมคะ? (หรือพิมพ์ "แจ้งซ่อม" เพื่อยืนยัน)`;
                 }
             }
             if (repairStep === 'awaiting_description') {
