@@ -160,8 +160,8 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                                                 <BoxIcon size={14} /> การจัดห้อง
                                             </p>
                                             <p className="font-bold text-lg text-gray-800 dark:text-gray-200">
-                                                {data.roomLayout === 'u_shape' && 'รูปแบบตัว U'}
-                                                {data.roomLayout === 'classroom' && 'แถวหน้ากระดาน'}
+                                                {data.roomLayout === 'u_shape' && 'จัดโต๊ะรูปแบบตัว U'}
+                                                {data.roomLayout === 'classroom' && 'จัดโต๊ะแถวหน้ากระดาน'}
                                                 {data.roomLayout === 'empty' && 'ไม่ต้องการโต๊ะ - เก้าอี้'}
                                                 {data.roomLayout === 'other' && (
                                                     <span>

@@ -246,7 +246,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                     assigneeIds: [], // Empty initially, Admin assigns later
                     status: 'pending_assign', // New Status: Pending Assignment
                     bookingId: `web-form-${Date.now()}`, // Flag to identify source from booking form
-                    
+
                     // Requester Info
                     requesterName: user?.displayName || user?.email || "Unknown",
                     requesterId: user?.uid,
@@ -254,7 +254,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                     position: formData.position,
                     department: formData.department,
                     phoneNumber: formData.phoneNumber,
-                    
+
                     attachments: validLinks, // Optional links
                     createdAt: serverTimestamp(),
                 });
@@ -618,7 +618,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                 <div>
                                     <h3 className="font-bold text-purple-800 dark:text-purple-300 text-sm">จองคิวช่างภาพ (ไม่ต้องรออนุมัติ)</h3>
                                     <p className="text-xs text-purple-700 dark:text-purple-400 mt-1">
-                                        ระบบจะบันทึกการจองทันที และแจ้งเตือนไปยังทีมช่างภาพเพื่อมอบหมายงานต่อไป
+                                        ระบบจะบันทึกการจอง และแจ้งเตือนไปยัง Admin เพื่อมอบหมายงานต่อไป
                                     </p>
                                 </div>
                             </div>
@@ -631,7 +631,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                         name="title"
                                         value={formData.title}
                                         onChange={handleInputChange}
-                                        placeholder="เช่น งานกีฬาสี , ถ่ายรูปทำบัตรนักเรียน"
+                                        placeholder="เช่น นิเทศการสอน , กิจกรรมการเรียนการสอน"
                                         className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                                         required
                                     />
@@ -668,7 +668,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                         name="location"
                                         value={formData.location}
                                         onChange={handleInputChange}
-                                        placeholder="ระบุห้องหรือสถานที่ (เช่น หอประชุม, ลานโดม)"
+                                        placeholder="ระบุห้องหรือสถานที่ (เช่น ห้อง 126, ห้องคอมพิวเตอร์ 138)"
                                         className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                                         required
                                     />
@@ -681,7 +681,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                         value={formData.description}
                                         onChange={handleInputChange}
                                         rows={4}
-                                        placeholder="รายละเอียดงาน , จำนวนคน , มุมภาพที่ต้องการเป็นพิเศษ"
+                                        placeholder="รายละเอียดงาน"
                                         className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none"
                                     />
                                 </div>

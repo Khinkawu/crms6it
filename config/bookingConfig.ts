@@ -53,8 +53,8 @@ export const DEPARTMENTS = [
 ];
 
 export const ROOM_LAYOUTS = [
-    { id: 'u_shape', label: 'รูปแบบตัว U' },
-    { id: 'classroom', label: 'แถวหน้ากระดาน' },
+    { id: 'u_shape', label: 'จัดโต๊ะรูปแบบตัว U' },
+    { id: 'classroom', label: 'จัดโต๊ะแถวหน้ากระดาน' },
     { id: 'empty', label: 'ไม่ต้องการโต๊ะ - เก้าอี้' },
     { id: 'other', label: 'รูปแบบอื่น ๆ' },
 ];
