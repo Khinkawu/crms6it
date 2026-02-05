@@ -110,7 +110,7 @@ export interface PhotographyJob {
     assigneeNames?: string[]; // Array of Photographer names
     requesterId: string;
     requestName?: string;
-    status: 'assigned' | 'completed' | 'cancelled';
+    status: 'pending_assign' | 'assigned' | 'completed' | 'cancelled';
     driveLink?: string;
     coverImage?: string;
     createdAt: Timestamp;

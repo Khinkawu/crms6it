@@ -119,10 +119,12 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                 .filter(doc => {
                     const data = doc.data();
                     // Only show in agenda if:
-                    // 1. showInAgenda is NOT explicitly false (undefined = show by default for old jobs)
-                    // 2. AND it's not from a booking (to avoid duplicates with booking events)
+                    // 1. showInAgenda is NOT explicitly false
+                    // 2. AND (it's not linked to a booking ID OR it is a 'web-form-' direct queue job)
                     const shouldShowInAgenda = data.showInAgenda !== false;
-                    return shouldShowInAgenda && !data.bookingId;
+                    const isWebForm = data.bookingId && data.bookingId.startsWith('web-form-');
+                    
+                    return shouldShowInAgenda && (!data.bookingId || isWebForm);
                 })
                 .map(doc => {
                     const data = doc.data();

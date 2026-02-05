@@ -239,6 +239,8 @@ export default function PhotographyManagement() {
 
     // Filter jobs
     const filteredJobs = jobs
+        // Hide pending_assign jobs from main list (they are in the "Assign Queue" modal)
+        .filter(job => job.status !== 'pending_assign')
         .filter(job => filterStatus === 'all' || job.status === filterStatus)
         .filter(job => {
             if (filterSource === 'all') return true;
@@ -672,7 +674,7 @@ function EditPhotographyJobModal({ isOpen, onClose, job, photographers }: EditPh
         endTime: '',
         assigneeIds: [] as string[],
         driveLink: '',
-        status: 'assigned' as 'assigned' | 'completed' | 'cancelled',
+        status: 'assigned' as 'pending_assign' | 'assigned' | 'completed' | 'cancelled',
         coverImage: '',
         showInAgenda: true
     });

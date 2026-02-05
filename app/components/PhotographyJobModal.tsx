@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Calendar, Clock, MapPin, User, Save, Check, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { collection, addDoc, serverTimestamp, getDocs, getDoc, doc, query, where } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, getDocs, getDoc, doc, query, where, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import { UserProfile } from "@/types";
@@ -28,6 +28,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
     const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showInAgenda, setShowInAgenda] = useState(true); // Default: show in calendar
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     // Internal photographers state for when prop is not provided
     const [internalPhotographers, setInternalPhotographers] = useState<UserProfile[]>([]);
@@ -64,39 +65,56 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
         fetchPhotographers();
     }, [isOpen, externalPhotographers]);
 
+    const [targetJobId, setTargetJobId] = useState<string | null>(null); // Track if we are updating an existing job
+
     // Import from Booking - extend range to 6 months to include more bookings
     const { events: bookings, loading: bookingsLoading } = useBookings({ filterApprovedOnly: true, monthsRange: 6 });
-    const [selectedBookingId, setSelectedBookingId] = useState("");
+    const [selectedSourceId, setSelectedSourceId] = useState("");
 
     // Track which bookings already have photography jobs (assigned or completed)
     const [existingJobBookingIds, setExistingJobBookingIds] = useState<Set<string>>(new Set());
 
-    // Fetch existing photography jobs to exclude from booking dropdown
+    // New: Track pending photography jobs (from queue)
+    const [pendingQueueJobs, setPendingQueueJobs] = useState<any[]>([]);
+
+    // Fetch existing photography jobs to exclude from booking dropdown AND find pending queue jobs
     useEffect(() => {
         if (!isOpen) return;
 
-        const fetchExistingJobs = async () => {
+        const fetchJobsData = async () => {
             try {
                 const jobsRef = collection(db, "photography_jobs");
-                // Fetch all jobs that are assigned or completed
+
                 const snapshot = await getDocs(jobsRef);
+
                 const usedBookingIds = new Set<string>();
+                const pendingQueue: any[] = [];
+
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    // If job was created from a booking, we can track by title+date combo or a bookingId field
-                    // For now, we'll exclude based on title matching
-                    if (data.status === 'assigned' || data.status === 'completed') {
-                        // Store a unique key: title + date
+
+                    // 1. Track used bookings
+                    if (data.bookingId) {
+                        usedBookingIds.add(data.bookingId);
+                    } else if (data.status === 'assigned' || data.status === 'completed') {
                         const dateStr = data.startTime?.toDate ? data.startTime.toDate().toISOString().split('T')[0] : '';
                         usedBookingIds.add(`${data.title}_${dateStr}`);
                     }
+
+                    // 2. Find pending queue jobs
+                    if (data.status === 'pending_assign') {
+                        pendingQueue.push({ id: doc.id, ...data });
+                    }
                 });
+
                 setExistingJobBookingIds(usedBookingIds);
+                setPendingQueueJobs(pendingQueue);
+
             } catch (error) {
-                console.error("Error fetching existing jobs:", error);
+                console.error("Error fetching jobs data:", error);
             }
         };
-        fetchExistingJobs();
+        fetchJobsData();
     }, [isOpen]);
 
     // Filter bookings that don't have jobs yet
@@ -104,21 +122,46 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
         const bookingTitle = booking.title.split(' (')[0];
         const bookingDate = format(booking.start, 'yyyy-MM-dd');
         const bookingKey = `${bookingTitle}_${bookingDate}`;
-        // Filter: Must not have existing job AND must have requested a photographer
-        return !existingJobBookingIds.has(bookingKey) && booking.needsPhotographer;
+
+        // Filter: Must not have existing job AND must have requested a photographer (or we allow any booking?)
+        // Let's allow any booking that requested photographer OR doesn't have a job yet
+        // Check both ID and Key to be safe
+        return !existingJobBookingIds.has(booking.id) && !existingJobBookingIds.has(bookingKey) && booking.needsPhotographer;
     });
 
-    const handleImportBooking = (bookingId: string) => {
-        setSelectedBookingId(bookingId);
-        const booking = availableBookings.find(b => b.id === bookingId);
+    const handleImportSource = (sourceId: string) => {
+        setSelectedSourceId(sourceId);
+        setTargetJobId(null); // Reset target job ID (default to create new)
+
+        // Case 1: Check if it's a Pending Queue Job
+        const queueJob = pendingQueueJobs.find(j => j.id === sourceId);
+        if (queueJob) {
+            setTitle(queueJob.title);
+            setLocation(queueJob.location);
+
+            const start = queueJob.startTime?.toDate ? queueJob.startTime.toDate() : new Date();
+            const end = queueJob.endTime?.toDate ? queueJob.endTime.toDate() : new Date();
+
+            setDate(format(start, 'yyyy-MM-dd'));
+            setStartTime(format(start, 'HH:mm'));
+            setEndTime(format(end, 'HH:mm'));
+            setDescription(queueJob.description || "");
+
+            setTargetJobId(sourceId); // IMPORTANT: We will UPDATE this doc, not create new
+            toast.success("ดึงข้อมูลจากคิวจองเรียบร้อย");
+            return;
+        }
+
+        // Case 2: Check if it's a Room Booking
+        const booking = availableBookings.find(b => b.id === sourceId);
         if (booking) {
-            setTitle(booking.title.split(' (')[0]);; // Remove room name if appended in hook
+            setTitle(booking.title.split(' (')[0]);
             setLocation(booking.roomName);
             setDate(format(booking.start, 'yyyy-MM-dd'));
             setStartTime(format(booking.start, 'HH:mm'));
             setEndTime(format(booking.end, 'HH:mm'));
             setDescription(`ผู้จอง: ${booking.requesterName}`);
-            toast.success("นำเข้าข้อมูลเรียบร้อย");
+            toast.success("นำเข้าข้อมูลจากการจองห้องเรียบร้อย");
         }
     };
 
@@ -162,16 +205,24 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                 requesterId,
                 status: 'assigned',
                 createdAt: serverTimestamp(),
-                isManualEntry: !selectedBookingId,
+                isManualEntry: !selectedSourceId,
                 showInAgenda, // Display in calendar agenda
             };
 
             // Only add bookingId if it exists (Firebase doesn't accept undefined)
-            if (selectedBookingId) {
-                jobData.bookingId = selectedBookingId;
+            if (selectedSourceId && !targetJobId) {
+                // If it's a new job from a booking source, link it
+                jobData.bookingId = selectedSourceId;
             }
 
-            await addDoc(collection(db, "photography_jobs"), jobData);
+            if (targetJobId) {
+                // UPDATE existing job (Assigning a pending queue job)
+                // Force status to 'assigned' when assigning
+                await updateDoc(doc(db, "photography_jobs", targetJobId), { ...jobData, status: 'assigned' });
+            } else {
+                // CREATE new job (Manual or from Room Booking)
+                await addDoc(collection(db, "photography_jobs"), jobData);
+            }
 
             // Send LINE notifications to all assigned photographers
             for (const photographer of selectedPhotographers) {
@@ -240,7 +291,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
             setEndTime("");
             setDescription("");
             setAssigneeIds([]);
-            setSelectedBookingId(""); // Reset to prevent stale bookingId on next job
+            setSelectedSourceId(""); // Reset to prevent stale bookingId on next job
             setShowInAgenda(true); // Reset to default
         } catch (error) {
             console.error("Error creating job:", error);
@@ -266,6 +317,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
                             className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-2xl shadow-xl overflow-hidden pointer-events-auto flex flex-col max-h-[90vh]"
                         >
                             <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
@@ -341,23 +393,96 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/50">
                                     <label className="block text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
                                         <Calendar size={16} />
-                                        นำเข้าข้อมูลจากการจองห้อง (ถ้ามี)
+                                        นำเข้าข้อมูล (จองห้อง / คิวรอจ่ายงาน)
                                     </label>
-                                    <select
-                                        value={selectedBookingId}
-                                        onChange={(e) => handleImportBooking(e.target.value)}
-                                        className="w-full px-4 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="">-- เลือกรายการจองเพื่อเติมข้อมูลอัตโนมัติ --</option>
-                                        {availableBookings
-                                            .filter(b => isAfter(b.start, startOfDay(new Date())) || format(b.start, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
-                                            .sort((a, b) => a.start.getTime() - b.start.getTime())
-                                            .map(b => (
-                                                <option key={b.id} value={b.id}>
-                                                    {format(b.start, 'dd/MM/yy')} | {b.title}
-                                                </option>
-                                            ))}
-                                    </select>
+                                    <div className="relative z-20">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-left text-sm focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
+                                        >
+                                            <span className="truncate">
+                                                {selectedSourceId ? (
+                                                    (() => {
+                                                        const qItem = pendingQueueJobs.find(j => j.id === selectedSourceId);
+                                                        if (qItem) return `📸 ${qItem.title}`;
+
+                                                        const bItem = availableBookings.find(b => b.id === selectedSourceId);
+                                                        if (bItem) return `🏢 ${format(bItem.start, 'dd/MM/yy')} | ${bItem.title}`;
+
+                                                        return "เลือกรายการ...";
+                                                    })()
+                                                ) : "-- เลือกรายการเพื่อเติมข้อมูล --"}
+                                            </span>
+                                            <Calendar size={16} className="text-gray-400 flex-shrink-0 ml-2" />
+                                        </button>
+
+                                        <AnimatePresence>
+                                            {isDropdownOpen && (
+                                                <motion.div
+                                                    initial={{ height: 0, opacity: 0 }}
+                                                    animate={{ height: 'auto', opacity: 1 }}
+                                                    exit={{ height: 0, opacity: 0 }}
+                                                    className="overflow-hidden"
+                                                >
+                                                    <div className="mt-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 shadow-inner max-h-60 overflow-y-auto">
+                                                        {/* Queue Items */}
+                                                        {pendingQueueJobs.length > 0 && (
+                                                            <div className="py-1">
+                                                                <div className="px-3 py-1.5 text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50">
+                                                                    คิวจองช่างภาพ ({pendingQueueJobs.length})
+                                                                </div>
+                                                                {pendingQueueJobs.map(job => (
+                                                                    <button
+                                                                        key={job.id}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            handleImportSource(job.id);
+                                                                            setIsDropdownOpen(false);
+                                                                        }}
+                                                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 truncate transition-colors"
+                                                                        title={job.title}
+                                                                    >
+                                                                        📸 {job.title}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Booking Items */}
+                                                        {availableBookings.length > 0 && (
+                                                            <div className="py-1">
+                                                                <div className="px-3 py-1.5 text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50">
+                                                                    การจองห้อง ({availableBookings.length})
+                                                                </div>
+                                                                {availableBookings
+                                                                    .filter(b => isAfter(b.start, startOfDay(new Date())) || format(b.start, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
+                                                                    .sort((a, b) => a.start.getTime() - b.start.getTime())
+                                                                    .map(b => (
+                                                                        <button
+                                                                            key={b.id}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                handleImportSource(b.id);
+                                                                                setIsDropdownOpen(false);
+                                                                            }}
+                                                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 truncate transition-colors"
+                                                                            title={`${format(b.start, 'dd/MM/yy')} | ${b.title}`}
+                                                                        >
+                                                                            🏢 <span className="font-medium">{format(b.start, 'dd/MM/yy')}</span> | {b.title}
+                                                                        </button>
+                                                                    ))}
+                                                            </div>
+                                                        )}
+
+                                                        {pendingQueueJobs.length === 0 && availableBookings.length === 0 && (
+                                                            <div className="px-4 py-3 text-sm text-gray-500 text-center">ไม่มีรายการ</div>
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
                                 </div>
 
                                 <div>

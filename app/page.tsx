@@ -148,7 +148,7 @@ export default function Dashboard() {
                 <Widget className="lg:col-span-4 h-full" title="เริ่มต้นใช้งาน" icon={Sparkles}>
                     <div className="grid grid-cols-2 gap-3">
                         <QuickAction icon={Wrench} title="แจ้งซ่อม" description="แจ้งปัญหาอุปกรณ์" href="/repair" gradient="from-orange-500 to-red-500" delay={0.1} />
-                        <QuickAction icon={CalendarIcon} title="จองห้อง" description="จองห้องประชุม" href="/booking" gradient="from-blue-500 to-cyan-500" delay={0.15} />
+                        <QuickAction icon={CalendarIcon} title="จองห้อง / คิว" description="จองห้องหรือคิวช่างภาพ" href="/booking" gradient="from-blue-500 to-cyan-500" delay={0.15} />
                         <QuickAction icon={Camera} title="ภาพกิจกรรม" description="ประมวลภาพกิจกรรม" href="/gallery" gradient="from-amber-500 to-yellow-500" delay={0.2} />
                         <QuickAction icon={Video} title="คลังวิดีโอ" description="รวมวิดีโอกิจกรรม" href="/video-gallery" gradient="from-red-500 to-pink-500" delay={0.25} />
 
