@@ -36,7 +36,7 @@ export default function Dashboard() {
     const router = useRouter();
 
     // Custom hooks for data fetching
-    const { visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true });
+    const { events, visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true });
     const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true });
     const { stats: repairStats } = useRepairTickets();
 
@@ -120,7 +120,7 @@ export default function Dashboard() {
         document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    const todayActivities = visibleEvents.filter(e => {
+    const todayActivities = events.filter(e => {
         const today = new Date();
         const isToday = e.start.toDateString() === today.toDateString();
 

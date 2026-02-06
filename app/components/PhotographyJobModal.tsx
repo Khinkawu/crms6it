@@ -117,17 +117,21 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
         fetchJobsData();
     }, [isOpen]);
 
-    // Filter bookings that don't have jobs yet
-    const availableBookings = bookings.filter(booking => {
-        const bookingTitle = booking.title.split(' (')[0];
-        const bookingDate = format(booking.start, 'yyyy-MM-dd');
-        const bookingKey = `${bookingTitle}_${bookingDate}`;
+    // Filter bookings that don't have jobs yet AND are today or in the future
+    const availableBookings = bookings
+        .filter(booking => {
+            const bookingTitle = booking.title.split(' (')[0];
+            const bookingDate = format(booking.start, 'yyyy-MM-dd');
+            const bookingKey = `${bookingTitle}_${bookingDate}`;
 
-        // Filter: Must not have existing job AND must have requested a photographer (or we allow any booking?)
-        // Let's allow any booking that requested photographer OR doesn't have a job yet
-        // Check both ID and Key to be safe
-        return !existingJobBookingIds.has(booking.id) && !existingJobBookingIds.has(bookingKey) && booking.needsPhotographer;
-    });
+            // Filter: Must not have existing job AND must have requested a photographer
+            // Check both ID and Key to be safe
+            return !existingJobBookingIds.has(booking.id) && !existingJobBookingIds.has(bookingKey) && booking.needsPhotographer;
+        })
+        // Filter: Only show today or future bookings
+        .filter(b => isAfter(b.start, startOfDay(new Date())) || format(b.start, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
+        // Sort by date ascending
+        .sort((a, b) => a.start.getTime() - b.start.getTime());
 
     const handleImportSource = (sourceId: string) => {
         setSelectedSourceId(sourceId);
@@ -455,27 +459,32 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                                                                 <div className="px-3 py-1.5 text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50">
                                                                     การจองห้อง ({availableBookings.length})
                                                                 </div>
-                                                                {availableBookings
-                                                                    .filter(b => isAfter(b.start, startOfDay(new Date())) || format(b.start, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd'))
-                                                                    .sort((a, b) => a.start.getTime() - b.start.getTime())
-                                                                    .map(b => (
-                                                                        <button
-                                                                            key={b.id}
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                handleImportSource(b.id);
-                                                                                setIsDropdownOpen(false);
-                                                                            }}
-                                                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 truncate transition-colors"
-                                                                            title={`${format(b.start, 'dd/MM/yy')} | ${b.title}`}
-                                                                        >
-                                                                            🏢 <span className="font-medium">{format(b.start, 'dd/MM/yy')}</span> | {b.title}
-                                                                        </button>
-                                                                    ))}
+                                                                {availableBookings.map(b => (
+                                                                    <button
+                                                                        key={b.id}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            handleImportSource(b.id);
+                                                                            setIsDropdownOpen(false);
+                                                                        }}
+                                                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 truncate transition-colors"
+                                                                        title={`${format(b.start, 'dd/MM/yy')} | ${b.title}`}
+                                                                    >
+                                                                        🏢 <span className="font-medium">{format(b.start, 'dd/MM/yy')}</span> | {b.title}
+                                                                    </button>
+                                                                ))}
                                                             </div>
                                                         )}
 
-                                                        {pendingQueueJobs.length === 0 && availableBookings.length === 0 && (
+                                                        {/* Loading State */}
+                                                        {bookingsLoading && (
+                                                            <div className="px-4 py-3 text-sm text-blue-500 text-center flex items-center justify-center gap-2">
+                                                                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                                                กำลังโหลดรายการจอง...
+                                                            </div>
+                                                        )}
+
+                                                        {!bookingsLoading && pendingQueueJobs.length === 0 && availableBookings.length === 0 && (
                                                             <div className="px-4 py-3 text-sm text-gray-500 text-center">ไม่มีรายการ</div>
                                                         )}
                                                     </div>
