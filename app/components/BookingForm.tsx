@@ -213,6 +213,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                     roomLayoutDetails: formData.roomLayout === 'other' ? formData.roomLayoutDetails : '',
                     micCount: formData.equipment.some(e => e.includes("ไมค์")) ? formData.micCount : "",
                     attachments: validLinks,
+                    needsPhotographer: formData.needsPhotographer,
                     status: 'pending',
                     createdAt: serverTimestamp(),
                 });
@@ -234,7 +235,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                 toast.loading("กำลังบันทึกการจองคิว...", { id: toastId });
 
                 // Construct location string with Zone prefix
-                const zonePrefix = formData.roomZone === 'junior_high' ? '[ม.ต้น] ' : '[ม.ปลาย] ';
+                const zonePrefix = formData.roomZone === 'junior_high' ? '[ม.ต้น] ' : formData.roomZone === 'senior_high' ? '[ม.ปลาย] ' : '[นอกสถานที่] ';
                 const fullLocation = zonePrefix + formData.location;
 
                 await addDoc(collection(db, "photography_jobs"), {
@@ -533,7 +534,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                     name="ownEquipment"
                                     value={formData.ownEquipment}
                                     onChange={handleInputChange}
-                                    placeholder="อื่น ๆ (ถ้ามี) , หรืออุปกรณ์ที่นำมาเอง"
+                                    placeholder="อื่น ๆ (ถ้ามี)"
                                     className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                             </div>
@@ -608,6 +609,40 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                     )}
                                 </div>
                             </div>
+
+                            {/* Needs Photographer Toggle */}
+                            <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                <div className="flex items-center gap-3">
+                                    <Camera size={20} className="text-purple-500" />
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white">ต้องการช่างภาพ</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">สำหรับถ่ายภาพ/วิดีโอในกิจกรรม</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        setFormData(prev => ({ ...prev, needsPhotographer: !prev.needsPhotographer }));
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        setFormData(prev => ({ ...prev, needsPhotographer: !prev.needsPhotographer }));
+                                    }}
+                                    className={`
+                                        relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2
+                                        ${formData.needsPhotographer ? 'bg-purple-600' : 'bg-gray-200 dark:bg-gray-700'}
+                                    `}
+                                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                                >
+                                    <span
+                                        className={`
+                                            inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                                            ${formData.needsPhotographer ? 'translate-x-6' : 'translate-x-1'}
+                                        `}
+                                    />
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         /* ================= PHOTO JOB FORM ================= */
@@ -661,6 +696,17 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                                 className="text-purple-600 focus:ring-purple-500"
                                             />
                                             <span className="text-sm text-gray-700 dark:text-gray-300">ฝั่ง ม.ปลาย</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="roomZone"
+                                                value="offsite"
+                                                checked={formData.roomZone === "offsite"}
+                                                onChange={handleInputChange}
+                                                className="text-purple-600 focus:ring-purple-500"
+                                            />
+                                            <span className="text-sm text-gray-700 dark:text-gray-300">นอกสถานที่</span>
                                         </label>
                                     </div>
                                     <input
@@ -728,9 +774,12 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                     {bookingType === 'room' && (
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
-                                <label className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <Paperclip size={18} className="text-blue-500" /> เอกสารแนบ
-                                </label>
+                                <div>
+                                    <label className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <Paperclip size={18} className="text-blue-500" /> เอกสารแนบ
+                                    </label>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">สำหรับให้เจ้าหน้าที่โสตเปิดในการประชุม/อบรม/กิจกรรม</p>
+                                </div>
 
                                 {/* iOS Toggle Switch */}
                                 <div className="flex items-center gap-3">
