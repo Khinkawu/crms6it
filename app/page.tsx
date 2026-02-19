@@ -35,10 +35,11 @@ export default function Dashboard() {
     const { user, role, isPhotographer, loading, getDisplayName } = useAuth();
     const router = useRouter();
 
-    // Custom hooks for data fetching
-    const { events, visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true });
-    const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true });
-    const { stats: repairStats } = useRepairTickets();
+    // Custom hooks for data fetching — only enable after auth settles
+    const isReady = !!user && !loading;
+    const { events, visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true, enabled: isReady });
+    const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true, enabled: isReady });
+    const { stats: repairStats } = useRepairTickets({ enabled: isReady, fetchInventory: false });
 
     // Modal state
     const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
@@ -53,7 +54,7 @@ export default function Dashboard() {
 
     // Fetch pending photography jobs count for photographer
     useEffect(() => {
-        if (!user || !isPhotographer) return;
+        if (!isReady || !isPhotographer) return;
 
         const q = query(
             collection(db, "photography_jobs"),
@@ -75,15 +76,16 @@ export default function Dashboard() {
         });
 
         return () => unsubscribe();
-    }, [user, isPhotographer]);
+    }, [user, isPhotographer, isReady]);
 
     // Fetch Completed Photography Jobs
     useEffect(() => {
+        if (!isReady) return;
         const q = query(
             collection(db, "photography_jobs"),
             where("status", "==", "completed"),
             orderBy("endTime", "desc"),
-            limit(4)
+            limit(5)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -95,7 +97,7 @@ export default function Dashboard() {
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [isReady]);
 
     // Initial load
     useEffect(() => {

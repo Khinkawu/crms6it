@@ -19,7 +19,7 @@ export default function PhotoGalleryList({ photoJobs }: PhotoGalleryListProps) {
     }
 
     return (
-        <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 gap-3">
             {photoJobs.slice(0, 5).map((job) => (
                 <div
                     key={job.id}

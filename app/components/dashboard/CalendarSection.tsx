@@ -183,7 +183,7 @@ export default function CalendarSection({
     };
 
     return (
-        <div className="lg:col-span-2 bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl rounded-3xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden p-5 h-[520px]">
+        <div className="lg:col-span-2 bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl rounded-3xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden p-5 h-full min-h-[520px]">
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">

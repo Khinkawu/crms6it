@@ -20,6 +20,7 @@ export interface ActivityLog {
 interface UseActivityLogsOptions {
     limitCount?: number;
     filterRepairOnly?: boolean;
+    enabled?: boolean; // If false, skip Firestore queries (wait for auth)
 }
 
 interface UseActivityLogsReturn {
@@ -33,12 +34,13 @@ interface UseActivityLogsReturn {
  * @returns Activity logs and loading state
  */
 export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivityLogsReturn {
-    const { limitCount = 10, filterRepairOnly = true } = options;
+    const { limitCount = 10, filterRepairOnly = true, enabled = true } = options;
 
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!enabled) { setLoading(false); return; }
         const q = query(
             collection(db, "activities"),
             orderBy("timestamp", "desc"),
@@ -63,7 +65,7 @@ export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivi
         });
 
         return () => unsubscribe();
-    }, [limitCount, filterRepairOnly]);
+    }, [limitCount, filterRepairOnly, enabled]);
 
     return { activities, loading };
 }
