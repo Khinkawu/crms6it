@@ -8,7 +8,7 @@ import {
     Wrench, Package, Clock,
     AlertCircle, Users, Camera, Image as ImageIcon, Video
 } from "lucide-react";
-import { collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { PhotographyJob } from "../types";
 
@@ -37,9 +37,9 @@ export default function Dashboard() {
 
     // Custom hooks for data fetching — only enable after auth settles
     const isReady = !!user && !loading;
-    const { events, visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true, enabled: isReady });
-    const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true, enabled: isReady });
-    const { stats: repairStats, loading: statsLoading } = useRepairTickets({ enabled: isReady, fetchInventory: false });
+    const { events, visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true, enabled: isReady, realtime: false });
+    const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true, enabled: isReady, realtime: false });
+    const { stats: repairStats, loading: statsLoading } = useRepairTickets({ enabled: isReady, fetchInventory: false, realtime: false });
 
     // Modal state
     const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
@@ -62,10 +62,9 @@ export default function Dashboard() {
             where("status", "==", "assigned")
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        getDocs(q).then(snapshot => {
             const count = snapshot.size;
             setPendingPhotoJobsCount(count);
-
             if ('setAppBadge' in navigator) {
                 if (count > 0) {
                     (navigator as any).setAppBadge(count).catch(() => { });
@@ -74,8 +73,6 @@ export default function Dashboard() {
                 }
             }
         });
-
-        return () => unsubscribe();
     }, [user, isPhotographer, isReady]);
 
     // Fetch Completed Photography Jobs
@@ -88,16 +85,11 @@ export default function Dashboard() {
             limit(5)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const jobs: PhotographyJob[] = [];
-            snapshot.forEach((doc) => {
-                jobs.push({ id: doc.id, ...doc.data() } as PhotographyJob);
-            });
+        getDocs(q).then(snapshot => {
+            const jobs: PhotographyJob[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PhotographyJob));
             setPhotoJobs(jobs);
             setPhotoJobsLoading(false);
-        });
-
-        return () => unsubscribe();
+        }).catch(() => setPhotoJobsLoading(false));
     }, [isReady]);
 
     // Initial load

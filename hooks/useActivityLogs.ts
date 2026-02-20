@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, onSnapshot, orderBy, limit, where } from "firebase/firestore";
+import { collection, query, onSnapshot, getDocs, orderBy, limit, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { LogAction } from "../types";
 
@@ -21,6 +21,7 @@ interface UseActivityLogsOptions {
     limitCount?: number;
     filterRepairOnly?: boolean;
     enabled?: boolean; // If false, skip Firestore queries (wait for auth)
+    realtime?: boolean; // If false, use getDocs instead of onSnapshot
 }
 
 interface UseActivityLogsReturn {
@@ -34,7 +35,7 @@ interface UseActivityLogsReturn {
  * @returns Activity logs and loading state
  */
 export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivityLogsReturn {
-    const { limitCount = 10, filterRepairOnly = true, enabled = true } = options;
+    const { limitCount = 10, filterRepairOnly = true, enabled = true, realtime = true } = options;
 
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
@@ -47,25 +48,32 @@ export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivi
             limit(limitCount)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            let logs = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as ActivityLog[];
-
+        const processSnapshot = (docs: any[]) => {
+            let logs = docs.map(doc => ({ id: doc.id, ...doc.data() })) as ActivityLog[];
             if (filterRepairOnly) {
                 logs = logs.filter(log => log.action === 'repair' || log.action === 'repair_update');
             }
-
             setActivities(logs);
             setLoading(false);
+        };
+
+        if (!realtime) {
+            getDocs(q).then(snapshot => processSnapshot(snapshot.docs)).catch(err => {
+                console.error("[useActivityLogs]", err);
+                setLoading(false);
+            });
+            return;
+        }
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            processSnapshot(snapshot.docs);
         }, (error) => {
             console.error("[useActivityLogs]", error);
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [limitCount, filterRepairOnly, enabled]);
+    }, [limitCount, filterRepairOnly, enabled, realtime]);
 
     return { activities, loading };
 }

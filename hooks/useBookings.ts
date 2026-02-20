@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { collection, query, onSnapshot, where, Timestamp } from "firebase/firestore";
+import { collection, query, onSnapshot, getDocs, where, Timestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { View, Views } from "react-big-calendar";
 import { startOfDay, startOfMonth, endOfMonth, subMonths, addMonths, isSameDay } from "date-fns";
@@ -24,6 +24,7 @@ interface UseBookingsOptions {
     monthsRange?: number; // How many months before and after to fetch
     includePhotographyJobs?: boolean; // New: include photography jobs with showInAgenda=true
     enabled?: boolean; // If false, skip Firestore queries (wait for auth)
+    realtime?: boolean; // If false, use getDocs instead of onSnapshot
 }
 
 interface UseBookingsReturn {
@@ -44,7 +45,7 @@ interface UseBookingsReturn {
  * @returns Booking events and calendar state
  */
 export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn {
-    const { filterApprovedOnly = true, monthsRange = 1, includePhotographyJobs = false, enabled = true } = options;
+    const { filterApprovedOnly = true, monthsRange = 1, includePhotographyJobs = false, enabled = true, realtime = true } = options;
 
     const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
     const [photographyEvents, setPhotographyEvents] = useState<BookingEvent[]>([]);
@@ -67,8 +68,8 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
             where("startTime", "<=", Timestamp.fromDate(endRange))
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            let loadedEvents: BookingEvent[] = snapshot.docs.map(doc => {
+        const processBookings = (docs: any[]) => {
+            let loadedEvents: BookingEvent[] = docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
@@ -83,18 +84,21 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                     eventType: 'booking' as const
                 };
             });
-
-            // Filter approved only if option is set
             if (filterApprovedOnly) {
                 loadedEvents = loadedEvents.filter(event => event.status === 'approved');
             }
-
             setBookingEvents(loadedEvents);
             setBookingsLoading(false);
-        });
+        };
 
+        if (!realtime) {
+            getDocs(q).then(snapshot => processBookings(snapshot.docs)).catch(() => setBookingsLoading(false));
+            return;
+        }
+
+        const unsubscribe = onSnapshot(q, (snapshot) => processBookings(snapshot.docs));
         return () => unsubscribe();
-    }, [filterApprovedOnly, monthsRange, enabled]);
+    }, [filterApprovedOnly, monthsRange, enabled, realtime]);
 
     // Fetch photography jobs (only if includePhotographyJobs is true)
     useEffect(() => {
@@ -115,22 +119,18 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
             where("startTime", "<=", Timestamp.fromDate(endRange))
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const loadedEvents: BookingEvent[] = snapshot.docs
+        const processPhotoJobs = (docs: any[]) => {
+            const loadedEvents: BookingEvent[] = docs
                 .filter(doc => {
                     const data = doc.data();
-                    // Only show in agenda if:
-                    // 1. showInAgenda is NOT explicitly false
-                    // 2. AND (it's not linked to a booking ID OR it is a 'web-form-' direct queue job)
                     const shouldShowInAgenda = data.showInAgenda !== false;
                     const isWebForm = data.bookingId && data.bookingId.startsWith('web-form-');
-
                     return shouldShowInAgenda && (!data.bookingId || isWebForm);
                 })
                 .map(doc => {
                     const data = doc.data();
                     return {
-                        id: `photo_${doc.id}`, // Prefix to avoid ID collision
+                        id: `photo_${doc.id}`,
                         title: `📸 ${data.title}`,
                         start: data.startTime.toDate(),
                         end: data.endTime.toDate(),
@@ -141,16 +141,25 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                         eventType: 'photography' as const
                     };
                 });
-
             setPhotographyEvents(loadedEvents);
             setPhotographyLoading(false);
-        }, (error) => {
+        };
+
+        if (!realtime) {
+            getDocs(q).then(snapshot => processPhotoJobs(snapshot.docs)).catch(err => {
+                console.error('[useBookings] Photography jobs query ERROR:', err);
+                setPhotographyLoading(false);
+            });
+            return;
+        }
+
+        const unsubscribe = onSnapshot(q, (snapshot) => processPhotoJobs(snapshot.docs), (error) => {
             console.error('[useBookings] Photography jobs query ERROR:', error);
             setPhotographyLoading(false);
         });
 
         return () => unsubscribe();
-    }, [includePhotographyJobs, monthsRange, enabled]);
+    }, [includePhotographyJobs, monthsRange, enabled, realtime]);
 
     // Merge booking and photography events
     const events = useMemo(() => {

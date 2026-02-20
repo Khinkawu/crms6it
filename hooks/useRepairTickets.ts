@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot, limit, where } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, getDocs, limit, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { RepairTicket, RepairStatus, Product } from "../types";
 export { getThaiStatus, getStatusColor } from '../utils/repairHelpers';
@@ -12,6 +12,7 @@ interface UseRepairTicketsOptions {
     dateRange?: { start: Date | null; end: Date | null };
     enabled?: boolean; // If false, skip Firestore queries (wait for auth)
     fetchInventory?: boolean; // If false, skip inventory fetch (dashboard doesn't need it)
+    realtime?: boolean; // If false, use getDocs instead of onSnapshot
 }
 
 interface UseRepairTicketsReturn {
@@ -32,7 +33,7 @@ interface UseRepairTicketsReturn {
  * Includes filtering, stats calculation, and spare parts inventory
  */
 export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepairTicketsReturn {
-    const { filterStatus = 'all', searchQuery = '', dateRange, enabled = true, fetchInventory = true } = options;
+    const { filterStatus = 'all', searchQuery = '', dateRange, enabled = true, fetchInventory = true, realtime = true } = options;
 
     const [tickets, setTickets] = useState<RepairTicket[]>([]);
     const [inventory, setInventory] = useState<Product[]>([]);
@@ -41,23 +42,27 @@ export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepa
     // Fetch repair tickets
     useEffect(() => {
         if (!enabled) { setLoading(false); return; }
-        // Limit to recent 100 tickets to reduce Firestore reads
         const q = query(
             collection(db, "repair_tickets"),
             orderBy("createdAt", "desc"),
             limit(100)
         );
+
+        if (!realtime) {
+            getDocs(q).then(snapshot => {
+                setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RepairTicket)));
+                setLoading(false);
+            }).catch(() => setLoading(false));
+            return;
+        }
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const ticketsList: RepairTicket[] = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            } as RepairTicket));
-            setTickets(ticketsList);
+            setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RepairTicket)));
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [enabled]);
+    }, [enabled, realtime]);
 
     // Fetch spare parts inventory (skip if not needed)
     useEffect(() => {
