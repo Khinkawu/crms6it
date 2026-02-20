@@ -19,7 +19,8 @@ interface EditProductModalProps {
 }
 
 const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, product, onSuccess }) => {
-    const { getDisplayName } = useAuth();
+    const { getDisplayName, role } = useAuth();
+    const isAdminOrTech = role === 'admin' || role === 'technician';
 
     const [formData, setFormData] = useState({
         name: "",
@@ -193,31 +194,34 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
                 }
             }
 
-            // Handle Stock Update for Bulk Items
-            if (product.type === 'bulk') {
-                const currentQty = product.quantity || 0;
-                let newQty = currentQty;
+            // Handle Stock Update
+            const currentQty = product.type === 'bulk' ? (product.quantity || 0) : (product.status === 'requisitioned' ? 0 : 1);
+            let newQty = currentQty;
 
-                if (stockInput !== 0) {
-                    if (stockMode === 'set') {
-                        newQty = Number(stockInput);
-                    } else {
-                        newQty = currentQty + Number(stockInput);
-                    }
+            if (stockInput !== 0) {
+                if (stockMode === 'set') {
+                    newQty = Number(stockInput);
+                } else {
+                    newQty = currentQty + Number(stockInput);
+                }
 
-                    if (newQty < 0) {
-                        throw new Error("จำนวนสินค้าคงเหลือไม่สามารถติดลบได้");
-                    }
+                if (newQty < 0) {
+                    throw new Error("จำนวนสินค้าคงเหลือไม่สามารถติดลบได้");
+                }
 
-                    updates.quantity = newQty;
+                updates.quantity = newQty;
 
-                    // Update status if stock becomes available/unavailable
-                    const borrowed = product.borrowedCount || 0;
-                    if (newQty - borrowed > 0) {
-                        updates.status = 'available';
-                    } else {
-                        updates.status = 'requisitioned'; // Or unavailable
-                    }
+                // Auto-convert to bulk if it was unique and now has quantity changes
+                if (product.type === 'unique') {
+                    updates.type = 'bulk';
+                }
+
+                // Update status if stock becomes available/unavailable
+                const borrowed = product.borrowedCount || 0;
+                if (newQty - borrowed > 0) {
+                    updates.status = 'available';
+                } else {
+                    updates.status = 'requisitioned'; // Or unavailable
                 }
             }
 
@@ -432,6 +436,53 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
                                 </div>
                             </div>
 
+                            {/* Stock Management Section - Available for all since we can replenish anything */}
+                            {isAdminOrTech && (
+                                <div className="p-4 bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-800/50 space-y-4">
+                                    <h3 className="text-sm font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider flex items-center gap-2">
+                                        📦 จัดการสต็อกสินค้า {product.type === 'unique' && <span className="text-purple-500 normal-case">(จะถูกเปลี่ยนเป็นแบบวัสดุสิ้นเปลืองเมื่อเพิ่มสต็อก)</span>}
+                                    </h3>
+                                    <div className="flex items-center gap-4 text-sm text-text">
+                                        <span>ทั้งหมด: <strong className="text-lg">{product.type === 'bulk' ? (product.quantity || 0) : (product.status === 'requisitioned' ? 0 : 1)}</strong></span>
+                                        <span>ถูกยืม: <strong>{product.borrowedCount || 0}</strong></span>
+                                        <span>คงเหลือ: <strong>{(product.type === 'bulk' ? (product.quantity || 0) : (product.status === 'requisitioned' ? 0 : 1)) - (product.borrowedCount || 0)}</strong></span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                                        <div>
+                                            <label className="label">โหมดการอัปเดต</label>
+                                            <div className="flex bg-card rounded-lg border border-border p-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setStockMode('add')}
+                                                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${stockMode === 'add' ? 'bg-purple-600 text-white shadow-sm' : 'text-text-secondary hover:text-text'}`}
+                                                >
+                                                    เพิ่ม / ลด
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setStockMode('set')}
+                                                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${stockMode === 'set' ? 'bg-purple-600 text-white shadow-sm' : 'text-text-secondary hover:text-text'}`}
+                                                >
+                                                    ตั้งค่าจำนวนใหม่
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="label">
+                                                {stockMode === 'add' ? 'จำนวนที่ต้องการเพิ่ม (ใส่ลบเพื่อลด)' : 'จำนวนทั้งหมดใหม่'}
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={stockInput}
+                                                onChange={(e) => setStockInput(parseInt(e.target.value) || 0)}
+                                                className="input-field border-purple-200 focus:border-purple-500 font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Details Section */}
                             <div className="space-y-4">
                                 <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider">รายละเอียดเพิ่มเติม</h3>
@@ -452,52 +503,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({ isOpen, onClose, pr
                                 </div>
                             </div>
 
-                            {/* Stock Management (Bulk Only) */}
-                            {product.type === 'bulk' && (
-                                <div className="p-4 bg-input-bg rounded-xl border border-border space-y-4">
-                                    <h3 className="text-sm font-bold text-primary-start uppercase tracking-wider flex items-center gap-2">
-                                        📦 จัดการสต็อกสินค้า
-                                    </h3>
-                                    <div className="flex items-center gap-4 text-sm text-text">
-                                        <span>ทั้งหมด: <strong className="text-lg">{product.quantity || 0}</strong></span>
-                                        <span>ถูกยืม: <strong>{product.borrowedCount || 0}</strong></span>
-                                        <span>คงเหลือ: <strong>{(product.quantity || 0) - (product.borrowedCount || 0)}</strong></span>
-                                    </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                                        <div>
-                                            <label className="label">โหมดการอัปเดต</label>
-                                            <div className="flex bg-card rounded-lg border border-border p-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setStockMode('add')}
-                                                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${stockMode === 'add' ? 'bg-primary-start text-white shadow-sm' : 'text-text-secondary hover:text-text'}`}
-                                                >
-                                                    เพิ่ม / ลด
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setStockMode('set')}
-                                                    className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${stockMode === 'set' ? 'bg-primary-start text-white shadow-sm' : 'text-text-secondary hover:text-text'}`}
-                                                >
-                                                    ตั้งค่าจำนวนใหม่
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="label">
-                                                {stockMode === 'add' ? 'จำนวนที่ต้องการเพิ่ม (ใส่ลบเพื่อลด)' : 'จำนวนทั้งหมดใหม่'}
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={stockInput}
-                                                onChange={(e) => setStockInput(parseInt(e.target.value) || 0)}
-                                                className="input-field font-mono"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Unique Item Specifics */}
                             {product.type !== 'bulk' && (

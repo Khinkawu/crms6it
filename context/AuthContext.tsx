@@ -44,6 +44,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [lineDisplayName, setLineDisplayName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
+    /**
+     * Background helper: handles new user creation + Google profile sync.
+     * Uses getDoc (safe one-time read) — never called inside onSnapshot.
+     * Non-blocking: called with .catch() so it doesn't affect loading state.
+     */
+    const syncUserProfile = async (
+        userRef: ReturnType<typeof doc>,
+        currentUser: User
+    ) => {
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+            // New user — create doc with defaults
+            await setDoc(userRef, {
+                uid: currentUser.uid,
+                email: currentUser.email,
+                displayName: currentUser.displayName,
+                photoURL: currentUser.photoURL,
+                role: 'user' as UserRole,
+                isPhotographer: false,
+                createdAt: serverTimestamp()
+            });
+        } else {
+            // Existing user — sync Google profile if changed
+            const userData = userSnap.data();
+            if (currentUser.displayName !== userData.displayName || currentUser.photoURL !== userData.photoURL) {
+                await updateDoc(userRef, {
+                    displayName: currentUser.displayName,
+                    photoURL: currentUser.photoURL,
+                    updatedAt: serverTimestamp()
+                });
+            }
+        }
+    };
+
     useEffect(() => {
         let unsubscribeUser: (() => void) | null = null;
 
@@ -67,42 +102,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     return;
                 }
 
-                // 2. Setup realtime listener for user document
                 const userRef = doc(db, "users", currentUser.uid);
 
-                try {
-                    const userSnap = await getDoc(userRef);
-
-                    if (!userSnap.exists()) {
-                        // New user, create doc with default role 'user'
-                        const defaultRole: UserRole = 'user';
-                        await setDoc(userRef, {
-                            uid: currentUser.uid,
-                            email: currentUser.email,
-                            displayName: currentUser.displayName,
-                            photoURL: currentUser.photoURL,
-                            role: defaultRole,
-                            isPhotographer: false,
-                            createdAt: serverTimestamp()
-                        });
-                    } else {
-                        // Sync latest Google Profile data (Name & Photo)
-                        const userData = userSnap.data();
-                        if (currentUser.displayName !== userData.displayName || currentUser.photoURL !== userData.photoURL) {
-                            await updateDoc(userRef, {
-                                displayName: currentUser.displayName,
-                                photoURL: currentUser.photoURL,
-                                updatedAt: serverTimestamp()
-                            });
-                        }
-                    }
-                } catch (error) {
-                    console.error("Error setting up user doc:", error);
-                }
-
-                setUser(currentUser);
-
-                // 3. Subscribe to realtime updates
+                // 2. Start onSnapshot FIRST — gets role data fastest, unblocks UI
                 unsubscribeUser = onSnapshot(userRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
@@ -110,6 +112,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         setIsPhotographer(userData.isPhotographer || false);
                         setLineDisplayName(userData.lineDisplayName || null);
                     } else {
+                        // Doc doesn't exist yet — set defaults in state only
+                        // Do NOT call setDoc here (cache can falsely report exists=false)
                         setRole('user');
                         setIsPhotographer(false);
                         setLineDisplayName(null);
@@ -122,6 +126,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     setLineDisplayName(null);
                     setLoading(false);
                 });
+
+                setUser(currentUser);
+
+                // 3. Background: handle new user creation + profile sync (non-blocking)
+                syncUserProfile(userRef, currentUser).catch(err =>
+                    console.error("Error syncing user profile:", err)
+                );
             } else {
                 setUser(null);
                 setRole(null);

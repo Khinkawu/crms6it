@@ -20,6 +20,7 @@ export interface ActivityLog {
 interface UseActivityLogsOptions {
     limitCount?: number;
     filterRepairOnly?: boolean;
+    enabled?: boolean; // If false, skip Firestore queries (wait for auth)
 }
 
 interface UseActivityLogsReturn {
@@ -33,22 +34,18 @@ interface UseActivityLogsReturn {
  * @returns Activity logs and loading state
  */
 export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivityLogsReturn {
-    const { limitCount = 10, filterRepairOnly = true } = options;
+    const { limitCount = 10, filterRepairOnly = true, enabled = true } = options;
 
     const [activities, setActivities] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const constraints: any[] = [orderBy("timestamp", "desc")];
-
-        // Filter server-side when filterRepairOnly is set
-        if (filterRepairOnly) {
-            constraints.unshift(where("action", "in", ["repair", "repair_update"]));
-        }
-
-        constraints.push(limit(limitCount));
-
-        const q = query(collection(db, "activities"), ...constraints);
+        if (!enabled) { setLoading(false); return; }
+        const q = query(
+            collection(db, "activities"),
+            orderBy("timestamp", "desc"),
+            limit(limitCount)
+        );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const logs = snapshot.docs.map(doc => ({
@@ -64,7 +61,7 @@ export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivi
         });
 
         return () => unsubscribe();
-    }, [limitCount, filterRepairOnly]);
+    }, [limitCount, filterRepairOnly, enabled]);
 
     return { activities, loading };
 }

@@ -405,6 +405,7 @@ export default function BookingModal({ isOpen, onClose, onSuccess, initialDate }
                             <label className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <Paperclip size={18} className="text-blue-500" /> เอกสารแนบ
                             </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">สำหรับให้เจ้าหน้าที่โสตเปิดในการประชุม/อบรม/กิจกรรม</p>
                             <div
                                 onClick={() => fileInputRef.current?.click()}
                                 className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-all group"

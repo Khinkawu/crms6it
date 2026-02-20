@@ -23,6 +23,7 @@ interface UseBookingsOptions {
     filterApprovedOnly?: boolean;
     monthsRange?: number; // How many months before and after to fetch
     includePhotographyJobs?: boolean; // New: include photography jobs with showInAgenda=true
+    enabled?: boolean; // If false, skip Firestore queries (wait for auth)
 }
 
 interface UseBookingsReturn {
@@ -43,7 +44,7 @@ interface UseBookingsReturn {
  * @returns Booking events and calendar state
  */
 export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn {
-    const { filterApprovedOnly = true, monthsRange = 1, includePhotographyJobs = false } = options;
+    const { filterApprovedOnly = true, monthsRange = 1, includePhotographyJobs = false, enabled = true } = options;
 
     const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
     const [photographyEvents, setPhotographyEvents] = useState<BookingEvent[]>([]);
@@ -54,9 +55,11 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
 
     // Fetch bookings
     useEffect(() => {
-        // Calculate date range: N months before and after current calendar date
-        const startRange = startOfMonth(subMonths(date, monthsRange));
-        const endRange = endOfMonth(addMonths(date, monthsRange));
+        if (!enabled) { setBookingsLoading(false); return; }
+        // Calculate date range: N months before and after current date
+        const now = new Date();
+        const startRange = startOfMonth(subMonths(now, monthsRange));
+        const endRange = endOfMonth(addMonths(now, monthsRange));
 
         const q = query(
             collection(db, "bookings"),
@@ -91,11 +94,11 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         });
 
         return () => unsubscribe();
-    }, [filterApprovedOnly, monthsRange, date]);
+    }, [filterApprovedOnly, monthsRange, enabled]);
 
     // Fetch photography jobs (only if includePhotographyJobs is true)
     useEffect(() => {
-        if (!includePhotographyJobs) {
+        if (!enabled || !includePhotographyJobs) {
             setPhotographyEvents([]);
             setPhotographyLoading(false);
             return;
@@ -121,7 +124,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                     // 2. AND (it's not linked to a booking ID OR it is a 'web-form-' direct queue job)
                     const shouldShowInAgenda = data.showInAgenda !== false;
                     const isWebForm = data.bookingId && data.bookingId.startsWith('web-form-');
-                    
+
                     return shouldShowInAgenda && (!data.bookingId || isWebForm);
                 })
                 .map(doc => {
@@ -147,7 +150,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         });
 
         return () => unsubscribe();
-    }, [includePhotographyJobs, monthsRange, date]);
+    }, [includePhotographyJobs, monthsRange, enabled]);
 
     // Merge booking and photography events
     const events = useMemo(() => {

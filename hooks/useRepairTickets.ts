@@ -10,6 +10,8 @@ interface UseRepairTicketsOptions {
     filterStatus?: RepairStatus | 'all';
     searchQuery?: string;
     dateRange?: { start: Date | null; end: Date | null };
+    enabled?: boolean; // If false, skip Firestore queries (wait for auth)
+    fetchInventory?: boolean; // If false, skip inventory fetch (dashboard doesn't need it)
 }
 
 interface UseRepairTicketsReturn {
@@ -30,7 +32,7 @@ interface UseRepairTicketsReturn {
  * Includes filtering, stats calculation, and spare parts inventory
  */
 export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepairTicketsReturn {
-    const { filterStatus = 'all', searchQuery = '', dateRange } = options;
+    const { filterStatus = 'all', searchQuery = '', dateRange, enabled = true, fetchInventory = true } = options;
 
     const [tickets, setTickets] = useState<RepairTicket[]>([]);
     const [inventory, setInventory] = useState<Product[]>([]);
@@ -38,6 +40,7 @@ export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepa
 
     // Fetch repair tickets
     useEffect(() => {
+        if (!enabled) { setLoading(false); return; }
         // Limit to recent 100 tickets to reduce Firestore reads
         const q = query(
             collection(db, "repair_tickets"),
@@ -54,10 +57,11 @@ export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepa
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [enabled]);
 
-    // Fetch spare parts inventory
+    // Fetch spare parts inventory (skip if not needed)
     useEffect(() => {
+        if (!enabled || !fetchInventory) return;
         // Limit to 200 products and only fetch bulk items
         const q = query(
             collection(db, "products"),
