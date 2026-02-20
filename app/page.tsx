@@ -16,7 +16,8 @@ import { PhotographyJob } from "../types";
 import { useBookings, BookingEvent } from "../hooks/useBookings";
 import { useActivityLogs } from "../hooks/useActivityLogs";
 import ReportIssueModal from "./components/ReportIssueModal";
-import { useRepairTickets } from "../hooks/useRepairTickets";
+import { useRepairStats } from "../hooks/useRepairStats";
+import { CalendarSkeleton, ListItemSkeleton, Skeleton } from "./components/ui/Skeleton";
 import { Views } from "react-big-calendar";
 
 import { Widget, QuickAction } from "./components/dashboard/widgets";
@@ -26,7 +27,6 @@ import StatsWidgetContent from "./components/dashboard/StatsWidgetContent";
 import PhotoGalleryList from "./components/dashboard/PhotoGalleryList";
 import CalendarSection from "./components/dashboard/CalendarSection";
 import BookingDetailsModal from "./components/BookingDetailsModal";
-import MyPhotographyJobsModal from "./components/MyPhotographyJobsModal";
 import PhotographyJobModal from "./components/PhotographyJobModal";
 
 import { PageSkeleton } from "./components/ui/Skeleton";
@@ -38,7 +38,7 @@ export default function Dashboard() {
     // Custom hooks for data fetching
     const { visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true });
     const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true });
-    const { stats: repairStats } = useRepairTickets();
+    const { stats: repairStats, loading: statsLoading } = useRepairStats();
 
     // Modal state
     const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
@@ -47,8 +47,8 @@ export default function Dashboard() {
 
     // Photography Jobs State
     const [photoJobs, setPhotoJobs] = useState<PhotographyJob[]>([]);
+    const [photoJobsLoading, setPhotoJobsLoading] = useState(true);
     const [isJobModalOpen, setIsJobModalOpen] = useState(false);
-    const [isMyJobsModalOpen, setIsMyJobsModalOpen] = useState(false);
     const [pendingPhotoJobsCount, setPendingPhotoJobsCount] = useState(0);
 
     // Fetch pending photography jobs count for photographer
@@ -79,6 +79,7 @@ export default function Dashboard() {
 
     // Fetch Completed Photography Jobs
     useEffect(() => {
+        if (!user) return;
         const q = query(
             collection(db, "photography_jobs"),
             where("status", "==", "completed"),
@@ -92,10 +93,11 @@ export default function Dashboard() {
                 jobs.push({ id: doc.id, ...doc.data() } as PhotographyJob);
             });
             setPhotoJobs(jobs);
+            setPhotoJobsLoading(false);
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [user]);
 
     // Initial load
     useEffect(() => {
@@ -105,9 +107,22 @@ export default function Dashboard() {
         }
     }, [user, loading, router]);
 
+    // Auth still resolving — show full skeleton once only
     if (loading || !user) {
         return <PageSkeleton />;
     }
+
+    // Inline skeleton helpers for per-widget loading
+    const StatsSkeleton = () => (
+        <div className="flex justify-between items-center pb-4 px-2">
+            {[0, 1, 2].map(i => (
+                <div key={i} className="flex flex-col items-center gap-3">
+                    <Skeleton className="w-24 h-24" rounded="full" />
+                    <Skeleton className="h-4 w-12" />
+                </div>
+            ))}
+        </div>
+    );
 
     const handleSelectEvent = (event: BookingEvent) => {
         setSelectedEvent(event);
@@ -180,29 +195,43 @@ export default function Dashboard() {
 
                 {/* Stats Widget */}
                 <Widget className="lg:col-span-4 h-full" title="การจองห้องประชุมประจำวัน" icon={TrendingUp}>
-                    <StatsWidgetContent
-                        todayActivities={todayActivities}
-                        repairStats={repairStats}
-                        onTodayClick={handleTodayClick}
-                    />
+                    {statsLoading ? (
+                        <StatsSkeleton />
+                    ) : (
+                        <StatsWidgetContent
+                            todayActivities={todayActivities}
+                            repairStats={repairStats}
+                            onTodayClick={handleTodayClick}
+                        />
+                    )}
                 </Widget>
 
                 {/* Recent Activity Widget */}
                 <Widget className="lg:col-span-4 h-full" title="สถานะการแจ้งซ่อมล่าสุด" icon={Clock}>
-                    <RecentActivityList activities={activities} />
+                    {activitiesLoading ? (
+                        <div className="space-y-2">
+                            {[0, 1, 2].map(i => <ListItemSkeleton key={i} />)}
+                        </div>
+                    ) : (
+                        <RecentActivityList activities={activities} />
+                    )}
                 </Widget>
 
                 {/* Calendar + Gallery Section */}
                 <div className="lg:col-span-12 grid grid-cols-1 lg:grid-cols-12 gap-6">
                     <div id="calendar-section" className="lg:col-span-8">
-                        <CalendarSection
-                            events={visibleEvents}
-                            view={view}
-                            setView={setView}
-                            date={date}
-                            setDate={setDate}
-                            onSelectEvent={handleSelectEvent}
-                        />
+                        {eventsLoading ? (
+                            <CalendarSkeleton />
+                        ) : (
+                            <CalendarSection
+                                events={visibleEvents}
+                                view={view}
+                                setView={setView}
+                                date={date}
+                                setDate={setDate}
+                                onSelectEvent={handleSelectEvent}
+                            />
+                        )}
                     </div>
 
                     <div className="lg:col-span-4 space-y-6">
@@ -218,7 +247,26 @@ export default function Dashboard() {
                                 href: "/gallery"
                             }}
                         >
-                            <PhotoGalleryList photoJobs={photoJobs} />
+                            {photoJobsLoading ? (
+                                <div className="space-y-2">
+                                    {[0, 1, 2, 3].map(i => (
+                                        <div key={i} className="flex items-center gap-3 p-2">
+                                            <Skeleton className="w-16 h-16 flex-shrink-0" rounded="lg" />
+                                            <div className="flex-1 space-y-2">
+                                                <Skeleton className="h-4 w-3/4" />
+                                                <Skeleton className="h-3 w-1/2" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : photoJobs.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                                    <ImageIcon size={32} className="mb-2 opacity-40" />
+                                    <p className="text-sm">ยังไม่มีภาพกิจกรรม</p>
+                                </div>
+                            ) : (
+                                <PhotoGalleryList photoJobs={photoJobs} />
+                            )}
                         </Widget>
                     </div>
                 </div>
@@ -239,11 +287,6 @@ export default function Dashboard() {
                 requesterId={user?.uid || ''}
             />
 
-            <MyPhotographyJobsModal
-                isOpen={isMyJobsModalOpen}
-                onClose={() => setIsMyJobsModalOpen(false)}
-                userId={user?.uid || ''}
-            />
         </div>
     );
 }

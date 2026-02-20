@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, onSnapshot, orderBy, limit } from "firebase/firestore";
+import { collection, query, onSnapshot, orderBy, limit, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { LogAction } from "../types";
 
@@ -39,26 +39,27 @@ export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivi
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const q = query(
-            collection(db, "activities"),
-            orderBy("timestamp", "desc"),
-            limit(limitCount)
-        );
+        const constraints: any[] = [orderBy("timestamp", "desc")];
+
+        // Filter server-side when filterRepairOnly is set
+        if (filterRepairOnly) {
+            constraints.unshift(where("action", "in", ["repair", "repair_update"]));
+        }
+
+        constraints.push(limit(limitCount));
+
+        const q = query(collection(db, "activities"), ...constraints);
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            let logs = snapshot.docs.map(doc => ({
+            const logs = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             })) as ActivityLog[];
 
-            // Filter for repair logs only if option is set
-            if (filterRepairOnly) {
-                logs = logs.filter(log =>
-                    log.action === 'repair' || log.action === 'repair_update'
-                ).slice(0, 10);
-            }
-
             setActivities(logs);
+            setLoading(false);
+        }, (error) => {
+            console.error("[useActivityLogs]", error);
             setLoading(false);
         });
 

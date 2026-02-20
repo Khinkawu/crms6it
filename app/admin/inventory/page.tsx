@@ -23,7 +23,8 @@ import {
     LazyEditProductModal,
     LazyRequisitionModal,
     LazyReturnModal,
-    LazyLogTable
+    LazyLogTable,
+    LazyBorrowedStatusModal
 } from "../../components/LazyComponents";
 import dynamic from "next/dynamic";
 const ProductDetailModal = dynamic(() => import("../../components/ProductDetailModal"), { ssr: false });
@@ -60,6 +61,9 @@ function InventoryContent() {
 
     // Modal State
     const [activeModal, setActiveModal] = useState<'borrow' | 'requisition' | 'edit' | 'return' | 'detail' | null>(null);
+
+    // Borrowed Status Modal State
+    const [isBorrowedModalOpen, setIsBorrowedModalOpen] = useState(false);
 
     // Log Modal State
     const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -377,6 +381,14 @@ function InventoryContent() {
                             >
                                 <History size={20} /> ประวัติ
                             </button>
+                            {(role === 'admin' || isPhotographer) && (
+                                <button
+                                    onClick={() => setIsBorrowedModalOpen(true)}
+                                    className="px-4 py-2 bg-white dark:bg-card border border-border text-text font-bold rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center gap-2"
+                                >
+                                    <Package size={20} className="text-amber-500" /> ค้างคืน
+                                </button>
+                            )}
                             <button
                                 onClick={toggleSelectionMode}
                                 className={`px-4 py-2 border font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all ${isSelectionMode ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-white dark:bg-card border-border text-text hover:bg-gray-50 dark:hover:bg-gray-800'}`}
@@ -805,6 +817,14 @@ function InventoryContent() {
                 }
 
 
+
+                {/* Borrowed Status Modal */}
+                {isBorrowedModalOpen && (
+                    <LazyBorrowedStatusModal
+                        isOpen={true}
+                        onClose={() => setIsBorrowedModalOpen(false)}
+                    />
+                )}
 
                 {/* Log Modal - Lazy Loaded */}
                 {

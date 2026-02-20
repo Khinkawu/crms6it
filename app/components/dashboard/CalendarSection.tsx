@@ -3,14 +3,14 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { Calendar, momentLocalizer, Views, View, ToolbarProps } from "react-big-calendar";
-import moment from "moment";
+import { Calendar, dateFnsLocalizer, Views, View, ToolbarProps } from "react-big-calendar";
+import { format, parse, startOfWeek, getDay, startOfDay, addDays, subDays, isSameDay } from "date-fns";
+import { th } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import "moment/locale/th";
 import { BookingEvent } from "../../../hooks/useBookings";
 
-moment.locale('th');
-const localizer = momentLocalizer(moment);
+const locales = { th };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
 // Agenda Event Component
 const AgendaEvent = ({ event }: { event: BookingEvent }) => (
@@ -30,25 +30,24 @@ const AgendaEvent = ({ event }: { event: BookingEvent }) => (
 // Custom Toolbar Component - Modern Design
 const CustomToolbar = (toolbar: ToolbarProps<BookingEvent, object>) => {
     const goToBack = () => {
-        const newDate = moment(toolbar.date).subtract(1, 'days').startOf('day').toDate();
+        const newDate = startOfDay(subDays(toolbar.date, 1));
         toolbar.onNavigate('DATE', newDate);
     };
 
     const goToNext = () => {
-        const newDate = moment(toolbar.date).add(1, 'days').startOf('day').toDate();
+        const newDate = startOfDay(addDays(toolbar.date, 1));
         toolbar.onNavigate('DATE', newDate);
     };
 
     const goToCurrent = () => {
-        const newDate = moment().startOf('day').toDate();
+        const newDate = startOfDay(new Date());
         toolbar.onNavigate('DATE', newDate);
     };
 
     const label = () => {
-        const date = moment(toolbar.date);
         return (
             <span className="text-lg font-bold text-gray-900 dark:text-white capitalize">
-                {date.format('D MMMM YYYY')}
+                {format(toolbar.date, 'd MMMM yyyy', { locale: th })}
             </span>
         );
     };
@@ -171,7 +170,7 @@ export default function CalendarSection({
     };
 
     const dayPropGetter = (calendarDate: Date) => {
-        if (moment(calendarDate).isSame(date, 'day')) {
+        if (isSameDay(calendarDate, date)) {
             return {
                 style: {
                     boxShadow: 'inset 0 0 0 2px #3b82f6',
@@ -202,32 +201,32 @@ export default function CalendarSection({
 
             <style jsx global>{`
                 .rbc-calendar { font-family: inherit; }
-                
+
                 /* Clean Grid */
                 .rbc-month-view, .rbc-time-view, .rbc-agenda-view { border: none !important; border-radius: 12px; overflow: hidden; }
-                .rbc-header { 
-                    padding: 10px 0; 
-                    font-weight: 600; 
-                    color: #6b7280; 
-                    text-transform: uppercase; 
+                .rbc-header {
+                    padding: 10px 0;
+                    font-weight: 600;
+                    color: #6b7280;
+                    text-transform: uppercase;
                     font-size: 0.7rem;
                     letter-spacing: 0.05em;
                     border-bottom: 1px solid #f3f4f6 !important;
                     background: #f9fafb;
                 }
                 .dark .rbc-header { color: #9ca3af; border-bottom-color: #374151 !important; background: #1f2937; }
-                
+
                 .rbc-day-bg { border-left: 1px solid #f3f4f6 !important; }
                 .dark .rbc-day-bg { border-left-color: #374151 !important; }
-                
+
                 .rbc-off-range-bg { background-color: #fafafa; }
                 .dark .rbc-off-range-bg { background-color: #111827; }
-                
+
                 /* Today Highlight */
                 .rbc-today { background-color: transparent !important; }
                 .rbc-date-cell { padding: 6px; font-size: 0.8rem; font-weight: 500; color: #374151; }
                 .dark .rbc-date-cell { color: #d1d5db; }
-                
+
                 .rbc-now .rbc-button-link {
                     background: #ef4444;
                     color: white;
@@ -270,7 +269,7 @@ export default function CalendarSection({
                     background: transparent !important;
                     color: inherit !important;
                 }
-                
+
                 /* Time View Grid */
                 .rbc-time-content { border-top: 1px solid #f3f4f6 !important; }
                 .dark .rbc-time-content { border-top-color: #374151 !important; }
@@ -328,9 +327,9 @@ export default function CalendarSection({
                         background: #1f2937;
                         border-color: #374151;
                     }
-                    
+
                     .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-date-cell { display: none; }
-                    
+
                     .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-time-cell {
                         display: block;
                         width: 100%;
@@ -343,7 +342,7 @@ export default function CalendarSection({
                     .dark .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-time-cell {
                         color: #9ca3af;
                     }
-                    
+
                     .rbc-agenda-view table.rbc-agenda-table td.rbc-agenda-event-cell {
                         display: block;
                         width: 100%;
@@ -372,11 +371,11 @@ export default function CalendarSection({
                 }}
                 selectable
                 onSelectSlot={(slotInfo) => {
-                    setDate(moment(slotInfo.start).startOf('day').toDate());
+                    setDate(startOfDay(slotInfo.start));
                     setView(Views.AGENDA);
                 }}
                 onDrillDown={(drillDate) => {
-                    setDate(moment(drillDate).startOf('day').toDate());
+                    setDate(startOfDay(drillDate));
                     setView(Views.AGENDA);
                 }}
                 onSelectEvent={view !== Views.MONTH && onSelectEvent ? (event) => onSelectEvent(event) : undefined}

@@ -196,6 +196,21 @@ export const LazyPhotographyJobModal = dynamic(
 );
 
 /**
+ * Borrowed Status Modal - shows all active borrow transactions
+ */
+export const LazyBorrowedStatusModal = dynamic(
+    () => import("./BorrowedStatusModal"),
+    {
+        loading: () => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+                <LoadingSpinner size="lg" text="กำลังโหลด..." />
+            </div>
+        ),
+        ssr: false
+    }
+);
+
+/**
  * Edit Booking Modal - heavy form modal (32KB)
  * Only loaded when editing a booking
  */

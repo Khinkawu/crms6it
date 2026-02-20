@@ -2,6 +2,7 @@
  * Professional LINE Flex Message Templates
  * Unified design system for all LINE notifications
  */
+import { formatThaiDate } from '../lib/dateUtils';
 
 // Brand Colors
 const COLORS = {
@@ -327,7 +328,7 @@ export function createRepairNewFlexMessage(data: {
             details: [
                 { icon: '📍', label: 'สถานที่', value: `${data.room} (${zoneLabel})` },
                 { icon: '👤', label: 'ผู้แจ้ง', value: data.requesterName },
-                { icon: '🕐', label: 'เวลาแจ้ง', value: new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) }
+                { icon: '🕐', label: 'เวลาแจ้ง', value: formatThaiDate(new Date(), { includeTime: true }) }
             ],
             footer: {
                 label: '📋 รับงานซ่อม',
@@ -360,7 +361,7 @@ export function createRepairCompleteFlexMessage(data: {
             imageUrl: data.completionImage,
             details: [
                 { icon: '📍', label: 'สถานที่', value: data.room },
-                { icon: '📅', label: 'วันที่', value: new Date().toLocaleDateString('th-TH') },
+                { icon: '📅', label: 'วันที่', value: formatThaiDate(new Date(), { includeYear: true }) },
                 ...(data.technicianNote ? [{ icon: '📝', label: 'บันทึกช่าง', value: data.technicianNote }] : [])
             ],
             footer: {

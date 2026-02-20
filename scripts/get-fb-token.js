@@ -3,7 +3,7 @@ const https = require('https');
 const userToken = process.argv[2];
 if (!userToken) {
     console.log('❌ กรุณาใส่ Token ด้วยครับ');
-    console.log('Usage: node scripts/get-fb-token.js <YOUR_LONG_LIVED_TOKEN>');
+    console.log('Usage: node scripts/get-fb-token.js <TOKEN>');
     process.exit(1);
 }
 

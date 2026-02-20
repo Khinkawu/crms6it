@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { collection, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore";
+import { collection, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc, getDocs, where, Timestamp } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { toast } from "react-hot-toast";
 import {
@@ -90,6 +90,27 @@ export default function BookingManagement() {
 
         try {
             if (confirmAction.type === 'status') {
+                // Check for conflicts before approving
+                if (confirmAction.payload === 'approved') {
+                    const booking = bookings.find(b => b.id === confirmAction.id);
+                    if (booking?.startTime && booking?.endTime && booking?.roomId) {
+                        const conflictQuery = query(
+                            collection(db, "bookings"),
+                            where("roomId", "==", booking.roomId),
+                            where("status", "==", "approved"),
+                            where("startTime", "<", booking.endTime),
+                            where("endTime", ">", booking.startTime)
+                        );
+                        const conflicts = await getDocs(conflictQuery);
+                        const realConflicts = conflicts.docs.filter(d => d.id !== confirmAction.id);
+                        if (realConflicts.length > 0) {
+                            toast.error("ไม่สามารถอนุมัติได้ — ห้องนี้ถูกจองในช่วงเวลาดังกล่าวแล้ว");
+                            setIsConfirmOpen(false);
+                            setConfirmAction(null);
+                            return;
+                        }
+                    }
+                }
                 await updateDoc(doc(db, "bookings", confirmAction.id), {
                     status: confirmAction.payload
                 });

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth } from '@/lib/firebaseAdmin';
 
 const PAGE_ID = process.env.FACEBOOK_PAGE_ID;
 const ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+const GRAPH_API_VERSION = 'v22.0';
 
 interface PhotoData {
     base64: string;
@@ -11,6 +13,16 @@ interface PhotoData {
 export const maxDuration = 60; // Allow more time for upload
 
 export async function POST(request: NextRequest) {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    try {
+        await adminAuth.verifyIdToken(authHeader.split('Bearer ')[1]);
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     if (!PAGE_ID || !ACCESS_TOKEN) {
         return NextResponse.json(
             { error: 'Facebook Page ID or Access Token not configured' },
@@ -38,7 +50,7 @@ export async function POST(request: NextRequest) {
         formData.append('access_token', ACCESS_TOKEN);
         formData.append('published', published ? 'true' : 'false');
 
-        const uploadRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/photos`, {
+        const uploadRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${PAGE_ID}/photos`, {
             method: 'POST',
             body: formData,
         });

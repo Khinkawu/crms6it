@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { formatThaiDate } from '../../lib/dateUtils';
 
 interface BookingEvent {
     id: string;
@@ -71,7 +72,7 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                                     <Calendar size={20} />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-lg">{format(event.start, 'd MMMM yyyy', { locale: th })}</p>
+                                    <p className="font-bold text-lg">{formatThaiDate(event.start, { includeYear: true, shortMonth: false })}</p>
                                     <p className="text-white/90">{format(event.start, 'HH:mm')} - {format(event.end, 'HH:mm')} น.</p>
                                 </div>
                             </div>

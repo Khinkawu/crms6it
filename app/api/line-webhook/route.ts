@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { Client, FlexMessage, TextMessage } from '@line/bot-sdk';
+import { Client, FlexMessage, TextMessage, validateSignature } from '@line/bot-sdk';
 import { adminDb } from '../../../lib/firebaseAdmin';
 import { processAIMessage } from '@/lib/aiAgent';
+import { getThaiStatus, getStatusHexColor } from '@/utils/repairHelpers';
 
 // Initialize LINE Client
 const config = {
@@ -35,8 +36,14 @@ async function sendTypingIndicator(userId: string): Promise<void> {
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
+        const rawBody = await req.text();
+        const signature = req.headers.get('x-line-signature') || '';
 
+        if (!validateSignature(rawBody, process.env.LINE_CHANNEL_SECRET!, signature)) {
+            return new Response('Unauthorized', { status: 401 });
+        }
+
+        const body = JSON.parse(rawBody);
         const events = body.events;
 
         if (!events || events.length === 0) {
@@ -211,8 +218,8 @@ async function handleTrackStatus(replyToken: string, userId: string) {
 
         repairsSnapshot.forEach(doc => {
             const data = doc.data();
-            const statusColor = getStatusColor(data.status);
-            const statusText = getStatusThai(data.status);
+            const statusColor = getStatusHexColor(data.status);
+            const statusText = getThaiStatus(data.status);
             const dateStr = data.createdAt
                 ? data.createdAt.toDate().toLocaleDateString('th-TH', {
                     day: 'numeric', month: 'short', year: '2-digit',
@@ -442,27 +449,7 @@ async function handleTrackStatus(replyToken: string, userId: string) {
 
     } catch (error) {
         console.error('Track Status Error:', error);
-        await client.replyMessage(replyToken, { type: 'text', text: `เกิดข้อผิดพลาด: ${(error as any).message}` });
+        await client.replyMessage(replyToken, { type: 'text', text: 'ขออภัยค่ะ เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้งนะคะ' });
     }
 }
 
-// Helpers
-function getStatusColor(status: string): string {
-    switch (status) {
-        case 'pending': return '#f59e0b'; // Amber
-        case 'in_progress': return '#3b82f6'; // Blue
-        case 'waiting_parts': return '#f97316'; // Orange
-        case 'completed': return '#10b981'; // Emerald
-        default: return '#64748b';
-    }
-}
-
-function getStatusThai(status: string): string {
-    switch (status) {
-        case 'pending': return 'รอดำเนินการ';
-        case 'in_progress': return 'กำลังดำเนินการ';
-        case 'waiting_parts': return 'รออะไหล่';
-        case 'completed': return 'เสร็จสิ้น';
-        default: return status;
-    }
-}

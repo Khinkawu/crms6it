@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { generateOtp, sendOtpEmail } from '@/lib/emailService';
 import { FieldValue } from 'firebase-admin/firestore';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
     try {
@@ -31,14 +32,27 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Rate limit: ห้ามขอ OTP ซ้ำภายใน 60 วินาที
+        const existingOtp = await adminDb.collection('otp_codes').doc(lineUserId).get();
+        if (existingOtp.exists) {
+            const createdAt = existingOtp.data()?.createdAt?.toDate?.() as Date | undefined;
+            if (createdAt && Date.now() - createdAt.getTime() < 60 * 1000) {
+                return NextResponse.json(
+                    { success: false, error: 'กรุณารอ 1 นาทีก่อนขอ OTP ใหม่' },
+                    { status: 429 }
+                );
+            }
+        }
+
         // Generate OTP
         const otp = generateOtp();
+        const otpHash = await bcrypt.hash(otp, 10);
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-        // Store OTP in Firestore
+        // Store hashed OTP in Firestore (never store plaintext)
         await adminDb.collection('otp_codes').doc(lineUserId).set({
             email,
-            otp,
+            otpHash,
             createdAt: FieldValue.serverTimestamp(),
             expiresAt,
             attempts: 0

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
     try {
@@ -44,8 +45,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Verify OTP
-        if (otpData.otp !== otp) {
+        // Verify OTP — compare against hash (bcrypt) or plaintext fallback for old records
+        const storedHash = otpData.otpHash;
+        const isValid = storedHash
+            ? await bcrypt.compare(otp, storedHash)
+            : otpData.otp === otp;
+
+        if (!isValid) {
             await adminDb.collection('otp_codes').doc(lineUserId).update({
                 attempts: FieldValue.increment(1)
             });

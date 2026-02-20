@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import toast from "react-hot-toast";
 import {
     onAuthStateChanged,
     signInWithPopup,
@@ -61,7 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     setUser(null);
                     setRole(null);
                     setIsPhotographer(false);
-                    alert("Access Restricted: Only @tesaban6.ac.th emails are allowed.");
+                    toast.error("อนุญาตเฉพาะอีเมล @tesaban6.ac.th เท่านั้น");
                     setLoading(false);
                     return;
                 }
@@ -99,6 +100,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     console.error("Error setting up user doc:", error);
                 }
 
+                setUser(currentUser);
+
                 // 3. Subscribe to realtime updates
                 unsubscribeUser = onSnapshot(userRef, (docSnap) => {
                     if (docSnap.exists()) {
@@ -119,8 +122,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     setLineDisplayName(null);
                     setLoading(false);
                 });
-
-                setUser(currentUser);
             } else {
                 setUser(null);
                 setRole(null);

@@ -1,15 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 
 const PAGE_ID = process.env.FACEBOOK_PAGE_ID;
 const ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+const GRAPH_API_VERSION = 'v22.0';
 
 /**
  * Create a Facebook post from already-uploaded photo IDs
  * Photos should be uploaded first via /api/facebook/upload-photo
  */
 export async function POST(request: NextRequest) {
+    // Verify Firebase ID token — only authenticated users can post
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    try {
+        await adminAuth.verifyIdToken(authHeader.split('Bearer ')[1]);
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     if (!PAGE_ID || !ACCESS_TOKEN) {
         return NextResponse.json(
             { error: 'Facebook Page ID or Access Token not configured' },
@@ -44,7 +56,7 @@ export async function POST(request: NextRequest) {
                 access_token: ACCESS_TOKEN,
             };
 
-            const postRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/feed`, {
+            const postRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${PAGE_ID}/feed`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(feedBody),
@@ -66,7 +78,7 @@ export async function POST(request: NextRequest) {
                 access_token: ACCESS_TOKEN,
             };
 
-            const postRes = await fetch(`https://graph.facebook.com/v18.0/${PAGE_ID}/feed`, {
+            const postRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${PAGE_ID}/feed`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(feedBody),

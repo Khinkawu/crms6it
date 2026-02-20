@@ -54,10 +54,9 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
 
     // Fetch bookings
     useEffect(() => {
-        // Calculate date range: N months before and after current date
-        const now = new Date();
-        const startRange = startOfMonth(subMonths(now, monthsRange));
-        const endRange = endOfMonth(addMonths(now, monthsRange));
+        // Calculate date range: N months before and after current calendar date
+        const startRange = startOfMonth(subMonths(date, monthsRange));
+        const endRange = endOfMonth(addMonths(date, monthsRange));
 
         const q = query(
             collection(db, "bookings"),
@@ -92,7 +91,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         });
 
         return () => unsubscribe();
-    }, [filterApprovedOnly, monthsRange]);
+    }, [filterApprovedOnly, monthsRange, date]);
 
     // Fetch photography jobs (only if includePhotographyJobs is true)
     useEffect(() => {
@@ -102,10 +101,9 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
             return;
         }
 
-        // Calculate date range
-        const now = new Date();
-        const startRange = startOfMonth(subMonths(now, monthsRange));
-        const endRange = endOfMonth(addMonths(now, monthsRange));
+        // Calculate date range: N months before and after current calendar date
+        const startRange = startOfMonth(subMonths(date, monthsRange));
+        const endRange = endOfMonth(addMonths(date, monthsRange));
 
         // Query photography jobs by date range only (filter showInAgenda client-side to avoid composite index)
         const q = query(
@@ -149,7 +147,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         });
 
         return () => unsubscribe();
-    }, [includePhotographyJobs, monthsRange]);
+    }, [includePhotographyJobs, monthsRange, date]);
 
     // Merge booking and photography events
     const events = useMemo(() => {
