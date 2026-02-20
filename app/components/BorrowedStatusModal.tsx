@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { X, PackageSearch, AlertTriangle } from "lucide-react";
 
@@ -46,16 +46,21 @@ export default function BorrowedStatusModal({ isOpen, onClose }: BorrowedStatusM
         setLoading(true);
         const q = query(
             collection(db, "transactions"),
-            where("type", "==", "borrow"),
-            where("status", "==", "active"),
-            orderBy("returnDate", "asc")
+            where("type", "==", "borrow")
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const list: BorrowedItem[] = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            } as BorrowedItem));
+            const list: BorrowedItem[] = snapshot.docs
+                .map((doc) => ({ id: doc.id, ...doc.data() } as BorrowedItem))
+                .filter((item: any) => item.status === "active");
+
+            // Sort client-side by returnDate ascending
+            list.sort((a, b) => {
+                const aDate = a.returnDate?.toDate?.() ?? new Date(0);
+                const bDate = b.returnDate?.toDate?.() ?? new Date(0);
+                return aDate.getTime() - bDate.getTime();
+            });
+
             setItems(list);
             setLoading(false);
         });

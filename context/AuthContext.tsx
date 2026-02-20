@@ -118,16 +118,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         setIsPhotographer(false);
                         setLineDisplayName(null);
                     }
+                    setUser(currentUser);
                     setLoading(false);
                 }, (error) => {
                     console.error("Error listening to user doc:", error);
                     setRole('user');
                     setIsPhotographer(false);
                     setLineDisplayName(null);
+                    setUser(currentUser);
                     setLoading(false);
                 });
-
-                setUser(currentUser);
 
                 // 3. Background: handle new user creation + profile sync (non-blocking)
                 syncUserProfile(userRef, currentUser).catch(err =>

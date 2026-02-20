@@ -16,7 +16,7 @@ import { PhotographyJob } from "../types";
 import { useBookings, BookingEvent } from "../hooks/useBookings";
 import { useActivityLogs } from "../hooks/useActivityLogs";
 import ReportIssueModal from "./components/ReportIssueModal";
-import { useRepairStats } from "../hooks/useRepairStats";
+import { useRepairTickets } from "../hooks/useRepairTickets";
 import { CalendarSkeleton, ListItemSkeleton, Skeleton } from "./components/ui/Skeleton";
 import { Views } from "react-big-calendar";
 
@@ -39,7 +39,7 @@ export default function Dashboard() {
     const isReady = !!user && !loading;
     const { events, visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true, enabled: isReady });
     const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true, enabled: isReady });
-    const { stats: repairStats } = useRepairTickets({ enabled: isReady, fetchInventory: false });
+    const { stats: repairStats, loading: statsLoading } = useRepairTickets({ enabled: isReady, fetchInventory: false });
 
     // Modal state
     const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);

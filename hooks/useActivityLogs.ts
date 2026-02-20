@@ -48,10 +48,14 @@ export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivi
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const logs = snapshot.docs.map(doc => ({
+            let logs = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             })) as ActivityLog[];
+
+            if (filterRepairOnly) {
+                logs = logs.filter(log => log.action === 'repair' || log.action === 'repair_update');
+            }
 
             setActivities(logs);
             setLoading(false);
