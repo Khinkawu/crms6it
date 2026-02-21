@@ -1,5 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, browserLocalPersistence, setPersistence } from "firebase/auth";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,13 +12,22 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+// Auth — persist session in localStorage (survives tab close)
 const auth = getAuth(app);
-const db = getFirestore(app);
+setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+// Firestore — enable offline persistence with multi-tab support
+const db = getApps().length > 1
+    ? getFirestore(app)
+    : initializeFirestore(app, {
+        localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+        })
+    });
+
 const storage = getStorage(app);
 
 export { auth, db, storage };

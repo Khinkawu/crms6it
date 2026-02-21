@@ -58,7 +58,11 @@ export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivi
         };
 
         if (!realtime) {
-            getDocs(q).then(snapshot => processSnapshot(snapshot.docs)).catch(err => {
+            console.time('[useActivityLogs] fetch');
+            getDocs(q).then(snapshot => {
+                console.timeEnd('[useActivityLogs] fetch');
+                processSnapshot(snapshot.docs);
+            }).catch(err => {
                 console.error("[useActivityLogs]", err);
                 setLoading(false);
             });

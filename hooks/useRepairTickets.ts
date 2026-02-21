@@ -49,7 +49,9 @@ export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepa
         );
 
         if (!realtime) {
+            console.time('[useRepairTickets] fetch');
             getDocs(q).then(snapshot => {
+                console.timeEnd('[useRepairTickets] fetch');
                 setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RepairTicket)));
                 setLoading(false);
             }).catch(() => setLoading(false));

@@ -99,7 +99,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 // 2. getDoc (one-time read) — faster than onSnapshot for initial load
                 // Role changes are rare; no need for realtime listener here
                 try {
+                    console.time('[AuthContext] getDoc user');
                     const docSnap = await getDoc(userRef);
+                    console.timeEnd('[AuthContext] getDoc user');
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
                         setRole(userData.role as UserRole);
