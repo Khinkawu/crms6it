@@ -80,6 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     useEffect(() => {
+        console.time('[Auth] onAuthStateChanged → ready');
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
             setLoading(true);
             if (currentUser) {
@@ -120,6 +121,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 }
                 setUser(currentUser);
                 setLoading(false);
+                console.timeEnd('[Auth] onAuthStateChanged → ready');
 
                 // 3. Background: handle new user creation + profile sync (non-blocking)
                 syncUserProfile(userRef, currentUser).catch(err =>
@@ -131,6 +133,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setIsPhotographer(false);
                 setLineDisplayName(null);
                 setLoading(false);
+                console.timeEnd('[Auth] onAuthStateChanged → ready');
             }
         });
 
