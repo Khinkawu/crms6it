@@ -5,10 +5,14 @@ import { th } from 'date-fns/locale';
 
 // --- 1. Helper Functions ---
 
-const getImageBase64 = async (url: string): Promise<string> => {
+const getImageBase64 = async (url: string, timeoutMs = 5000): Promise<string> => {
     try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("Network response was not ok");
+        // Try fetch first (works for same-origin and CORS-enabled URLs)
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+        if (!response.ok) throw new Error('Network response was not ok');
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -16,9 +20,29 @@ const getImageBase64 = async (url: string): Promise<string> => {
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         });
-    } catch (error) {
-        console.warn("Logo load failed:", error);
-        return "";
+    } catch {
+        console.warn('getImageBase64 fetch failed for:', url?.substring(0, 60), '- trying Image fallback');
+        // Fallback: use Image + Canvas (better CORS compatibility)
+        return new Promise((resolve) => {
+            const timer = setTimeout(() => { resolve(''); }, timeoutMs);
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                clearTimeout(timer);
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/png'));
+                } catch {
+                    resolve('');
+                }
+            };
+            img.onerror = () => { clearTimeout(timer); resolve(''); };
+            img.src = url;
+        });
     }
 };
 
@@ -219,24 +243,46 @@ export const generateInventoryLogReport = async (
         doc.line(15, 35, width - 15, 35);
     };
 
-    // C. Data Prep
+    // C. Data Prep — Load signatures via server-side proxy to bypass CORS
     const tableColumn = ["ว/ด/ป", "กิจกรรม", "รายการ", "ผู้ดำเนินการ", "รายละเอียด", "ลายเซ็น"];
-    const tableRows = await Promise.all(logs.map(async (log) => {
-        // Fetch signature if exists
-        let signatureImage = '';
-        if (log.signatureUrl) {
-            signatureImage = await getImageBase64(log.signatureUrl);
-        }
 
+    // Collect all unique signature URLs
+    const signatureUrls = logs
+        .filter(log => log.signatureUrl)
+        .map(log => log.signatureUrl as string);
+    const uniqueUrls = Array.from(new Set(signatureUrls));
+
+    // Fetch all signatures via server-side proxy (no CORS issues)
+    const signatureCache = new Map<string, string>();
+    if (uniqueUrls.length > 0) {
+        try {
+            const proxyResponse = await fetch('/api/admin/proxy-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urls: uniqueUrls }),
+            });
+            if (proxyResponse.ok) {
+                const { results } = await proxyResponse.json();
+                for (const [url, dataUrl] of Object.entries(results)) {
+                    signatureCache.set(url, dataUrl as string);
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to fetch signatures via proxy:', error);
+        }
+    }
+
+    const tableRows = logs.map((log) => {
+        const signatureImage = log.signatureUrl ? (signatureCache.get(log.signatureUrl) || '') : '';
         return [
             log.timestamp?.toDate ? format(addYears(log.timestamp.toDate(), 543), 'dd/MM/yy HH:mm') : '-',
             getThaiAction(log.action),
             log.productName || '-',
             log.userName || '-',
             log.details || '-',
-            signatureImage // Pass base64 image or empty string
+            signatureImage
         ];
-    }));
+    });
 
     // D. Table
     autoTable(doc, {

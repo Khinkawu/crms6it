@@ -22,6 +22,7 @@ export interface Product {
     category?: string;
     serialNumber?: string;
     description?: string;
+    activeBorrowId?: string; // Link to current borrow transaction (unique items)
     updatedAt?: any;
 }
 

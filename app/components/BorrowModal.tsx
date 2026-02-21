@@ -95,8 +95,8 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
             await uploadBytes(storageRef, blob);
             const signatureUrl = await getDownloadURL(storageRef);
 
-            // 2. Create Transaction
-            await addDoc(collection(db, "transactions"), {
+            // 2. Create Transaction & capture ID
+            const txRef = await addDoc(collection(db, "transactions"), {
                 type: "borrow",
                 productId: product.id,
                 productName: product.name,
@@ -118,7 +118,8 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
                 const productRef = doc(db, "products", product.id);
                 if (isBulk) {
                     await updateDoc(productRef, {
-                        borrowedCount: increment(1)
+                        borrowedCount: increment(1),
+                        updatedAt: serverTimestamp()
                     });
 
                     // Update Stats for Bulk
@@ -140,7 +141,9 @@ const BorrowModal: React.FC<BorrowModalProps> = ({ isOpen, onClose, product, onS
 
                 } else {
                     await updateDoc(productRef, {
-                        status: "borrowed", // normalized from 'ไม่ว่าง'
+                        status: "borrowed",
+                        activeBorrowId: txRef.id, // Link to this transaction
+                        updatedAt: serverTimestamp()
                     });
 
                     // Update Stats for Unique

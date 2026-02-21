@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { db, storage } from "../../lib/firebase";
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDocs, query, where } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDocs, query, where, onSnapshot, deleteField } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Product } from "../../types";
 import { useAuth } from "../../context/AuthContext";
@@ -18,6 +18,12 @@ interface ReturnModalProps {
     onSuccess: () => void;
 }
 
+function formatBorrowDate(timestamp: any): string {
+    if (!timestamp) return "-";
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
+}
+
 const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onSuccess }) => {
     const { user } = useAuth();
     const sigPad = useRef<SignatureCanvas>(null);
@@ -29,6 +35,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onS
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Bulk item: active borrows list & selection
+    const [activeBorrows, setActiveBorrows] = useState<any[]>([]);
+    const [selectedBorrowId, setSelectedBorrowId] = useState<string>("");
+
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -38,6 +48,41 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onS
             document.body.style.overflow = '';
         };
     }, [isOpen]);
+
+    // Fetch active borrows for bulk items
+    useEffect(() => {
+        if (!isOpen || product.type !== 'bulk') return;
+
+        const q = query(
+            collection(db, "transactions"),
+            where("type", "==", "borrow"),
+            where("productId", "==", product.id),
+            where("status", "==", "active")
+        );
+        const unsub = onSnapshot(q, (snap) => {
+            const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Sort by borrowDate ascending (oldest first)
+            list.sort((a: any, b: any) => {
+                const aDate = a.borrowDate?.toDate?.() ?? new Date(0);
+                const bDate = b.borrowDate?.toDate?.() ?? new Date(0);
+                return aDate.getTime() - bDate.getTime();
+            });
+            setActiveBorrows(list);
+            // Auto-select if only one borrower
+            if (list.length === 1) setSelectedBorrowId(list[0].id);
+        });
+        return () => unsub();
+    }, [isOpen, product]);
+
+    // Auto-fill returner name when a borrow is selected
+    useEffect(() => {
+        if (selectedBorrowId && product.type === 'bulk') {
+            const selected = activeBorrows.find((b: any) => b.id === selectedBorrowId);
+            if (selected && !formData.returnerName) {
+                setFormData(prev => ({ ...prev, returnerName: (selected as any).borrowerName || '' }));
+            }
+        }
+    }, [selectedBorrowId]);
 
     if (!isOpen) return null;
 
@@ -56,6 +101,11 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onS
 
         if (!formData.returnerName) {
             setError("กรุณาระบุชื่อผู้คืน");
+            return;
+        }
+
+        if (product.type === 'bulk' && !selectedBorrowId) {
+            setError("กรุณาเลือกรายการที่จะคืน");
             return;
         }
 
@@ -123,25 +173,52 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onS
                 }
             }
 
-            // 3. Find and Update the Original Borrow Transaction
-            // This ensures the item stays in user's borrow history with "คืนแล้ว" status
-            const borrowQuery = query(
-                collection(db, "transactions"),
-                where("type", "==", "borrow"),
-                where("productId", "==", product.id),
-                where("status", "==", "active")
-            );
-            const borrowSnapshot = await getDocs(borrowQuery);
+            // 3. Update the specific borrow transaction by ID
+            const isBulkReturn = product.type === 'bulk';
+            const targetTxId = isBulkReturn ? selectedBorrowId : product.activeBorrowId;
 
-            // Update all active borrow transactions for this product (usually just one)
-            for (const borrowDoc of borrowSnapshot.docs) {
-                await updateDoc(doc(db, "transactions", borrowDoc.id), {
+            if (targetTxId) {
+                // Direct update by transaction ID — no query needed
+                await updateDoc(doc(db, "transactions", targetTxId), {
                     status: "completed",
                     returnedAt: serverTimestamp(),
                     returnerName: formData.returnerName,
                     returnReceiverName: user?.displayName,
                     returnNotes: formData.notes,
                     returnSignatureUrl: signatureUrl
+                });
+            } else {
+                // Fallback: find by query (for legacy data without activeBorrowId)
+                const borrowQuery = query(
+                    collection(db, "transactions"),
+                    where("type", "==", "borrow"),
+                    where("productId", "==", product.id),
+                    where("status", "==", "active")
+                );
+                const borrowSnapshot = await getDocs(borrowQuery);
+                // For unique items: update the first (should be only one)
+                // For bulk items: update the oldest one
+                const sortedDocs = borrowSnapshot.docs.sort((a, b) => {
+                    const aDate = a.data().borrowDate?.toDate?.() ?? new Date(0);
+                    const bDate = b.data().borrowDate?.toDate?.() ?? new Date(0);
+                    return aDate.getTime() - bDate.getTime();
+                });
+                if (sortedDocs.length > 0) {
+                    await updateDoc(doc(db, "transactions", sortedDocs[0].id), {
+                        status: "completed",
+                        returnedAt: serverTimestamp(),
+                        returnerName: formData.returnerName,
+                        returnReceiverName: user?.displayName,
+                        returnNotes: formData.notes,
+                        returnSignatureUrl: signatureUrl
+                    });
+                }
+            }
+
+            // Clear activeBorrowId for unique items
+            if (!isBulkReturn && product.id) {
+                await updateDoc(doc(db, "products", product.id!), {
+                    activeBorrowId: deleteField()
                 });
             }
 
@@ -194,6 +271,31 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose, product, onS
                 <div className="p-6 overflow-y-auto custom-scrollbar">
                     <h2 className="text-2xl font-bold text-text mb-1">คืนวัสดุ อุปกรณ์</h2>
                     <p className="text-text-secondary text-sm mb-6">{product.name}</p>
+
+                    {/* Bulk item: borrower selector */}
+                    {product.type === 'bulk' && activeBorrows.length > 0 && (
+                        <div className="mb-4 space-y-1">
+                            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">เลือกรายการที่จะคืน</label>
+                            <select
+                                value={selectedBorrowId}
+                                onChange={(e) => setSelectedBorrowId(e.target.value)}
+                                className="input-field"
+                                required
+                            >
+                                <option value="">-- เลือกผู้ยืม --</option>
+                                {activeBorrows.map((b: any) => (
+                                    <option key={b.id} value={b.id}>
+                                        {b.borrowerName} — ยืมเมื่อ {formatBorrowDate(b.borrowDate)} (ห้อง {b.userRoom})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    {product.type === 'bulk' && activeBorrows.length === 0 && (
+                        <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-600 text-sm">
+                            ไม่พบรายการยืมที่ค้างอยู่
+                        </div>
+                    )}
 
                     {error && (
                         <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-sm">

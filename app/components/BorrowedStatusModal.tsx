@@ -46,13 +46,13 @@ export default function BorrowedStatusModal({ isOpen, onClose }: BorrowedStatusM
         setLoading(true);
         const q = query(
             collection(db, "transactions"),
-            where("type", "==", "borrow")
+            where("type", "==", "borrow"),
+            where("status", "==", "active")
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const list: BorrowedItem[] = snapshot.docs
-                .map((doc) => ({ id: doc.id, ...doc.data() } as BorrowedItem))
-                .filter((item: any) => item.status === "active");
+                .map((doc) => ({ id: doc.id, ...doc.data() } as BorrowedItem));
 
             // Sort client-side by returnDate ascending
             list.sort((a, b) => {
