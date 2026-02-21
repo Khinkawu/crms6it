@@ -10,7 +10,7 @@ import {
     User
 } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { UserRole } from "../types";
 
 interface AuthContextType {
@@ -80,15 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     useEffect(() => {
-        let unsubscribeUser: (() => void) | null = null;
-
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-            // Cleanup previous user listener
-            if (unsubscribeUser) {
-                unsubscribeUser();
-                unsubscribeUser = null;
-            }
-
             setLoading(true);
             if (currentUser) {
                 // 1. Check Domain
@@ -104,30 +96,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
                 const userRef = doc(db, "users", currentUser.uid);
 
-                // 2. Start onSnapshot FIRST — gets role data fastest, unblocks UI
-                unsubscribeUser = onSnapshot(userRef, (docSnap) => {
+                // 2. getDoc (one-time read) — faster than onSnapshot for initial load
+                // Role changes are rare; no need for realtime listener here
+                try {
+                    const docSnap = await getDoc(userRef);
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
                         setRole(userData.role as UserRole);
                         setIsPhotographer(userData.isPhotographer || false);
                         setLineDisplayName(userData.lineDisplayName || null);
                     } else {
-                        // Doc doesn't exist yet — set defaults in state only
-                        // Do NOT call setDoc here (cache can falsely report exists=false)
                         setRole('user');
                         setIsPhotographer(false);
                         setLineDisplayName(null);
                     }
-                    setUser(currentUser);
-                    setLoading(false);
-                }, (error) => {
-                    console.error("Error listening to user doc:", error);
+                } catch (error) {
+                    console.error("Error fetching user doc:", error);
                     setRole('user');
                     setIsPhotographer(false);
                     setLineDisplayName(null);
-                    setUser(currentUser);
-                    setLoading(false);
-                });
+                }
+                setUser(currentUser);
+                setLoading(false);
 
                 // 3. Background: handle new user creation + profile sync (non-blocking)
                 syncUserProfile(userRef, currentUser).catch(err =>
@@ -144,9 +134,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         return () => {
             unsubscribeAuth();
-            if (unsubscribeUser) {
-                unsubscribeUser();
-            }
         };
     }, []);
 
