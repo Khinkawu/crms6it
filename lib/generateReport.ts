@@ -5,6 +5,39 @@ import { th } from 'date-fns/locale';
 
 // --- 1. Helper Functions ---
 
+// Detect mobile/tablet for print fallback
+const isMobileDevice = () => {
+    if (typeof navigator === 'undefined') return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || (navigator.maxTouchPoints > 0 && window.innerWidth < 1024);
+};
+
+// Cross-platform PDF output handler
+const outputPdf = (doc: jsPDF, filename: string, action: 'download' | 'print') => {
+    if (action === 'download' || isMobileDevice()) {
+        // On mobile: always download (user can print from their PDF app)
+        doc.save(filename);
+    } else {
+        // Desktop: use iframe for reliable print
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = url;
+        document.body.appendChild(iframe);
+        iframe.onload = () => {
+            setTimeout(() => {
+                iframe.contentWindow?.print();
+                // Clean up after printing
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                    URL.revokeObjectURL(url);
+                }, 1000);
+            }, 500);
+        };
+    }
+};
+
 const getImageBase64 = async (url: string, timeoutMs = 5000): Promise<string> => {
     try {
         // Try fetch first (works for same-origin and CORS-enabled URLs)
@@ -195,13 +228,7 @@ export const generateStockReport = async (
     });
 
     // E. Final Action
-    if (action === 'print') {
-        doc.autoPrint();
-        const blob = doc.output('bloburl');
-        window.open(blob, '_blank');
-    } else {
-        doc.save(`RepairReport_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
-    }
+    outputPdf(doc, `RepairReport_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`, action);
 };
 
 // --- 4. Inventory Log Report Function ---
@@ -343,13 +370,7 @@ export const generateInventoryLogReport = async (
     });
 
     // E. Final Action
-    if (action === 'print') {
-        doc.autoPrint();
-        const blob = doc.output('bloburl');
-        window.open(blob, '_blank');
-    } else {
-        doc.save(`InventoryLog_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
-    }
+    outputPdf(doc, `InventoryLog_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`, action);
 };
 
 // Helper for Thai Action Log
@@ -471,11 +492,5 @@ export const generatePhotographyJobReport = async (
     });
 
     // E. Final Action
-    if (action === 'print') {
-        doc.autoPrint();
-        const blob = doc.output('bloburl');
-        window.open(blob, '_blank');
-    } else {
-        doc.save(`PhotographyReport_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
-    }
+    outputPdf(doc, `PhotographyReport_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`, action);
 };

@@ -61,24 +61,23 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
     }, [isOpen, product.name]);
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-                onClose();
-            }
-        };
-
         if (isOpen) {
             document.body.style.overflow = 'hidden';
-            // Add both touch and mouse events for iOS PWA compatibility
-            document.addEventListener("touchstart", handleClickOutside, { passive: true });
-            document.addEventListener("mousedown", handleClickOutside);
         }
         return () => {
             document.body.style.overflow = '';
-            document.removeEventListener("touchstart", handleClickOutside);
-            document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [isOpen, onClose]);
+    }, [isOpen]);
+
+    // Close modal when clicking the backdrop
+    const handleBackdropClick = (e: React.MouseEvent | React.TouchEvent) => {
+        // Only close if clicking the backdrop itself (not the modal content)
+        if (e.target === e.currentTarget) {
+            e.stopPropagation();
+            e.preventDefault();
+            onClose();
+        }
+    };
 
     // Helper function for action icons and labels
     const getActionConfig = (action: string) => {
@@ -133,7 +132,16 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAction 
     const isBorrowed = product.status === 'borrowed' || (product.type === 'bulk' && (product.borrowedCount || 0) > 0);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+            onMouseDown={handleBackdropClick}
+            onTouchStart={(e) => {
+                if (e.target === e.currentTarget) {
+                    e.stopPropagation();
+                    onClose();
+                }
+            }}
+        >
             <div
                 ref={modalRef}
                 className="bg-white dark:bg-card w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh] animate-scale-in overscroll-contain overflow-y-auto md:overflow-hidden"

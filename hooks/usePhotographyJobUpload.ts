@@ -1,7 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { auth } from '@/lib/firebase';
 import { getBangkokDateString } from '@/lib/dateUtils';
+import { generateThumbnail } from '@/utils/generateThumbnail';
+import { fetchWithRetry } from '@/utils/fetchWithRetry';
 
 interface UploadResult {
     ids: string[];
@@ -51,6 +53,9 @@ interface UsePhotographyJobUploadReturn {
     setUploadProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     setDriveLinks: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 
+    // Cancel
+    cancelUpload: (jobId: string) => void;
+
     // Cleanup
     clearJobState: (jobId: string) => void;
 }
@@ -81,34 +86,64 @@ export function usePhotographyJobUpload(): UsePhotographyJobUploadReturn {
     // Drive links
     const [driveLinks, setDriveLinks] = useState<Record<string, string>>({});
 
+    // F. Abort controllers per job
+    const abortControllersRef = useRef<Record<string, AbortController>>({});
+
+    // Cancel ongoing upload for a job
+    const cancelUpload = useCallback((jobId: string) => {
+        const controller = abortControllersRef.current[jobId];
+        if (controller) {
+            controller.abort();
+            delete abortControllersRef.current[jobId];
+        }
+        setIsUploading(prev => ({ ...prev, [jobId]: false }));
+        setUploadProgress(prev => ({ ...prev, [jobId]: 0 }));
+        toast('ยกเลิกการอัปโหลดแล้ว', { icon: '🚫' });
+    }, []);
+
     // Link change handler
     const handleLinkChange = useCallback((jobId: string, value: string) => {
         setDriveLinks(prev => ({ ...prev, [jobId]: value }));
     }, []);
 
-    // Process cover file
-    const processCoverFile = useCallback((jobId: string, file: File) => {
+    // Process cover file (generates 300px thumbnail for preview)
+    const processCoverFile = useCallback(async (jobId: string, file: File) => {
         if (file && file.type.startsWith('image/')) {
             setCoverFiles(prev => ({ ...prev, [jobId]: file }));
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setCoverPreviews(prev => ({ ...prev, [jobId]: reader.result as string }));
-            };
-            reader.readAsDataURL(file);
+            try {
+                const thumbnail = await generateThumbnail(file, 300);
+                setCoverPreviews(prev => ({ ...prev, [jobId]: thumbnail }));
+            } catch {
+                // Fallback to blob URL if thumbnail fails
+                setCoverPreviews(prev => ({ ...prev, [jobId]: URL.createObjectURL(file) }));
+            }
         } else {
             toast.error("กรุณาเลือกไฟล์รูปภาพเท่านั้น");
         }
     }, []);
 
-    // Process job files
-    const processJobFiles = useCallback((jobId: string, newFiles: File[]) => {
-        const validFiles = newFiles.filter(file => file.type.startsWith('image/'));
-        if (validFiles.length < newFiles.length) {
+    // Process job files (generates 150px thumbnails for preview grid)
+    // E. File size validation: reject files > 25MB
+    const MAX_FILE_SIZE_MB = 25;
+    const processJobFiles = useCallback(async (jobId: string, newFiles: File[]) => {
+        const imageFiles = newFiles.filter(file => file.type.startsWith('image/'));
+        if (imageFiles.length < newFiles.length) {
             toast.error("กรุณาเลือกไฟล์รูปภาพเท่านั้น (ไฟล์ที่ไม่ใช่รูปภาพถูกข้าม)");
+        }
+        // Reject oversized files
+        const oversized = imageFiles.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
+        const validFiles = imageFiles.filter(f => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024);
+        if (oversized.length > 0) {
+            toast.error(`${oversized.length} ไฟล์มีขนาดเกิน ${MAX_FILE_SIZE_MB}MB — กรุณาลดขนาดก่อน`);
         }
         if (validFiles.length > 0) {
             setJobFiles(prev => ({ ...prev, [jobId]: [...(prev[jobId] || []), ...validFiles] }));
-            const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+            // Generate tiny thumbnails instead of full-res blob URLs
+            const newPreviews = await Promise.all(
+                validFiles.map(file =>
+                    generateThumbnail(file, 250).catch(() => URL.createObjectURL(file))
+                )
+            );
             setPreviews(prev => ({ ...prev, [jobId]: [...(prev[jobId] || []), ...newPreviews] }));
             setIsUploadComplete(prev => ({ ...prev, [jobId]: false }));
         }
@@ -183,64 +218,127 @@ export function usePhotographyJobUpload(): UsePhotographyJobUploadReturn {
         });
         setPreviews(prev => {
             const currentPreviews = [...(prev[jobId] || [])];
-            URL.revokeObjectURL(currentPreviews[index]);
             currentPreviews.splice(index, 1);
             return { ...prev, [jobId]: currentPreviews };
         });
         setIsUploadComplete(prev => ({ ...prev, [jobId]: false }));
     }, []);
 
-    // Perform Google Drive upload
+    // Perform Google Drive upload (with retry, allSettled, token refresh, abort)
     const performDriveUpload = useCallback(async (jobId: string, jobTitle: string, jobDate: any): Promise<UploadResult> => {
         const files = jobFiles[jobId] || [];
         if (files.length === 0) return { ids: [], folderLink: "" };
 
+        // F. Create AbortController for this upload
+        const abortController = new AbortController();
+        abortControllersRef.current[jobId] = abortController;
+        const { signal } = abortController;
+
         // Get Firebase Auth Token for API authentication
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error('User not authenticated');
-        const idToken = await currentUser.getIdToken();
+        let idToken = await currentUser.getIdToken();
 
-        let completedCount = 0;
-        const totalFiles = files.length;
-        let driveFolderLink = "";
+        const getHeaders = () => ({
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+        });
+
+        // STEP 1: Pre-create folder hierarchy (ONCE, prevents race condition)
+        const prepareResponse = await fetchWithRetry('/api/drive/prepare-folder', {
+            method: 'POST',
+            headers: getHeaders(),
+            signal,
+            body: JSON.stringify({
+                eventName: jobTitle,
+                jobDate: jobDate
+            }),
+        });
+
+        if (!prepareResponse.ok) {
+            const error = await prepareResponse.json();
+            throw new Error(error.error || 'Failed to prepare folder');
+        }
+        const { folderId, folderLink } = await prepareResponse.json();
+
+        // STEP 2: Upload files in PARALLEL batches
+        const BATCH_SIZE = 5;
+        const TOKEN_REFRESH_INTERVAL = 50; // D. Refresh token every 50 files
         const uploadedIds: string[] = [];
+        let completedCount = 0;
+        let failedCount = 0;
+        const totalFiles = files.length;
 
-        // Upload ทีละไฟล์ (sequential to avoid race condition)
-        for (const file of files) {
-            const initResponse = await fetch('/api/drive/upload', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
-                },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    mimeType: file.type,
-                    eventName: jobTitle,
-                    jobDate: jobDate
-                }),
+        for (let i = 0; i < files.length; i += BATCH_SIZE) {
+            // D. Token refresh: prevent expiry during long uploads
+            if (i > 0 && i % TOKEN_REFRESH_INTERVAL === 0) {
+                idToken = await currentUser.getIdToken(true);
+            }
+
+            const batch = files.slice(i, i + BATCH_SIZE);
+
+            // C. Promise.allSettled: partial failures don't abort entire batch
+            const batchResults = await Promise.allSettled(batch.map(async (file) => {
+                // B. fetchWithRetry: auto-retry on server errors
+                const initResponse = await fetchWithRetry('/api/drive/upload-to-folder', {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    signal,
+                    body: JSON.stringify({
+                        fileName: file.name,
+                        mimeType: file.type,
+                        folderId: folderId
+                    }),
+                });
+
+                if (!initResponse.ok) {
+                    let errorMessage;
+                    try {
+                        const error = await initResponse.json();
+                        errorMessage = error.error;
+                    } catch (e) {
+                        const text = await initResponse.text();
+                        errorMessage = `Server Error (${initResponse.status}): ${text.slice(0, 50)}`;
+                    }
+                    throw new Error(`[${file.name}] ${errorMessage || 'Failed to initiate upload'}`);
+                }
+                const { uploadUrl } = await initResponse.json();
+
+                const uploadResponse = await fetchWithRetry(uploadUrl, {
+                    method: 'PUT',
+                    body: file,
+                    signal,
+                    headers: { 'Content-Type': file.type },
+                });
+
+                if (!uploadResponse.ok) throw new Error(`Failed to upload ${file.name} to Google Drive`);
+                const uploadResult = await uploadResponse.json();
+
+                return uploadResult.id || null;
+            }));
+
+            // Process results: collect successes, count failures
+            batchResults.forEach(result => {
+                if (result.status === 'fulfilled' && result.value) {
+                    uploadedIds.push(result.value);
+                } else if (result.status === 'rejected') {
+                    failedCount++;
+                    console.error('[Drive Upload] File failed:', result.reason?.message);
+                }
+                completedCount++;
+                setUploadProgress(prev => ({ ...prev, [jobId]: Math.round((completedCount / totalFiles) * 100) }));
             });
-
-            if (!initResponse.ok) throw new Error('Failed to initiate upload');
-            const { uploadUrl, folderLink } = await initResponse.json();
-
-            const uploadResponse = await fetch(uploadUrl, {
-                method: 'PUT',
-                body: file,
-                headers: { 'Content-Type': file.type },
-            });
-
-            if (!uploadResponse.ok) throw new Error('Failed to upload to Google Drive');
-            const uploadResult = await uploadResponse.json();
-
-            if (uploadResult.id) uploadedIds.push(uploadResult.id);
-            if (!driveFolderLink && folderLink) driveFolderLink = folderLink;
-
-            completedCount++;
-            setUploadProgress(prev => ({ ...prev, [jobId]: Math.round((completedCount / totalFiles) * 100) }));
         }
 
-        return { ids: uploadedIds, folderLink: driveFolderLink };
+        // Cleanup abort controller
+        delete abortControllersRef.current[jobId];
+
+        // Warn about partial failures but don't throw
+        if (failedCount > 0) {
+            toast.error(`${failedCount} ไฟล์อัปโหลดไม่สำเร็จ (สำเร็จ ${uploadedIds.length}/${totalFiles})`);
+        }
+
+        return { ids: uploadedIds, folderLink: folderLink };
     }, [jobFiles]);
 
     // Convert file to base64
@@ -302,6 +400,9 @@ export function usePhotographyJobUpload(): UsePhotographyJobUploadReturn {
         setUploadedFileIds,
         setUploadProgress,
         setDriveLinks,
+
+        // Cancel
+        cancelUpload,
 
         // Cleanup
         clearJobState,

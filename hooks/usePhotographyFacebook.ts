@@ -1,5 +1,8 @@
 import { useState, useCallback } from 'react';
-import { compressImage } from '@/utils/imageCompression';
+import { compressImageToSize } from '@/utils/imageCompression';
+import { fetchWithRetry } from '@/utils/fetchWithRetry';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface UsePhotographyFacebookReturn {
     // State
@@ -8,6 +11,7 @@ interface UsePhotographyFacebookReturn {
     facebookCaption: Record<string, string>;
     facebookSelectedOrder: Record<string, number[]>;
     facebookDraftMode: Record<string, boolean>;
+    facebookProgress: Record<string, number>;
     lastClickedIndex: Record<string, number>;
 
     // Handlers
@@ -26,6 +30,7 @@ interface UsePhotographyFacebookReturn {
     setFacebookCaption: React.Dispatch<React.SetStateAction<Record<string, string>>>;
     setFacebookDraftMode: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
     setFacebookSent: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+    setFacebookSelectedOrder: React.Dispatch<React.SetStateAction<Record<string, number[]>>>;
 
     // Cleanup
     clearFacebookState: (jobId: string) => void;
@@ -41,6 +46,7 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
     const [facebookCaption, setFacebookCaption] = useState<Record<string, string>>({});
     const [facebookSelectedOrder, setFacebookSelectedOrder] = useState<Record<string, number[]>>({});
     const [facebookDraftMode, setFacebookDraftMode] = useState<Record<string, boolean>>({});
+    const [facebookProgress, setFacebookProgress] = useState<Record<string, number>>({});
     const [lastClickedIndex, setLastClickedIndex] = useState<Record<string, number>>({});
 
     // Toggle Facebook posting
@@ -85,7 +91,7 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
         setFacebookSelectedOrder(prev => ({ ...prev, [jobId]: [] }));
     }, []);
 
-    // Perform Facebook post
+    // Perform Facebook post (with idempotency check, compression, and detailed error handling)
     const performFacebookPost = useCallback(async (
         jobId: string,
         files: File[],
@@ -96,11 +102,23 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
 
         if (!files || files.length === 0) throw new Error('ไม่พบไฟล์สำหรับ Facebook');
 
+        // IDEMPOTENCY CHECK: Prevent duplicate Facebook posts
+        const jobDocRef = doc(db, "photography_jobs", jobId);
+        const jobSnapshot = await getDoc(jobDocRef);
+        if (jobSnapshot.exists()) {
+            const jobData = jobSnapshot.data();
+            if (jobData.facebookPostId) {
+                console.warn('Facebook post already exists for this job:', jobId);
+                return;
+            }
+        }
+
         const asDraft = facebookDraftMode[jobId] || false;
         const caption = facebookCaption[jobId] || '';
 
         // Upload photos one by one to avoid 413 Payload Too Large
         const photoIds: string[] = [];
+        setFacebookProgress(prev => ({ ...prev, [jobId]: 0 }));
 
         for (let i = 0; i < selectedOrder.length; i++) {
             const idx = selectedOrder[i];
@@ -108,41 +126,50 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
             if (!file) continue;
 
             // Always compress for Facebook to stay under Vercel 4.5MB limit
-            let fileToUpload = file;
-            if (file.size > 3 * 1024 * 1024) {
-                fileToUpload = await compressImage(file, {
-                    maxWidth: 2048,
-                    maxHeight: 2048,
-                    quality: 0.8,
-                    maxSizeMB: 3
-                });
-            }
+            // Base64 overhead is ~33%. Max safe file size is ~3.3MB → target 2.5MB for safety.
+            const fileToUpload = await compressImageToSize(file, 2.5, 0.7);
 
             const base64 = await fileToBase64(fileToUpload);
 
-            // Upload single photo
-            const res = await fetch('/api/facebook/upload-photo', {
+            // Upload single photo (with auto-retry)
+            const res = await fetchWithRetry('/api/facebook/upload-photo', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     photo: { base64, mimeType: fileToUpload.type },
-                    published: false // Always unpublished first
+                    published: false
                 })
             });
 
             if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.error || `Failed to upload photo ${i + 1}`);
+                let errorMessage;
+                try {
+                    const error = await res.json();
+                    errorMessage = error.error;
+                } catch (e) {
+                    const text = await res.text();
+                    if (res.status === 413 || text.includes('PAYLOAD_TOO_LARGE')) {
+                        errorMessage = "รูปภาพมีขนาดใหญ่เกินไป (413 Payload Too Large) - กรุณาลดขนาดไฟล์";
+                    } else if (res.status === 504) {
+                        errorMessage = "การเชื่อมต่อหมดเวลา (504 Gateway Timeout) - กรุณาลองใหม่";
+                    } else {
+                        errorMessage = `Upload Error (${res.status}): ${text.substring(0, 100)}`;
+                    }
+                }
+                throw new Error(`[${file.name}] ${errorMessage || 'Failed to upload photo ' + (i + 1)}`);
             }
 
             const data = await res.json();
             if (data.photoId) photoIds.push(data.photoId);
+
+            // G. Update Facebook progress
+            setFacebookProgress(prev => ({ ...prev, [jobId]: Math.round(((i + 1) / selectedOrder.length) * 100) }));
         }
 
         if (photoIds.length === 0) throw new Error('ไม่สามารถอัปโหลดภาพไป Facebook ได้');
 
-        // Create post with all uploaded photos
-        const postRes = await fetch('/api/facebook/post', {
+        // Create post with all uploaded photos (with auto-retry)
+        const postRes = await fetchWithRetry('/api/facebook/post', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -154,49 +181,47 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
         });
 
         if (!postRes.ok) {
-            const error = await postRes.json();
-            throw new Error(error.error || 'Failed to create Facebook post');
+            let errorMessage;
+            try {
+                const error = await postRes.json();
+                errorMessage = error.error;
+            } catch (e) {
+                const text = await postRes.text();
+                errorMessage = `Post Error (${postRes.status}): ${text.substring(0, 100)}`;
+            }
+            throw new Error(errorMessage || 'Failed to create Facebook post');
         }
     }, [facebookSelectedOrder, facebookDraftMode, facebookCaption]);
 
-    // Remove file index from selection
-    const removeFromSelection = useCallback((jobId: string, index: number) => {
-        setFacebookSelectedOrder(prev => {
-            const current = prev[jobId] || [];
-            return { ...prev, [jobId]: current.filter(i => i !== index).map(i => i > index ? i - 1 : i) };
-        });
-    }, []);
-
-    // Cleanup job state
+    // Cleanup ALL Facebook state for a job
     const clearFacebookState = useCallback((jobId: string) => {
         setFacebookEnabled(prev => { const n = { ...prev }; delete n[jobId]; return n; });
         setFacebookSent(prev => { const n = { ...prev }; delete n[jobId]; return n; });
         setFacebookSelectedOrder(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+        setFacebookCaption(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+        setFacebookDraftMode(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+        setFacebookProgress(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+        setLastClickedIndex(prev => { const n = { ...prev }; delete n[jobId]; return n; });
     }, []);
 
     return {
-        // State
         facebookEnabled,
         facebookSent,
         facebookCaption,
         facebookSelectedOrder,
         facebookDraftMode,
+        facebookProgress,
         lastClickedIndex,
-
-        // Handlers
         handleFacebookToggle,
         handleFacebookPhotoClick,
         selectFirstN,
         selectAll,
         selectNone,
         performFacebookPost,
-
-        // Setters
         setFacebookCaption,
         setFacebookDraftMode,
         setFacebookSent,
-
-        // Cleanup
+        setFacebookSelectedOrder,
         clearFacebookState,
     };
 }
