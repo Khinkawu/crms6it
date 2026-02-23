@@ -90,31 +90,72 @@ export default function PhotographyManagement() {
         fetchStats();
     }, [user]);
 
-    // Fetch photography jobs with real-time listener (limit 200 recent jobs)
+    // Fetch photography jobs with dual-query approach (all active + recent history)
     useEffect(() => {
         if (!user) return;
         setLoadingJobs(true);
 
-        const q = query(
+        // Map to store unique jobs from both queries
+        const jobsMap = new Map<string, PhotographyJob>();
+
+        const updateJobsState = () => {
+            const mergedJobs = Array.from(jobsMap.values());
+            // Sort merged jobs desc by startTime
+            mergedJobs.sort((a, b) => {
+                const timeA = a.startTime ? a.startTime.toMillis() : 0;
+                const timeB = b.startTime ? b.startTime.toMillis() : 0;
+                return timeB - timeA;
+            });
+            setJobs(mergedJobs);
+            setLoadingJobs(false);
+        };
+
+        // Query 1: All active/assigned jobs (no limit, ensure we never miss pending work)
+        const qActive = query(
             collection(db, "photography_jobs"),
+            where("status", "in", ["assigned", "pending_assign"])
+        );
+
+        // Query 2: Recent completed/cancelled jobs (limit 100 to prevent huge payloads)
+        const qHistory = query(
+            collection(db, "photography_jobs"),
+            where("status", "in", ["completed", "cancelled"]),
             orderBy("startTime", "desc"),
             limit(100)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const jobsData: PhotographyJob[] = [];
+        const unsubActive = onSnapshot(qActive, (snapshot) => {
             snapshot.forEach((doc) => {
-                jobsData.push({ id: doc.id, ...doc.data() } as PhotographyJob);
+                jobsMap.set(doc.id, { id: doc.id, ...doc.data() } as PhotographyJob);
             });
-            setJobs(jobsData);
-            setLoadingJobs(false);
+            // Handle deletions
+            snapshot.docChanges().forEach(change => {
+                if (change.type === "removed") jobsMap.delete(change.doc.id);
+            });
+            updateJobsState();
         }, (error) => {
-            console.error("Error fetching jobs:", error);
-            toast.error("ไม่สามารถโหลดข้อมูลได้");
-            setLoadingJobs(false);
+            console.error("Error fetching active jobs:", error);
+            if (jobsMap.size === 0) setLoadingJobs(false);
         });
 
-        return () => unsubscribe();
+        const unsubHistory = onSnapshot(qHistory, (snapshot) => {
+            snapshot.forEach((doc) => {
+                jobsMap.set(doc.id, { id: doc.id, ...doc.data() } as PhotographyJob);
+            });
+            // Handle deletions
+            snapshot.docChanges().forEach(change => {
+                if (change.type === "removed") jobsMap.delete(change.doc.id);
+            });
+            updateJobsState();
+        }, (error) => {
+            console.error("Error fetching history jobs:", error);
+            if (jobsMap.size === 0) setLoadingJobs(false);
+        });
+
+        return () => {
+            unsubActive();
+            unsubHistory();
+        };
     }, [user]);
 
     // Fetch photographers
