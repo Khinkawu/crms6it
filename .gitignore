@@ -16,3 +16,6 @@ SYSTEM_DOCUMENTATION.md
 # typescript cache
 *.tsbuildinfo
 .env*.local
+
+# local dev tools
+.mcp.json

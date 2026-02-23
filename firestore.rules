@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function myData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && myData().role == 'admin';
+    }
+
+    function isModerator() {
+      return isAuthenticated() && myData().role in ['admin', 'moderator'];
+    }
+
+    function isPhotographer() {
+      return isAuthenticated() && myData().isPhotographer == true;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // users — อ่าน/เขียนเฉพาะตัวเอง, ห้ามแก้ role ตัวเอง, admin full access
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isAdmin() ||
+        (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
+      allow delete: if isAdmin();
+    }
+
+    // bookings — ทุกคนดูได้, สร้างได้ถ้าเป็นเจ้าของ, approve/update โดย admin+moderator เท่านั้น
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.requesterId == request.auth.uid;
+      allow update: if isModerator() ||
+        (isOwner(resource.data.requesterId) && resource.data.status == 'pending');
+      allow delete: if isModerator();
+    }
+
+    // transactions — photographer+admin สร้าง/แก้ได้, ทุกคนดูได้
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated();
+      allow create: if isPhotographer() || isAdmin();
+      allow update: if isPhotographer() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // products (inventory) — ทุกคนดูได้, photographer อัปเดตได้ (บันทึกการยืม/คืน), admin full
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isPhotographer();
+    }
+
+    // otp_codes — ปิด client access ทั้งหมด, server only
+    match /otp_codes/{otpId} {
+      allow read, write: if false;
+    }
+
+    // line_bindings — ดูเฉพาะของตัวเอง (uid match), admin ดูทั้งหมด
+    match /line_bindings/{lineUserId} {
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // ai_conversations — ดูเฉพาะของตัวเอง (lookup line_bindings), เขียนจาก server เท่านั้น
+    match /ai_conversations/{lineUserId} {
+      allow read: if isAuthenticated() && (
+        get(/databases/$(database)/documents/line_bindings/$(lineUserId)).data.uid == request.auth.uid
+        || isAdmin()
+      );
+      allow write: if false;
+    }
+
+    // stats — ดูได้, admin เขียนได้
+    match /stats/{statId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // activities — ดูได้, admin เขียนได้
+    match /activities/{activityId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // it_knowledge_base — ทุกคนดูได้, admin เขียนได้
+    match /it_knowledge_base/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // photography_jobs — ดูได้, admin/moderator สร้าง, photographer อัปเดตงานตัวเอง
+    match /photography_jobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow create: if isModerator();
+      allow update: if isModerator() ||
+        (isAuthenticated() && resource.data.photographerId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // video_gallery — ดูได้, admin เขียนได้
+    match /video_gallery/{videoId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}
