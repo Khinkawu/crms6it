@@ -85,10 +85,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // activities — ดูได้, admin เขียนได้
+    // activities — ดูได้, photographer+admin create ได้ (client-side logActivity), admin แก้/ลบได้
     match /activities/{activityId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow create: if isPhotographer() || isAdmin();
+      allow update, delete: if isAdmin();
     }
 
     // it_knowledge_base — ทุกคนดูได้, admin เขียนได้
@@ -110,6 +111,23 @@ service cloud.firestore {
     match /video_gallery/{videoId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    // repair_tickets — ทุกคนดูได้, สร้างได้ถ้าเป็นเจ้าของ, approve/update โดย admin+moderator
+    match /repair_tickets/{ticketId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isModerator() ||
+        (isOwner(resource.data.requesterId) && resource.data.status == 'pending');
+      allow delete: if isAdmin();
+    }
+
+    // feedbacks — ทุกคน create ได้, admin อ่านทั้งหมด, user อ่านของตัวเอง
+    match /feedbacks/{feedbackId} {
+      allow read: if isAdmin() ||
+        (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
   }
 }
