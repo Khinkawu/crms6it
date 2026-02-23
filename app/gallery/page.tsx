@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { Camera, Search, Calendar, ExternalLink, User, Filter, X, ChevronLeft, ChevronRight, Pencil, Link, Save, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -100,24 +100,24 @@ export default function GalleryPage() {
         }
     };
 
-    // Fetch completed jobs
+    // Fetch completed jobs — ใช้ getDocs แทน onSnapshot
+    // completed jobs ไม่เปลี่ยนแปลง ไม่จำเป็นต้องใช้ realtime listener
     useEffect(() => {
-        const q = query(
-            collection(db, "photography_jobs"),
-            where("status", "==", "completed"),
-            orderBy("endTime", "desc")
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetchJobs = async () => {
+            const q = query(
+                collection(db, "photography_jobs"),
+                where("status", "==", "completed"),
+                orderBy("endTime", "desc")
+            );
+            const snapshot = await getDocs(q);
             const fetchedJobs: PhotographyJob[] = [];
             snapshot.forEach((doc) => {
                 fetchedJobs.push({ id: doc.id, ...doc.data() } as PhotographyJob);
             });
             setJobs(fetchedJobs);
             setLoading(false);
-        });
-
-        return () => unsubscribe();
+        };
+        fetchJobs();
     }, []);
 
     // Filter logic

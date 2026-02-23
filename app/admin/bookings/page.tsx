@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { collection, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc, getDocs, where, Timestamp } from "firebase/firestore";
+import { collection, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc, getDocs, where, Timestamp, getCountFromServer, limit } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { toast } from "react-hot-toast";
 import {
@@ -23,6 +23,7 @@ export default function BookingManagement() {
     const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
     const [searchTerm, setSearchTerm] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
 
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -45,7 +46,18 @@ export default function BookingManagement() {
         }
 
         if (user) {
-            const q = query(collection(db, "bookings"), orderBy("createdAt", "desc"));
+            // ดึงเฉพาะ status ที่กำลังดูอยู่ + limit 50
+            const statusFilter = filterStatus === 'rejected'
+                ? where("status", "in", ["rejected", "cancelled"])
+                : where("status", "==", filterStatus);
+
+            const q = query(
+                collection(db, "bookings"),
+                statusFilter,
+                orderBy("createdAt", "desc"),
+                limit(50)
+            );
+            setIsLoading(true);
             const unsubscribe = onSnapshot(q, (snapshot) => {
                 const loaded: Booking[] = snapshot.docs.map(doc => ({
                     id: doc.id,
@@ -56,7 +68,26 @@ export default function BookingManagement() {
             });
             return () => unsubscribe();
         }
-    }, [user, role, loading, router]);
+    }, [user, role, loading, router, filterStatus]);
+
+    // ดึงยอดนับแต่ละ status จาก Firestore โดยไม่ต้องโหลด documents ทั้งหมด
+    const fetchCounts = async () => {
+        if (!user) return;
+        const [pending, approved, rejected] = await Promise.all([
+            getCountFromServer(query(collection(db, "bookings"), where("status", "==", "pending"))),
+            getCountFromServer(query(collection(db, "bookings"), where("status", "==", "approved"))),
+            getCountFromServer(query(collection(db, "bookings"), where("status", "in", ["rejected", "cancelled"]))),
+        ]);
+        setCounts({
+            pending: pending.data().count,
+            approved: approved.data().count,
+            rejected: rejected.data().count,
+        });
+    };
+
+    useEffect(() => {
+        if (user) fetchCounts();
+    }, [user]);
 
     const handleUpdateStatus = (id: string, newStatus: string) => {
         setConfirmAction({ type: 'status', id, payload: newStatus });
@@ -119,6 +150,7 @@ export default function BookingManagement() {
                 await deleteDoc(doc(db, "bookings", confirmAction.id));
                 toast.success("ลบรายการจองเรียบร้อย");
             }
+            fetchCounts();
         } catch (error) {
             console.error("Error executing action:", error);
             toast.error("เกิดข้อผิดพลาด");
@@ -128,18 +160,12 @@ export default function BookingManagement() {
         }
     };
 
-    const filteredBookings = bookings
-        .filter(b => {
-            if (filterStatus === 'rejected') {
-                return b.status === 'rejected' || b.status === 'cancelled';
-            }
-            return b.status === filterStatus;
-        })
-        .filter(b =>
-            b.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            b.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (b.roomName || "").toLowerCase().includes(searchTerm.toLowerCase())
-        );
+    // bookings ถูก filter ที่ Firestore แล้ว เหลือแค่ search filter ฝั่ง client
+    const filteredBookings = bookings.filter(b =>
+        b.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        b.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.roomName || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const formatDate = (ts: Timestamp) => {
         if (!ts) return "";
@@ -153,15 +179,6 @@ export default function BookingManagement() {
         if (!ts) return "";
         return ts.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
     };
-
-    const getStatusCounts = () => {
-        const pending = bookings.filter(b => b.status === 'pending').length;
-        const approved = bookings.filter(b => b.status === 'approved').length;
-        const rejected = bookings.filter(b => b.status === 'rejected' || b.status === 'cancelled').length;
-        return { pending, approved, rejected };
-    };
-
-    const counts = getStatusCounts();
 
     if (loading || isLoading) {
         return (
