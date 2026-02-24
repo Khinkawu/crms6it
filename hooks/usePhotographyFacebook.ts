@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { compressImageToSize } from '@/utils/imageCompression';
 import { fetchWithRetry } from '@/utils/fetchWithRetry';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 
 interface UsePhotographyFacebookReturn {
     // State
@@ -116,6 +116,15 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
         const asDraft = facebookDraftMode[jobId] || false;
         const caption = facebookCaption[jobId] || '';
 
+        // Get Firebase Auth Token for API authentication
+        const currentUser = auth.currentUser;
+        if (!currentUser) throw new Error('User not authenticated');
+        const idToken = await currentUser.getIdToken();
+        const authHeaders = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+        };
+
         // Upload photos one by one to avoid 413 Payload Too Large
         const photoIds: string[] = [];
         setFacebookProgress(prev => ({ ...prev, [jobId]: 0 }));
@@ -134,7 +143,7 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
             // Upload single photo (with auto-retry)
             const res = await fetchWithRetry('/api/facebook/upload-photo', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders,
                 body: JSON.stringify({
                     photo: { base64, mimeType: fileToUpload.type },
                     published: false
@@ -171,7 +180,7 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
         // Create post with all uploaded photos (with auto-retry)
         const postRes = await fetchWithRetry('/api/facebook/post', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders,
             body: JSON.stringify({
                 jobId,
                 caption,
