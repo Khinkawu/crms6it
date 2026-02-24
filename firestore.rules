@@ -22,6 +22,10 @@ service cloud.firestore {
       return isAuthenticated() && myData().isPhotographer == true;
     }
 
+    function isTechnician() {
+      return isAuthenticated() && myData().role == 'technician';
+    }
+
     function isOwner(uid) {
       return isAuthenticated() && request.auth.uid == uid;
     }
@@ -52,11 +56,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // products (inventory) — ทุกคนดูได้, photographer อัปเดตได้ (บันทึกการยืม/คืน), admin full
+    // products (inventory) — ทุกคนดูได้, photographer/technician อัปเดตได้ (บันทึกการยืม/คืน/เบิก), admin full
     match /products/{productId} {
       allow read: if isAuthenticated();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || isPhotographer();
+      allow update: if isAdmin() || isPhotographer() || isTechnician();
     }
 
     // otp_codes — ปิด client access ทั้งหมด, server only
@@ -85,10 +89,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // activities — ดูได้, photographer+admin create ได้ (client-side logActivity), admin แก้/ลบได้
+    // activities — ดูได้, photographer/technician/admin create ได้ (client-side logActivity), admin แก้/ลบได้
     match /activities/{activityId} {
       allow read: if isAuthenticated();
-      allow create: if isPhotographer() || isAdmin();
+      allow create: if isPhotographer() || isAdmin() || isTechnician();
       allow update, delete: if isAdmin();
     }
 
@@ -113,12 +117,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // repair_tickets — ทุกคนดูได้, สร้างได้ถ้าเป็นเจ้าของ, approve/update โดย admin+moderator
+    // repair_tickets — ทุกคนดูได้, ทุกคนสร้างได้, technician/admin/moderator อัปเดตสถานะได้
     match /repair_tickets/{ticketId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isModerator() ||
-        (isOwner(resource.data.requesterId) && resource.data.status == 'pending');
+      allow update: if isModerator() || isTechnician();
       allow delete: if isAdmin();
     }
 
