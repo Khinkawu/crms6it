@@ -103,7 +103,7 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isModerator() || isPhotographer();
       allow update: if isModerator() ||
-        (isAuthenticated() && resource.data.photographerId == request.auth.uid);
+        (isPhotographer() && request.auth.uid in resource.data.assigneeIds);
       allow delete: if isAdmin();
     }
 
