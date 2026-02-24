@@ -190,6 +190,7 @@ export async function searchGallery(keyword?: string, date?: string, limit: numb
         console.log(`[Gallery Search] === START ===`);
         console.log(`[Gallery Search] Keyword: "${keyword}", Date: "${date}", Limit: ${limit}`);
         const snapshot = await adminDb.collection('photography_jobs')
+            .where('status', '==', 'completed')
             .orderBy('startTime', 'desc')
             .limit(100)
             .get();
@@ -198,17 +199,15 @@ export async function searchGallery(keyword?: string, date?: string, limit: numb
 
         snapshot.forEach((doc) => {
             const data = doc.data();
-            if (data.status === 'completed') {
-                jobs.push({
-                    id: doc.id,
-                    title: data.title,
-                    location: getRoomDisplayName(data.location),
-                    date: formatToThaiTime(data.startTime),
-                    driveLink: data.driveLink || 'ไม่มีลิงก์ Drive',
-                    facebookLink: data.facebookPermalink || data.facebookPostLink || '',
-                    rawStartTime: data.startTime
-                });
-            }
+            jobs.push({
+                id: doc.id,
+                title: data.title,
+                location: getRoomDisplayName(data.location),
+                date: formatToThaiTime(data.startTime),
+                driveLink: data.driveLink || 'ไม่มีลิงก์ Drive',
+                facebookLink: data.facebookPermalink || data.facebookPostLink || '',
+                rawStartTime: data.startTime
+            });
         });
 
         // Filter Date
