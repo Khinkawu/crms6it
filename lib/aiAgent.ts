@@ -608,6 +608,12 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
 
     // 3. Image Handling
     if (imageBuffer && imageMimeType) {
+        if (!userProfile) {
+            context.pendingAction = { intent: 'LINK_ACCOUNT', params: {}, repairStep: 'awaiting_link_email' };
+            await saveConversationContext(lineUserId, context);
+            return `⚠️ ไม่พบข้อมูลบัญชีของท่าน\n\nกรุณาผูกบัญชีก่อนแจ้งซ่อมค่ะ\nพิมพ์ email @tesaban6.ac.th ของท่านเพื่อเริ่มต้นผูกบัญชี\nตัวอย่าง: kawin@tesaban6.ac.th`;
+        }
+
         // Run analysis first
         const analysis = await analyzeRepairImage(imageBuffer, imageMimeType);
 
@@ -730,11 +736,17 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
         }
 
         if (intent === 'CREATE_REPAIR') {
+            if (!userProfile) {
+                context.pendingAction = { intent: 'LINK_ACCOUNT', params: {}, repairStep: 'awaiting_link_email' };
+                await saveConversationContext(lineUserId, context);
+                return `⚠️ ไม่พบข้อมูลบัญชีของท่าน\n\nกรุณาผูกบัญชีก่อนทำรายการค่ะ\nพิมพ์ email @tesaban6.ac.th ของท่านเพื่อเริ่มต้นผูกบัญชี\nตัวอย่าง: kawin@tesaban6.ac.th`;
+            }
+
             if (repairStep === 'awaiting_symptom') {
                 context.pendingAction.params.description = msg;
                 context.pendingAction.repairStep = 'awaiting_image';
                 await saveConversationContext(lineUserId, context);
-                return `รับทราบอาการค่ะ "${msg}"\n\n📸 สะดวกถ่ายรูปอาการให้ดูไหมคะ? (ส่งรูปมาได้เลย หรือตอบ "ไม่มี")`;
+                return `รับทราบอาการค่ะ "${msg}"\n\n📸 สะดวกถ่ายรูปอาการให้ดูไหมคะ? (ส่งรูปมาได้เลย)`;
             }
             if (repairStep === 'awaiting_image') {
                 if (msg.includes('ไม่')) {
@@ -743,14 +755,14 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     await saveConversationContext(lineUserId, context);
                     return `โอเคค่ะ ข้อมูลการแจ้งซ่อม:\nอาการ: ${params.description}\n\nยืนยันแจ้งซ่อมไหมคะ? (ตอบ "ยืนยัน")`;
                 }
-                return `กรุณาส่งรูป หรือตอบ "ไม่มี" เพื่อข้ามค่ะ`;
+                return `กรุณาส่งรูปภาพเพื่อให้ช่างประเมินอาการค่ะ`;
             }
             if (repairStep === 'awaiting_intent_confirm') {
                 // Hybrid Approach:
                 // 1. Fast Path: Check exact keywords (Zero latency)
                 const fastConfirmKeywords = ['ใช่', 'ยืนยัน', 'ok', 'ครับ', 'ค่ะ', 'แจ้งซ่อม', 'ซ่อม', 'เปิดใบงาน', 'ticket', 'confirm', 'จัดไป'];
                 const fastCancelKeywords = ['ยกเลิก', 'ไม่', 'no', 'cancel', 'พอ', 'หยุด'];
-                
+
                 let intent: 'CONFIRM' | 'CANCEL' | 'OTHER' = 'OTHER';
 
                 if (fastConfirmKeywords.some(k => msg.toLowerCase().includes(k))) intent = 'CONFIRM';
@@ -805,7 +817,6 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
             }
             if (repairStep === 'awaiting_side') {
                 context.pendingAction.params.side = msg;
-                if (!userProfile) return 'คุณยังไม่ได้ผูกบัญชี กรุณาผ่านบัญชีก่อนแจ้งซ่อมค่ะ';
 
                 // Pass aiDiagnosis to helper
                 const res = await createRepairFromAI(
@@ -951,6 +962,12 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     reply = await handleDailySummary(userProfile); break;
 
                 case 'CREATE_REPAIR':
+                    if (!userProfile) {
+                        context.pendingAction = { intent: 'LINK_ACCOUNT', params: {}, repairStep: 'awaiting_link_email' };
+                        reply = `⚠️ ไม่พบข้อมูลบัญชีของท่าน\n\nกรุณาผูกบัญชีก่อนแจ้งซ่อมค่ะ\nพิมพ์ email @tesaban6.ac.th ของท่านเพื่อเริ่มต้นผูกบัญชี\nตัวอย่าง: kawin@tesaban6.ac.th`;
+                        break;
+                    }
+
                     const params = aiRes.params as any; // Cast for now, logic below checks fields
                     context.pendingAction = { intent: 'CREATE_REPAIR', repairStep: 'awaiting_symptom', params: params || {} };
 
