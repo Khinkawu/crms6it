@@ -28,7 +28,7 @@ import EditPhotographyJobModal from "@/app/components/EditPhotographyJobModal";
 import ConfirmationModal from "@/app/components/ConfirmationModal";
 
 export default function PhotographyManagement() {
-    const { user, role, loading } = useAuth();
+    const { user, role, isPhotographer, loading } = useAuth();
     const router = useRouter();
 
     const [jobs, setJobs] = useState<PhotographyJob[]>([]);
@@ -44,12 +44,12 @@ export default function PhotographyManagement() {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const photographers = allUsers.filter(u => u.isPhotographer);
 
-    // Redirect non-admin users
+    // Redirect unauthorized users
     useEffect(() => {
-        if (!loading && (!user || (role !== 'admin' && role !== 'moderator'))) {
+        if (!loading && (!user || (role !== 'admin' && role !== 'moderator' && !isPhotographer))) {
             router.push("/");
         }
-    }, [user, role, loading, router]);
+    }, [user, role, isPhotographer, loading, router]);
 
     // Fetch photography jobs
     // Stats State

@@ -101,7 +101,7 @@ service cloud.firestore {
     // photography_jobs — ดูได้, admin/moderator สร้าง, photographer อัปเดตงานตัวเอง
     match /photography_jobs/{jobId} {
       allow read: if isAuthenticated();
-      allow create: if isModerator();
+      allow create: if isModerator() || isPhotographer();
       allow update: if isModerator() ||
         (isAuthenticated() && resource.data.photographerId == request.auth.uid);
       allow delete: if isAdmin();
