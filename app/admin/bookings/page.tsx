@@ -125,15 +125,20 @@ export default function BookingManagement() {
                 if (confirmAction.payload === 'approved') {
                     const booking = bookings.find(b => b.id === confirmAction.id);
                     if (booking?.startTime && booking?.endTime && booking?.roomId) {
+                        // Firestore ไม่รองรับ range filter บน 2 fields ต่างกัน
+                        // ใช้ startTime < endTime เดียว แล้ว filter endTime ที่ client
                         const conflictQuery = query(
                             collection(db, "bookings"),
                             where("roomId", "==", booking.roomId),
                             where("status", "==", "approved"),
-                            where("startTime", "<", booking.endTime),
-                            where("endTime", ">", booking.startTime)
+                            where("startTime", "<", booking.endTime)
                         );
                         const conflicts = await getDocs(conflictQuery);
-                        const realConflicts = conflicts.docs.filter(d => d.id !== confirmAction.id);
+                        const bookingStartMs = (booking.startTime as Timestamp).toMillis();
+                        const realConflicts = conflicts.docs.filter(d =>
+                            d.id !== confirmAction.id &&
+                            (d.data().endTime as Timestamp).toMillis() > bookingStartMs
+                        );
                         if (realConflicts.length > 0) {
                             toast.error("ไม่สามารถอนุมัติได้ — ห้องนี้ถูกจองในช่วงเวลาดังกล่าวแล้ว");
                             setIsConfirmOpen(false);
