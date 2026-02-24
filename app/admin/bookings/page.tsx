@@ -348,7 +348,9 @@ export default function BookingManagement() {
                                                     e.stopPropagation();
                                                     updateDoc(doc(db, "bookings", booking.id), {
                                                         needsPhotographer: !booking.needsPhotographer
-                                                    }).then(() => toast.success(booking.needsPhotographer ? "Removed Photographer Request" : "Requested Photographer"));
+                                                    })
+                                                    .then(() => toast.success(booking.needsPhotographer ? "Removed Photographer Request" : "Requested Photographer"))
+                                                    .catch(() => toast.error("บันทึกไม่สำเร็จ"));
                                                 }}
                                                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${booking.needsPhotographer
                                                     ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100'

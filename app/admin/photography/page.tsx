@@ -46,7 +46,7 @@ export default function PhotographyManagement() {
 
     // Redirect unauthorized users
     useEffect(() => {
-        if (!loading && (!user || (role !== 'admin' && role !== 'moderator' && !isPhotographer))) {
+        if (!loading && (!user || role !== 'admin')) {
             router.push("/");
         }
     }, [user, role, isPhotographer, loading, router]);
@@ -162,7 +162,7 @@ export default function PhotographyManagement() {
     useEffect(() => {
         if (!user) return;
 
-        const q = query(collection(db, "users"));
+        const q = query(collection(db, "users"), where("isPhotographer", "==", true));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const users: UserProfile[] = [];
             snapshot.forEach((doc) => {
