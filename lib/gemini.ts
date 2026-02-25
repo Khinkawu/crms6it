@@ -103,7 +103,12 @@ Skills: เชี่ยวชาญระบบ CRMS6 IT, ข้อมูลอ�
 4. **CHECK_REPAIR** (ติดตามงาน) -> params: { ticketId }
 5. **MY_WORK** (งานส่วนตัว) -> params: { date }
 6. **GALLERY_SEARCH** (หารูปภาพ/Photo) -> params: { keyword, date }
+   - keyword ควรเป็นคำค้นหาที่ขยายความแล้ว ครอบคลุมทั้งคำที่ผู้ใช้พูดและคำที่เกี่ยวข้อง
+   - เช่น ผู้ใช้พูด "ปีใหม่" -> keyword: "ปีใหม่ สวัสดีปีใหม่ new year"
+   - เช่น ผู้ใช้พูด "งานวันเด็ก" -> keyword: "วันเด็ก children day"
+   - เช่น ผู้ใช้พูด "รับปริญญา" -> keyword: "รับปริญญา พิธีมอบประกาศนียบัตร จบการศึกษา graduation"
 7. **VIDEO_GALLERY_SEARCH** (หาวิดีโอ/ดูวิดีโอ/คลิป/vtr) -> params: { keyword, date }
+   - ใช้หลักการขยายคำค้นเดียวกับ GALLERY_SEARCH
 8. **IT_KNOWLEDGE_SEARCH** (ถามปัญหา IT/ขอรหัส/วิธีแก้/General Software usage) -> params: { query }
    - *Note: tech support, usage questions, how-to, wifi password, printer issues, general software/hardware problems.*
 9. **DAILY_SUMMARY** (สรุปงาน) -> params: {}
@@ -184,20 +189,33 @@ export async function rankVideosWithAI(userQuery: string, videos: any[]): Promis
     }));
 
     const prompt = `
-    Analyze this user search query: "${userQuery}"
-    Select the top 10 most relevant videos from this list.
-    Rank them by semantic relevance (meaning > exact match).
-    If a video is somewhat relevant but not exact, include it.
-    If the query mentions a time period (e.g., "ปีที่แล้ว", "last year", "เดือนที่แล้ว"), use the date field to filter.
-    If nothing is relevant, return empty list.
+You are a Thai school activity search engine. Analyze the user's search query and select ALL relevant videos.
 
-    Video List:
-    ${JSON.stringify(videoListShort)}
+User Query: "${userQuery}"
 
-    Output JSON only:
-    [
-        { "id": "video_id", "reason": "why it matches" }
-    ]
+IMPORTANT SEARCH RULES:
+1. Think about SYNONYMS, related words, and CONCEPTS — not just exact text matching
+2. Thai school context mapping (use these to expand your understanding):
+   - ปีใหม่/new year -> สวัสดีปีใหม่, กิจกรรมวันขึ้นปีใหม่, ส่งท้ายปี
+   - กีฬาสี/sports day -> แข่งขันกีฬา, กรีฑา, sports, ฟุตบอล, วิ่ง
+   - วันเด็ก -> children day, กิจกรรมวันเด็ก
+   - วันสำคัญ -> วันพ่อ, วันแม่, วันชาติ, วันสถาปนา, วันครู, วันภาษาไทย
+   - พิธี/ceremony -> พิธีเปิด, พิธีปิด, พิธีไหว้ครู, พิธีมอบประกาศนียบัตร
+   - ประชุม -> ประชุมผู้ปกครอง, ประชุมครู, สัมมนา, อบรม
+   - เยี่ยมชม/ตรวจเยี่ยม -> ต้อนรับ, คณะกรรมการ, ผู้ตรวจ, ศึกษาดูงาน
+   - ค่าย/camp -> ค่ายพักแรม, ค่ายลูกเสือ, ค่ายวิชาการ
+   - ทัศนศึกษา -> field trip, เรียนรู้นอกสถานที่
+3. If the query mentions a time period, use the date field to filter
+4. Be GENEROUS — include anything that MIGHT be relevant, even loosely
+5. Return up to 10 most relevant results. If nothing matches at all, return []
+
+Video List:
+${JSON.stringify(videoListShort)}
+
+Output JSON ONLY (no explanation):
+[
+    { "id": "video_id", "reason": "why it matches" }
+]
     `;
 
     try {
@@ -246,22 +264,36 @@ export async function rankPhotosWithAI(userQuery: string, photos: any[]): Promis
     }));
 
     const prompt = `
-    Analyze this user search query: "${userQuery}"
-    Select the top 10 most relevant photo albums/jobs from this list.
-    Rank them by semantic relevance (meaning > exact match).
-    If the query mentions a time period (e.g., "ปีที่แล้ว", "last year", "เดือนที่แล้ว"), use the date field to filter.
-    
-    Context Mapping:
-    - User asks for "รูปกีฬาสี" -> Look for "Sports Day" or related events
-    - User asks for "ห้องประชุม" -> Look for title OR location
-    
-    Photo List:
-    ${JSON.stringify(photoListShort)}
+You are a Thai school activity photo search engine. Analyze the user's search query and select ALL relevant photo albums.
 
-    Output JSON only:
-    [
-        { "id": "photo_id", "reason": "why it matches" }
-    ]
+User Query: "${userQuery}"
+
+IMPORTANT SEARCH RULES:
+1. Think about SYNONYMS, related words, and CONCEPTS — not just exact text matching
+2. Thai school context mapping (use these to expand your understanding):
+   - ปีใหม่/new year -> สวัสดีปีใหม่, กิจกรรมวันขึ้นปีใหม่, ส่งท้ายปี
+   - กีฬาสี/sports day -> แข่งขันกีฬา, กรีฑา, sports, ฟุตบอล, วิ่ง
+   - วันเด็ก -> children day, กิจกรรมวันเด็ก
+   - วันสำคัญ -> วันพ่อ, วันแม่, วันชาติ, วันสถาปนา, วันครู, วันภาษาไทย
+   - พิธี/ceremony -> พิธีเปิด, พิธีปิด, พิธีไหว้ครู, พิธีมอบประกาศนียบัตร
+   - ประชุม -> ประชุมผู้ปกครอง, ประชุมครู, สัมมนา, อบรม
+   - เยี่ยมชม/ตรวจเยี่ยม -> ต้อนรับ, คณะกรรมการ, ผู้ตรวจ, ศึกษาดูงาน
+   - ค่าย/camp -> ค่ายพักแรม, ค่ายลูกเสือ, ค่ายวิชาการ
+   - ทัศนศึกษา -> field trip, เรียนรู้นอกสถานที่
+   - รับเสด็จ/พระราชทาน -> ต้อนรับ, เสด็จ, พระราชดำริ, ราชวงศ์
+   - แข่งขัน -> ประกวด, แข่ง, competition, contest, เปตอง
+3. Also match by LOCATION if the user asks about a specific room
+4. If the query mentions a time period, use the date field to filter
+5. Be GENEROUS — include anything that MIGHT be relevant, even loosely
+6. Return up to 10 most relevant results. If nothing matches at all, return []
+
+Photo List:
+${JSON.stringify(photoListShort)}
+
+Output JSON ONLY (no explanation):
+[
+    { "id": "photo_id", "reason": "why it matches" }
+]
     `;
 
     try {
