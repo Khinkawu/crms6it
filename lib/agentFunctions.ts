@@ -84,15 +84,15 @@ function formatToThaiTime(dateInput: any): string {
 
 function getThaiDateRange(dateStr: string): { start: Timestamp, end: Timestamp } {
     const [year, month, day] = dateStr.split('-').map(Number);
-    
+
     // Create Date object for the start of the day in Bangkok time (UTC+7)
     // We construct UTC date then subtract 7 hours to align with Bangkok midnight
     const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
     const thaiStart = new Date(utcMidnight.getTime() - (7 * 60 * 60 * 1000));
-    
+
     // End of day is 23:59:59.999
     const thaiEnd = new Date(thaiStart.getTime() + (24 * 60 * 60 * 1000) - 1);
-    
+
     return { start: Timestamp.fromDate(thaiStart), end: Timestamp.fromDate(thaiEnd) };
 }
 
@@ -192,7 +192,6 @@ export async function searchGallery(keyword?: string, date?: string, limit: numb
         const snapshot = await adminDb.collection('photography_jobs')
             .where('status', '==', 'completed')
             .orderBy('startTime', 'desc')
-            .limit(100)
             .get();
 
         let jobs: any[] = [];
@@ -275,7 +274,6 @@ export async function searchVideoGallery(keyword?: string, date?: string, limit:
             snapshot = await adminDb.collection('video_gallery')
                 .where('isPublished', '==', true)
                 .orderBy('createdAt', 'desc')
-                .limit(100)
                 .get();
             console.log(`[Video Gallery Search] Query with isPublished filter: ${snapshot.size} docs`);
         } catch (indexError: any) {
@@ -283,7 +281,6 @@ export async function searchVideoGallery(keyword?: string, date?: string, limit:
             console.warn(`[Video Gallery Search] Index error, trying fallback query:`, indexError?.message || indexError);
             snapshot = await adminDb.collection('video_gallery')
                 .orderBy('createdAt', 'desc')
-                .limit(100)
                 .get();
             console.log(`[Video Gallery Search] Fallback query: ${snapshot.size} docs`);
         }
@@ -555,7 +552,7 @@ export async function checkRoomAvailability(room: string, date: string, startTim
         const conflicts: any[] = [];
         const [reqStartH, reqStartM] = startTime.split(':').map(Number);
         const [reqEndH, reqEndM] = endTime.split(':').map(Number);
-        
+
         // Request time in minutes from start of day
         const reqStartMins = reqStartH * 60 + reqStartM;
         const reqEndMins = reqEndH * 60 + reqEndM;
@@ -564,11 +561,11 @@ export async function checkRoomAvailability(room: string, date: string, startTim
             const b = doc.data();
             const bStart = b.startTime?.toDate ? b.startTime.toDate() : new Date(b.startTime);
             const bEnd = b.endTime?.toDate ? b.endTime.toDate() : new Date(b.endTime);
-            
+
             // Convert Firestore timestamp (UTC) to Thai Time
             const thStart = new Date(bStart.getTime() + (7 * 60 * 60 * 1000));
             const thEnd = new Date(bEnd.getTime() + (7 * 60 * 60 * 1000));
-            
+
             // Calculate minutes from start of the target day
             // Note: This assumes bookings don't span multiple days for this check
             const bStartMins = thStart.getUTCHours() * 60 + thStart.getUTCMinutes();
