@@ -404,9 +404,10 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     let searchDate: string | undefined;
     if (date) searchDate = parseThaiDate(date);
 
-    // 1. Fetch results with keyword/date filtering (no Firestore limit)
-    let jobs = await searchGallery(keyword, searchDate, 200);
-    console.log(`[AI Handler] Filtered fetch for Photos: ${jobs.length} jobs`);
+    // 1. Fetch ALL completed jobs (no keyword/date filter at data layer)
+    //    Let Firestore return everything, the AI ranker will do semantic matching
+    let jobs = await searchGallery(undefined, undefined, 200);
+    console.log(`[AI Handler] Broad fetch for Photos: ${jobs.length} jobs`);
 
     // 2. Rank with AI (RAG-lite)
     if (jobs.length > 0 && (keyword || date)) {
@@ -459,9 +460,10 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
     let searchDate: string | undefined;
     if (date) searchDate = parseThaiDate(date);
 
-    // 1. Fetch results with keyword/date filtering (no Firestore limit)
-    let videos = await searchVideoGallery(keyword, searchDate, 200);
-    console.log(`[AI Handler] Filtered fetch for Videos: ${videos.length} videos`);
+    // 1. Fetch ALL published videos (no keyword/date filter at data layer)
+    //    Let Firestore return everything, the AI ranker will do semantic matching
+    let videos = await searchVideoGallery(undefined, undefined, 200);
+    console.log(`[AI Handler] Broad fetch for Videos: ${videos.length} videos`);
 
     // 2. Rank with AI (RAG-lite)
     if (videos.length > 0 && (keyword || date)) {

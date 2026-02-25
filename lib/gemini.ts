@@ -185,9 +185,10 @@ export async function rankVideosWithAI(userQuery: string, videos: any[]): Promis
 
     const prompt = `
     Analyze this user search query: "${userQuery}"
-    Select the top 5 most relevant videos from this list.
+    Select the top 10 most relevant videos from this list.
     Rank them by semantic relevance (meaning > exact match).
     If a video is somewhat relevant but not exact, include it.
+    If the query mentions a time period (e.g., "ปีที่แล้ว", "last year", "เดือนที่แล้ว"), use the date field to filter.
     If nothing is relevant, return empty list.
 
     Video List:
@@ -246,8 +247,9 @@ export async function rankPhotosWithAI(userQuery: string, photos: any[]): Promis
 
     const prompt = `
     Analyze this user search query: "${userQuery}"
-    Select the top 5 most relevant photo albums/jobs from this list.
+    Select the top 10 most relevant photo albums/jobs from this list.
     Rank them by semantic relevance (meaning > exact match).
+    If the query mentions a time period (e.g., "ปีที่แล้ว", "last year", "เดือนที่แล้ว"), use the date field to filter.
     
     Context Mapping:
     - User asks for "รูปกีฬาสี" -> Look for "Sports Day" or related events
