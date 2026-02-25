@@ -404,27 +404,50 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     let searchDate: string | undefined;
     if (date) searchDate = parseThaiDate(date);
 
-    // 1. Fetch ALL completed jobs (no limit) for AI semantic matching
-    //    With 100+ jobs/month, even 200 only covers ~2 months
-    let jobs = await searchGallery(undefined, undefined, 9999);
-    console.log(`[AI Handler] Broad fetch for Photos: ${jobs.length} jobs`);
+    // 1. Fetch ALL completed jobs
+    let allJobs = await searchGallery(undefined, undefined, 9999);
+    console.log(`[AI Handler] Broad fetch for Photos: ${allJobs.length} jobs`);
 
-    // 2. Rank with AI (RAG-lite)
-    if (jobs.length > 0 && (keyword || date)) {
-        let queryForAI = keyword || '';
-        if (date) queryForAI += ` (Date/Time context: ${date})`;
+    let jobs: any[] = [];
 
-        const rankedJobs = await rankPhotosWithAI(queryForAI, jobs);
-
-        if (rankedJobs.length > 0) {
-            console.log(`[AI Handler] AI Ranking: selected ${rankedJobs.length} photos`);
-            jobs = rankedJobs;
-        } else {
-            console.log(`[AI Handler] AI Ranking: found no matches in broad pool`);
-            jobs = [];
+    if (keyword || date) {
+        // PHASE 1: Text matching (same logic as web gallery — reliable & fast)
+        if (keyword) {
+            const tokens = keyword.trim().toLowerCase().split(/[\s,]+/).filter(t => t.length > 0);
+            jobs = allJobs.filter(job => {
+                const textToSearch = `${job.title} ${job.location}`.toLowerCase();
+                return tokens.some(token => textToSearch.includes(token));
+            });
+            console.log(`[AI Handler] Text match: ${jobs.length} photos matched keyword "${keyword}"`);
         }
-    } else if (!keyword && !date) {
+
+        // Date filter (apply on text-matched results, or all if no keyword)
+        if (searchDate) {
+            const pool = jobs.length > 0 ? jobs : allJobs;
+            const targetYMD = searchDate.split('T')[0];
+            jobs = pool.filter(job => {
+                if (!job.date) return false;
+                return job.date.includes(targetYMD.replace(/-/g, '/'));
+            });
+            console.log(`[AI Handler] After date filter: ${jobs.length} photos`);
+        }
+
+        // PHASE 2: AI semantic fallback (only when text matching found nothing)
+        if (jobs.length === 0) {
+            console.log(`[AI Handler] Text match found nothing, trying AI semantic search...`);
+            let queryForAI = keyword || '';
+            if (date) queryForAI += ` (Date/Time context: ${date})`;
+
+            const rankedJobs = await rankPhotosWithAI(queryForAI, allJobs);
+            if (rankedJobs.length > 0) {
+                console.log(`[AI Handler] AI Ranking fallback: selected ${rankedJobs.length} photos`);
+                jobs = rankedJobs;
+            }
+        }
+    } else {
+        // No keyword/date — show latest
         console.log(`[AI Handler] No keyword/date, showing latest photos`);
+        jobs = allJobs;
     }
 
     if (jobs.length === 0) {
@@ -437,7 +460,7 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
         return `${index + 1}. ${job.title} (${job.date})`;
     }).join('\n');
     let response = `📸 พบ ${jobs.length} กิจกรรม\n\n${listItems}`;
-    if (jobs.length > 10) response += `\n... ${jobs.length - 10} รายการ`;
+    if (jobs.length > 10) response += `\n... และอีก ${jobs.length - 10} รายการ`;
     response += '\n\nพิมพ์หมายเลข (เช่น 1) เพื่อดูรูปและลิงก์ค่ะ';
 
     return { message: response, jobs: jobs.slice(0, 10) };
@@ -460,30 +483,50 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
     let searchDate: string | undefined;
     if (date) searchDate = parseThaiDate(date);
 
-    // 1. Fetch ALL published videos (no limit) for AI semantic matching
-    //    With growing content, we need the full pool for accurate search
-    let videos = await searchVideoGallery(undefined, undefined, 9999);
-    console.log(`[AI Handler] Broad fetch for Videos: ${videos.length} videos`);
+    // 1. Fetch ALL published videos
+    let allVideos = await searchVideoGallery(undefined, undefined, 9999);
+    console.log(`[AI Handler] Broad fetch for Videos: ${allVideos.length} videos`);
 
-    // 2. Rank with AI (RAG-lite)
-    if (videos.length > 0 && (keyword || date)) {
-        let queryForAI = keyword || '';
-        if (date) queryForAI += ` (Date/Time context: ${date})`;
+    let videos: any[] = [];
 
-        // Pass to Gemini for semantic ranking
-        const rankedVideos = await rankVideosWithAI(queryForAI, videos);
-
-        if (rankedVideos.length > 0) {
-            console.log(`[AI Handler] AI Ranking: selected ${rankedVideos.length} videos`);
-            videos = rankedVideos;
-        } else {
-            console.log(`[AI Handler] AI Ranking: found no matches in broad pool`);
-            // If AI found nothing relevant, we trust it and return empty
-            videos = [];
+    if (keyword || date) {
+        // PHASE 1: Text matching (same logic as web gallery — reliable & fast)
+        if (keyword) {
+            const tokens = keyword.trim().toLowerCase().split(/[\s,]+/).filter(t => t.length > 0);
+            videos = allVideos.filter(video => {
+                const textToSearch = `${video.title} ${video.description} ${video.category}`.toLowerCase();
+                return tokens.some(token => textToSearch.includes(token));
+            });
+            console.log(`[AI Handler] Text match: ${videos.length} videos matched keyword "${keyword}"`);
         }
-    } else if (!keyword && !date) {
-        // If no keyword/date, just show latest (already in videos)
+
+        // Date filter
+        if (searchDate) {
+            const pool = videos.length > 0 ? videos : allVideos;
+            const targetYMD = searchDate.split('T')[0];
+            videos = pool.filter(video => {
+                if (!video.date) return false;
+                return video.date.includes(targetYMD.replace(/-/g, '/'));
+            });
+            console.log(`[AI Handler] After date filter: ${videos.length} videos`);
+        }
+
+        // PHASE 2: AI semantic fallback (only when text matching found nothing)
+        if (videos.length === 0) {
+            console.log(`[AI Handler] Text match found nothing, trying AI semantic search...`);
+            let queryForAI = keyword || '';
+            if (date) queryForAI += ` (Date/Time context: ${date})`;
+
+            const rankedVideos = await rankVideosWithAI(queryForAI, allVideos);
+            if (rankedVideos.length > 0) {
+                console.log(`[AI Handler] AI Ranking fallback: selected ${rankedVideos.length} videos`);
+                videos = rankedVideos;
+            }
+        }
+    } else {
+        // No keyword/date — show latest
         console.log(`[AI Handler] No keyword/date, showing latest`);
+        videos = allVideos;
     }
 
     if (videos.length === 0) {
