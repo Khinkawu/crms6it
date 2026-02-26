@@ -18,6 +18,11 @@ export const metadata: Metadata = {
         default: "CRMS6 IT",
     },
     description: "ระบบสารสนเทศเพื่อการบริหารจัดการงานโสตทัศนศึกษา by CRMS6 IT",
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: "default",
+        title: "CRMS6 IT",
+    },
 };
 
 export default function RootLayout({
@@ -41,7 +46,7 @@ export default function RootLayout({
     `;
 
     return (
-        <html lang="en" suppressHydrationWarning>
+        <html lang="th" suppressHydrationWarning>
             <head>
                 <script dangerouslySetInnerHTML={{ __html: themeScript }} />
             </head>
