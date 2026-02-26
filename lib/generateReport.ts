@@ -391,6 +391,7 @@ const getThaiAction = (action: string) => {
 // --- 5. Photography Job Report Function ---
 export const generatePhotographyJobReport = async (
     jobs: any[],
+    requesterName: string = 'ผู้ดำเนินการ',
     action: 'download' | 'print' = 'download'
 ) => {
     const doc = new jsPDF();
@@ -417,10 +418,11 @@ export const generatePhotographyJobReport = async (
 
         doc.setFont(fontName, 'normal');
         doc.setFontSize(16);
-        doc.text("รายงานประวัติงานถ่ายภาพ (Photography Job Report)", 40, 25);
+        doc.text("รายงานผลการปฏิบัติงาน", 40, 25);
 
         doc.setFontSize(14);
         doc.text(`วันที่พิมพ์: ${format(addYears(new Date(), 543), 'd MMMM yyyy', { locale: th })}`, width - 15, 18, { align: 'right' });
+        doc.text(`ผู้พิมพ์: ${requesterName}`, width - 15, 25, { align: 'right' });
 
         doc.setDrawColor(200, 200, 200);
         doc.line(15, 35, width - 15, 35);
@@ -436,18 +438,21 @@ export const generatePhotographyJobReport = async (
         }
     };
 
-    const tableColumn = ["ลำดับ", "ชื่องาน", "สถานที่", "วัน/เวลา", "สถานะ", "ช่างภาพ"];
-    const tableRows = jobs.map((job, index) => {
-        const dateObj = job.startTime?.toDate ? job.startTime.toDate() : new Date(job.startTime);
+    const tableColumn = ["ลำดับ", "ประเภท", "ชื่องาน/รายละเอียด", "สถานที่", "วัน/เวลา", "สถานะ", "ช่างภาพ"];
+    const tableRows = jobs.map((item, index) => {
+        const isPhotoJob = item.__type === 'photography' || 'title' in item;
+        const dateInput = isPhotoJob ? item.startTime : item.reportDate;
+        const dateObj = dateInput?.toDate ? dateInput.toDate() : new Date(dateInput);
         const thaiDate = format(addYears(dateObj, 543), 'dd/MM/yy HH:mm');
 
         return [
             index + 1,
-            job.title || '-',
-            job.location || '-',
+            isPhotoJob ? 'ภาพ' : 'รายวัน',
+            isPhotoJob ? (item.title || '-') : (item.description || '-'),
+            isPhotoJob ? (item.location || '-') : '-',
             thaiDate,
-            getThaiStatus(job.status),
-            job.assigneeNames?.join(', ') || '-'
+            isPhotoJob ? getThaiStatus(item.status) : 'รายงานแล้ว',
+            isPhotoJob ? (item.assigneeNames?.join(', ') || '-') : (item.userName || '-')
         ];
     });
 
@@ -468,19 +473,20 @@ export const generatePhotographyJobReport = async (
         headStyles: {
             font: fontName,
             fontStyle: 'bold',
-            fillColor: [75, 0, 130], // Indigo color for photography
+            fillColor: [23, 37, 84], // Match school logo blue tone
             textColor: [255, 255, 255],
             halign: 'center',
             valign: 'middle',
             fontSize: 14
         },
         columnStyles: {
-            0: { halign: 'center', cellWidth: 12 },  // ลำดับ
-            1: { cellWidth: 'auto' },                 // ชื่องาน
-            2: { cellWidth: 35 },                     // สถานที่
-            3: { halign: 'center', cellWidth: 25 },   // วัน/เวลา
-            4: { halign: 'center', cellWidth: 22 },   // สถานะ
-            5: { cellWidth: 30 }                      // ช่างภาพ
+            0: { halign: 'center', cellWidth: 10 },  // ลำดับ
+            1: { halign: 'center', cellWidth: 15 },  // ประเภท
+            2: { cellWidth: 'auto' },                 // ชื่องาน/รายละเอียด
+            3: { cellWidth: 25 },                     // สถานที่
+            4: { halign: 'center', cellWidth: 22 },   // วัน/เวลา
+            5: { halign: 'center', cellWidth: 20 },   // สถานะ
+            6: { cellWidth: 20 }                      // ช่างภาพ
         },
         didDrawPage: (data) => {
             drawHeader(doc);

@@ -11,26 +11,29 @@ const getThaiStatus = (status: string) => {
     }
 };
 
-export const exportPhotographyToExcel = (data: PhotographyJob[], fileName: string) => {
+export const exportPhotographyToExcel = (data: any[], fileName: string) => {
     // Format data for Excel
-    const formattedData = data.map((job, index) => {
-        // Prepare Date
+    const formattedData = data.map((item, index) => {
+        const isPhotoJob = item.__type === 'photography' || 'title' in item;
         let dateObj: Date;
-        if (job.startTime && typeof (job.startTime as any).toDate === 'function') {
-            dateObj = (job.startTime as any).toDate();
+        const dateInput = isPhotoJob ? item.startTime : item.reportDate;
+
+        if (dateInput && typeof (dateInput as any).toDate === 'function') {
+            dateObj = (dateInput as any).toDate();
         } else {
-            dateObj = new Date(job.startTime as any);
+            dateObj = new Date(dateInput as any);
         }
         const thaiDate = format(addYears(dateObj, 543), 'dd/MM/yy HH:mm');
 
         return {
             'ลำดับ': index + 1,
-            'ชื่องาน': job.title || '-',
-            'สถานที่': job.location || '-',
+            'ประเภท': isPhotoJob ? 'งานถ่ายภาพ' : 'รายงานรายวัน',
+            'ชื่องาน / รายละเอียด': isPhotoJob ? item.title || '-' : item.description || '-',
+            'สถานที่': isPhotoJob ? item.location || '-' : '-',
             'วัน/เวลา': thaiDate,
-            'สถานะ': getThaiStatus(job.status),
-            'ช่างภาพ': job.assigneeNames?.join(', ') || '-',
-            'ลิงก์ Drive': job.driveLink || '-',
+            'สถานะ': isPhotoJob ? getThaiStatus(item.status) : 'รายงานแล้ว',
+            'ช่างภาพ': isPhotoJob ? item.assigneeNames?.join(', ') || '-' : item.userName || '-',
+            'ลิงก์ Drive': item.driveLink || '-',
         };
     });
 
@@ -40,7 +43,8 @@ export const exportPhotographyToExcel = (data: PhotographyJob[], fileName: strin
     // Auto-adjust column widths
     const wscols = [
         { wch: 8 },  // ลำดับ
-        { wch: 35 }, // ชื่องาน
+        { wch: 15 }, // ประเภท
+        { wch: 35 }, // ชื่องาน/รายละเอียด
         { wch: 25 }, // สถานที่
         { wch: 18 }, // วัน/เวลา
         { wch: 12 }, // สถานะ
@@ -51,7 +55,7 @@ export const exportPhotographyToExcel = (data: PhotographyJob[], fileName: strin
 
     // Create Workbook
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Photography Jobs");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Jobs and Reports");
 
     // Generate Buffer & Download
     XLSX.writeFile(workbook, `${fileName}.xlsx`);

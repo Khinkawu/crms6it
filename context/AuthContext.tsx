@@ -80,7 +80,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     useEffect(() => {
-        console.time('[Auth] onAuthStateChanged → ready');
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
             setLoading(true);
             if (currentUser) {
@@ -100,9 +99,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 // 2. getDoc (one-time read) — faster than onSnapshot for initial load
                 // Role changes are rare; no need for realtime listener here
                 try {
-                    console.time('[AuthContext] getDoc user');
                     const docSnap = await getDoc(userRef);
-                    console.timeEnd('[AuthContext] getDoc user');
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
                         setRole(userData.role as UserRole);
@@ -121,7 +118,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 }
                 setUser(currentUser);
                 setLoading(false);
-                console.timeEnd('[Auth] onAuthStateChanged → ready');
 
                 // 3. Background: handle new user creation + profile sync (non-blocking)
                 syncUserProfile(userRef, currentUser).catch(err =>
@@ -133,7 +129,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setIsPhotographer(false);
                 setLineDisplayName(null);
                 setLoading(false);
-                console.timeEnd('[Auth] onAuthStateChanged → ready');
             }
         });
 

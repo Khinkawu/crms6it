@@ -92,6 +92,42 @@ export const prepareFolderPath = async ({
     };
 };
 
+interface PrepareDailyReportFolderParams {
+    rootFolderId: string;
+    year: string;
+    semester: string;
+    photographerName: string;
+    month: string;
+    dateFolder: string;
+}
+
+/**
+ * Pre-create folder hierarchy for a daily report
+ */
+export const prepareDailyReportFolderPath = async ({
+    rootFolderId,
+    year,
+    semester,
+    photographerName,
+    month,
+    dateFolder
+}: PrepareDailyReportFolderParams): Promise<PreparedFolder> => {
+    const drive = getDriveClient();
+
+    // Create folder hierarchy sequentially
+    const yearFolder = await getOrCreateFolder(drive, rootFolderId, `ปีการศึกษา ${year}`);
+    const semesterFolder = await getOrCreateFolder(drive, yearFolder.id, `ภาคเรียนที่ ${semester}`);
+    const reportsFolder = await getOrCreateFolder(drive, semesterFolder.id, 'รายงานผลปฏิบัติงานรายวัน');
+    const photographerFolder = await getOrCreateFolder(drive, reportsFolder.id, photographerName);
+    const monthFolder = await getOrCreateFolder(drive, photographerFolder.id, month);
+    const dateFolderDoc = await getOrCreateFolder(drive, monthFolder.id, dateFolder);
+
+    return {
+        folderId: dateFolderDoc.id,
+        folderLink: dateFolderDoc.webViewLink
+    };
+};
+
 interface UploadToFolderParams {
     fileName: string;
     mimeType: string;

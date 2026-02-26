@@ -92,9 +92,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         };
 
         if (!realtime) {
-            console.time('[useBookings] bookings fetch');
             getDocs(q).then(snapshot => {
-                console.timeEnd('[useBookings] bookings fetch');
                 processBookings(snapshot.docs);
             }).catch(() => setBookingsLoading(false));
             return;
@@ -150,9 +148,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         };
 
         if (!realtime) {
-            console.time('[useBookings] photography fetch');
             getDocs(q).then(snapshot => {
-                console.timeEnd('[useBookings] photography fetch');
                 processPhotoJobs(snapshot.docs);
             }).catch(err => {
                 console.error('[useBookings] Photography jobs query ERROR:', err);

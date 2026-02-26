@@ -6,23 +6,28 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Wrench, Camera, ClipboardList, Clock, CheckCircle2, AlertCircle,
-    Plus, FileSpreadsheet, Printer, ChevronLeft, ChevronRight, Search, X
+    Plus, FileSpreadsheet, Printer, ChevronLeft, ChevronRight, Search, X, CalendarCheck
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useMyRepairs } from "@/hooks/useMyRepairs";
 import { useMyPhotographyJobs } from "@/hooks/useMyPhotographyJobs";
+import { useDailyReports } from "@/hooks/useDailyReports";
 import { PageSkeleton } from "../components/ui/Skeleton";
 import StatsCard from "../components/shared/StatsCard";
 import CreateJobModal from "../components/CreateJobModal";
 import MyPhotographyJobsModal from "../components/MyPhotographyJobsModal";
-import { RepairTicket, PhotographyJob } from "@/types";
+import DailyReportModal from "../components/DailyReportModal";
+import { RepairTicket, PhotographyJob, DailyReport } from "@/types";
 import { getThaiStatus, getStatusColor } from "@/hooks/useRepairAdmin";
 import { exportToExcel } from "@/utils/excelExport";
+// We'll fallback to photography export for now if printing/exporting
 import { exportPhotographyToExcel } from "@/utils/photographyExport";
 import toast from "react-hot-toast";
 
 // Pagination
 const ITEMS_PER_PAGE = 10;
+
+type HistoryItem = { type: 'photography'; data: PhotographyJob } | { type: 'daily_report'; data: DailyReport };
 
 export default function MyWorkPage() {
     const { user, role, isPhotographer, loading: authLoading, getDisplayName } = useAuth();
@@ -48,29 +53,65 @@ export default function MyWorkPage() {
         userId: user?.uid
     });
 
+    const { reports: dailyReports, loading: reportsLoading } = useDailyReports({
+        userId: user?.uid
+    });
+
     // Pagination
     const [repairPage, setRepairPage] = useState(1);
     const [photoPage, setPhotoPage] = useState(1);
 
     // Filters
     const [photoSearch, setPhotoSearch] = useState("");
+    const [historyFilter, setHistoryFilter] = useState<'all' | 'photography' | 'daily'>('all');
 
     // Modals
     const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
     const [isSubmitJobModalOpen, setIsSubmitJobModalOpen] = useState(false);
+    const [isDailyReportModalOpen, setIsDailyReportModalOpen] = useState(false);
     const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
-    // Filtered photo jobs
-    const filteredPhotoJobs = useMemo(() => {
-        if (!photoSearch) return allPhotoJobs;
+    // Combined filtered photo jobs and daily reports
+    const combinedHistory = useMemo(() => {
+        let items: HistoryItem[] = [];
+
+        if (historyFilter === 'all' || historyFilter === 'photography') {
+            const photoItems: HistoryItem[] = allPhotoJobs.map(job => ({ type: 'photography', data: job }));
+            items = [...items, ...photoItems];
+        }
+
+        if (historyFilter === 'all' || historyFilter === 'daily') {
+            const dailyItems: HistoryItem[] = dailyReports.map(report => ({ type: 'daily_report', data: report }));
+            items = [...items, ...dailyItems];
+        }
+
         const searchLower = photoSearch.toLowerCase();
-        return allPhotoJobs.filter(job => {
-            const titleMatch = job.title?.toLowerCase().includes(searchLower);
-            const locationMatch = job.location?.toLowerCase().includes(searchLower);
-            const dateMatch = job.startTime?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }).includes(searchLower);
-            return titleMatch || locationMatch || dateMatch;
+        if (searchLower) {
+            items = items.filter(item => {
+                if (item.type === 'photography') {
+                    const job = item.data;
+                    const titleMatch = job.title?.toLowerCase().includes(searchLower);
+                    const locationMatch = job.location?.toLowerCase().includes(searchLower);
+                    const dateMatch = job.startTime?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }).includes(searchLower);
+                    return titleMatch || locationMatch || dateMatch;
+                } else {
+                    const report = item.data;
+                    const descMatch = report.description?.toLowerCase().includes(searchLower);
+                    const dateMatch = report.reportDate?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }).includes(searchLower);
+                    return descMatch || dateMatch;
+                }
+            });
+        }
+
+        // Sort by date descending
+        items.sort((a, b) => {
+            const dateA = a.type === 'photography' ? (a.data.startTime?.toMillis() || 0) : (a.data.reportDate?.toMillis() || 0);
+            const dateB = b.type === 'photography' ? (b.data.startTime?.toMillis() || 0) : (b.data.reportDate?.toMillis() || 0);
+            return dateB - dateA;
         });
-    }, [allPhotoJobs, photoSearch]);
+
+        return items;
+    }, [allPhotoJobs, dailyReports, photoSearch, historyFilter]);
 
     // Set default tab based on role
     useEffect(() => {
@@ -90,12 +131,12 @@ export default function MyWorkPage() {
         }
     }, [authLoading, user, canViewRepairs, canViewPhotography, router]);
 
-    // Reset page when filter changes
+    // Reset page when filters change
     useEffect(() => {
         setPhotoPage(1);
-    }, [photoSearch]);
+    }, [photoSearch, historyFilter]);
 
-    if (authLoading || repairsLoading || photoLoading) {
+    if (authLoading || repairsLoading || photoLoading || reportsLoading) {
         return <PageSkeleton />;
     }
 
@@ -107,8 +148,8 @@ export default function MyWorkPage() {
     const paginatedRepairs = allRepairs.slice((repairPage - 1) * ITEMS_PER_PAGE, repairPage * ITEMS_PER_PAGE);
     const totalRepairPages = Math.ceil(allRepairs.length / ITEMS_PER_PAGE);
 
-    const paginatedPhotos = filteredPhotoJobs.slice((photoPage - 1) * ITEMS_PER_PAGE, photoPage * ITEMS_PER_PAGE);
-    const totalPhotoPages = Math.ceil(filteredPhotoJobs.length / ITEMS_PER_PAGE);
+    const paginatedHistory = combinedHistory.slice((photoPage - 1) * ITEMS_PER_PAGE, photoPage * ITEMS_PER_PAGE);
+    const totalHistoryPages = Math.ceil(combinedHistory.length / ITEMS_PER_PAGE);
 
     // Export handlers - Repair
     const handleExportRepairExcel = () => {
@@ -120,25 +161,28 @@ export default function MyWorkPage() {
         toast.success("ส่งออก Excel สำเร็จ");
     };
 
-    // Export handlers - Photography
+    // Export handlers - Photography & Daily Reports
     const handleExportPhotoExcel = () => {
-        if (filteredPhotoJobs.length === 0) {
-            toast.error("ไม่มีข้อมูลให้ส่งออก");
+        const itemsToExport = combinedHistory.map(i => ({ ...i.data, __type: i.type }));
+        if (itemsToExport.length === 0) {
+            toast.error("ไม่มีข้อมูลให้ส่งออกในตัวกรองปัจจุบัน");
             return;
         }
-        exportPhotographyToExcel(filteredPhotoJobs, `My_Photography_${new Date().toISOString().split('T')[0]}`);
+        exportPhotographyToExcel(itemsToExport, `My_Work_${new Date().toISOString().split('T')[0]}`);
         toast.success("ส่งออก Excel สำเร็จ");
     };
 
     const handlePrintPhoto = async () => {
-        if (filteredPhotoJobs.length === 0) {
-            toast.error("ไม่มีข้อมูลให้พิมพ์");
+        const itemsToPrint = combinedHistory.map(i => ({ ...i.data, __type: i.type }));
+        if (itemsToPrint.length === 0) {
+            toast.error("ไม่มีข้อมูลให้พิมพ์ในตัวกรองปัจจุบัน");
             return;
         }
         toast.loading("กำลังเตรียมพิมพ์...", { id: 'print-photo' });
         try {
             const { generatePhotographyJobReport } = await import('@/lib/generateReport');
-            await generatePhotographyJobReport(filteredPhotoJobs, 'print');
+            const requesterName = getDisplayName() || 'ตากล้อง';
+            await generatePhotographyJobReport(itemsToPrint, requesterName, 'print');
             toast.dismiss('print-photo');
         } catch (error) {
             console.error(error);
@@ -179,7 +223,7 @@ export default function MyWorkPage() {
         <div className="animate-fade-in pb-24">
             <div className="max-w-5xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30">
                             <ClipboardList size={24} />
@@ -190,24 +234,29 @@ export default function MyWorkPage() {
                         </div>
                     </div>
 
-                    {/* Photographer Actions - Compact for mobile */}
+                    {/* Photographer Actions */}
                     {canViewPhotography && activeTab === 'photography' && (
-                        <div className="flex gap-1.5 sm:gap-2">
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
+                            <button
+                                onClick={() => setIsDailyReportModalOpen(true)}
+                                className="flex-1 sm:flex-none flex justify-center items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-amber-500/30 hover:shadow-xl transition-all tap-scale"
+                            >
+                                <CalendarCheck size={16} />
+                                รายงานรายวัน
+                            </button>
                             <button
                                 onClick={() => setIsCreateJobModalOpen(true)}
-                                className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-emerald-500/30 hover:shadow-xl transition-all tap-scale"
+                                className="flex-1 sm:flex-none flex justify-center items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-emerald-500/30 hover:shadow-xl transition-all tap-scale"
                             >
                                 <Plus size={16} />
-                                <span className="hidden sm:inline">สร้างงานใหม่</span>
-                                <span className="sm:hidden">สร้าง</span>
+                                สร้างงาน
                             </button>
                             <button
                                 onClick={() => setIsSubmitJobModalOpen(true)}
-                                className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl transition-all tap-scale"
+                                className="flex-1 sm:flex-none flex justify-center items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl transition-all tap-scale"
                             >
                                 <CheckCircle2 size={16} />
-                                <span className="hidden sm:inline">ส่งงาน</span>
-                                <span className="sm:hidden">ส่ง</span>
+                                ส่งงาน
                             </button>
                         </div>
                     )}
@@ -399,18 +448,29 @@ export default function MyWorkPage() {
                             {/* History */}
                             <div className="bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl p-4 shadow-sm">
                                 {/* Header with search and export */}
-                                <div className="flex items-center justify-between gap-3 mb-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                                     <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2 text-sm sm:text-base">
                                         <ClipboardList size={18} className="text-gray-500" />
-                                        ประวัติ ({filteredPhotoJobs.length})
+                                        ประวัติ ({combinedHistory.length})
                                     </h3>
-                                    <div className="flex gap-1">
-                                        <button onClick={handleExportPhotoExcel} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-emerald-600" title="Export Excel">
-                                            <FileSpreadsheet size={18} />
-                                        </button>
-                                        <button onClick={handlePrintPhoto} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600" title="Print">
-                                            <Printer size={18} />
-                                        </button>
+                                    <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+                                        <select
+                                            value={historyFilter}
+                                            onChange={(e) => setHistoryFilter(e.target.value as 'all' | 'photography' | 'daily')}
+                                            className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 flex-1 sm:flex-none"
+                                        >
+                                            <option value="all">ทั้งหมด</option>
+                                            <option value="photography">เฉพางานถ่ายภาพ</option>
+                                            <option value="daily">เฉพาะรายงานรายวัน</option>
+                                        </select>
+                                        <div className="flex gap-1">
+                                            <button onClick={handleExportPhotoExcel} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-emerald-600" title="Export Excel (ส่วนที่กรองไว้)">
+                                                <FileSpreadsheet size={18} />
+                                            </button>
+                                            <button onClick={handlePrintPhoto} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600" title="Print (ส่วนที่กรองไว้)">
+                                                <Printer size={18} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -419,7 +479,7 @@ export default function MyWorkPage() {
                                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                     <input
                                         type="text"
-                                        placeholder="ค้นหา..."
+                                        placeholder="ค้นหางาน หรือ รายงาน..."
                                         value={photoSearch}
                                         onChange={(e) => setPhotoSearch(e.target.value)}
                                         className="w-full pl-10 pr-10 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
@@ -436,54 +496,92 @@ export default function MyWorkPage() {
 
                                 {/* Mobile-friendly card list */}
                                 <div className="space-y-2">
-                                    {paginatedPhotos.length === 0 ? (
+                                    {paginatedHistory.length === 0 ? (
                                         <div className="py-8 text-center text-gray-400 text-sm">
                                             {photoSearch ? "ไม่พบผลลัพธ์" : "ไม่มีข้อมูล"}
                                         </div>
                                     ) : (
-                                        paginatedPhotos.map((job) => (
-                                            <div key={job.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl gap-3">
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{job.title}</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                                        {job.location} • {job.startTime?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${job.status === 'completed'
-                                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                                                        }`}>
-                                                        {job.status === 'completed' ? 'เสร็จสิ้น' : 'รอส่ง'}
-                                                    </span>
-                                                    {job.driveLink && (
-                                                        <a
-                                                            href={job.driveLink}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                                        >
-                                                            <Image src="/Google_Drive_icon.png" alt="Drive" width={18} height={18} className="object-contain" />
-                                                        </a>
-                                                    )}
-                                                    {(job.facebookPostId || job.facebookPermalink) && (
-                                                        <a
-                                                            href={job.facebookPermalink || (job.facebookPostId ? `https://www.facebook.com/permalink.php?story_fbid=${job.facebookPostId.split('_')[1] || job.facebookPostId}&id=${job.facebookPostId.split('_')[0]}` : '#')}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                                        >
-                                                            <Image src="/facebook-logo.png" alt="Facebook" width={18} height={18} className="object-contain" />
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
+                                        paginatedHistory.map((item, index) => {
+                                            if (item.type === 'photography') {
+                                                const job = item.data;
+                                                return (
+                                                    <div key={`photo-${job.id || index}`} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl gap-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-0.5">
+                                                                <Camera size={12} className="text-purple-500 flex-shrink-0" />
+                                                                <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{job.title}</p>
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                                                {job.location} • {job.startTime?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${job.status === 'completed'
+                                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                                                : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                                                }`}>
+                                                                {job.status === 'completed' ? 'เสร็จภาพ' : 'รอส่งรูป'}
+                                                            </span>
+                                                            {job.driveLink && (
+                                                                <a
+                                                                    href={job.driveLink}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                                >
+                                                                    <Image src="/Google_Drive_icon.png" alt="Drive" width={18} height={18} className="object-contain" />
+                                                                </a>
+                                                            )}
+                                                            {(job.facebookPostId || job.facebookPermalink) && (
+                                                                <a
+                                                                    href={job.facebookPermalink || (job.facebookPostId ? `https://www.facebook.com/permalink.php?story_fbid=${job.facebookPostId.split('_')[1] || job.facebookPostId}&id=${job.facebookPostId.split('_')[0]}` : '#')}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                                >
+                                                                    <Image src="/facebook-logo.png" alt="Facebook" width={18} height={18} className="object-contain" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            } else {
+                                                const report = item.data;
+                                                return (
+                                                    <div key={`report-${report.id || index}`} className="flex items-center justify-between p-3 bg-amber-50/50 dark:bg-amber-900/10 rounded-xl gap-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-0.5">
+                                                                <CalendarCheck size={12} className="text-amber-500 flex-shrink-0" />
+                                                                <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{report.description}</p>
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                                                {report.reportDate?.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">
+                                                                รายงานแล้ว
+                                                            </span>
+                                                            {report.driveLink && (
+                                                                <a
+                                                                    href={report.driveLink}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                                                >
+                                                                    <Image src="/Google_Drive_icon.png" alt="Drive" width={18} height={18} className="object-contain" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                        })
                                     )}
                                 </div>
 
                                 {/* Pagination */}
-                                {totalPhotoPages > 1 && (
+                                {totalHistoryPages > 1 && (
                                     <div className="flex items-center justify-center gap-2 mt-4">
                                         <button
                                             onClick={() => setPhotoPage(p => Math.max(1, p - 1))}
@@ -493,11 +591,11 @@ export default function MyWorkPage() {
                                             <ChevronLeft size={18} />
                                         </button>
                                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                                            {photoPage} / {totalPhotoPages}
+                                            {photoPage} / {totalHistoryPages}
                                         </span>
                                         <button
-                                            onClick={() => setPhotoPage(p => Math.min(totalPhotoPages, p + 1))}
-                                            disabled={photoPage === totalPhotoPages}
+                                            onClick={() => setPhotoPage(p => Math.min(totalHistoryPages, p + 1))}
+                                            disabled={photoPage === totalHistoryPages}
                                             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
                                         >
                                             <ChevronRight size={18} />
@@ -525,6 +623,12 @@ export default function MyWorkPage() {
                         }}
                         userId={user?.uid || ''}
                         selectedJobId={selectedJobId}
+                    />
+                    <DailyReportModal
+                        isOpen={isDailyReportModalOpen}
+                        onClose={() => setIsDailyReportModalOpen(false)}
+                        userId={user?.uid || ''}
+                        userName={getDisplayName() || 'ช่างภาพ'}
                     />
                 </>
             )}

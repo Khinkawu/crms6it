@@ -125,6 +125,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // daily_reports — photographer อ่าน/เขียนรายงานตัวเอง, admin อ่าน/ลบได้
+    match /daily_reports/{reportId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // feedbacks — ทุกคน create ได้, admin อ่านทั้งหมด, user อ่านของตัวเอง
     match /feedbacks/{feedbackId} {
       allow read: if isAdmin() ||

@@ -58,9 +58,7 @@ export function useActivityLogs(options: UseActivityLogsOptions = {}): UseActivi
         };
 
         if (!realtime) {
-            console.time('[useActivityLogs] fetch');
             getDocs(q).then(snapshot => {
-                console.timeEnd('[useActivityLogs] fetch');
                 processSnapshot(snapshot.docs);
             }).catch(err => {
                 console.error("[useActivityLogs]", err);

@@ -130,6 +130,18 @@ export interface PhotographyJob {
     facebookCaption?: string; // The caption used when posting to Facebook
 }
 
+export interface DailyReport {
+    id?: string;
+    userId: string;
+    userName: string;
+    reportDate: Timestamp; // Date of the report
+    description: string;
+    driveLink?: string;
+    imageUrls?: string[]; // URLs of images uploaded
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
 export interface Booking {
     id: string;
     title: string;
