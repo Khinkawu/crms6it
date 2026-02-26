@@ -75,7 +75,7 @@ export async function GET(request: Request) {
             { success: true, data: result },
             {
                 headers: {
-                    "Access-Control-Allow-Origin": "*", // Allow all for public consumption
+                    "Access-Control-Allow-Origin": "https://www.tesaban6.ac.th",
                     "Access-Control-Allow-Methods": "GET, OPTIONS",
                     "Access-Control-Allow-Headers": "Content-Type, Authorization",
                     "Cache-Control": "s-maxage=60, stale-while-revalidate=300"
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
 export async function OPTIONS() {
     return NextResponse.json({}, {
         headers: {
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": "https://www.tesaban6.ac.th",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Authorization",
         },
