@@ -206,6 +206,7 @@ export async function searchGallery(keyword?: string, date?: string, limit: numb
                 rawDate: data.startTime ? (data.startTime.toDate ? data.startTime.toDate() : new Date(data.startTime)) : null,
                 driveLink: data.driveLink || 'ไม่มีลิงก์ Drive',
                 facebookLink: data.facebookPermalink || data.facebookPostLink || '',
+                coverImage: data.coverImage || null,
                 rawStartTime: data.startTime
             });
         });
