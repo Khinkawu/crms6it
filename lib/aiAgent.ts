@@ -440,7 +440,15 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
             let queryForAI = keyword || '';
             if (date) queryForAI += ` (Date/Time context: ${date})`;
 
-            const rankedJobs = await rankPhotosWithAI(queryForAI, allJobs);
+            // If we have a searchDate, only pass the date-filtered pool to AI to prevent it returning other dates
+            let aiPool = allJobs;
+            if (searchDate) {
+                const targetYMD = searchDate.split('T')[0];
+                aiPool = allJobs.filter(job => job.date && job.date.includes(targetYMD.replace(/-/g, '/')));
+                logger.info('AI Handler', `Restricting AI fallback pool to ${aiPool.length} jobs for date ${targetYMD}`);
+            }
+
+            const rankedJobs = await rankPhotosWithAI(queryForAI, aiPool);
             if (rankedJobs.length > 0) {
                 logger.info('AI Handler', `AI Ranking fallback: selected ${rankedJobs.length} photos`);
                 jobs = rankedJobs;
@@ -459,7 +467,8 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     }
 
     const bubbles: any[] = jobs.slice(0, 10).map((job) => {
-        const imageUrl = job.images?.[0] || job.thumbnailUrl || null;
+        // Fallbacks for thumbnail: check images array, thumbnailUrl string, coverImage string, or a default placeholder
+        const imageUrl = job.images?.[0] || job.thumbnailUrl || job.coverImage || 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
 
         return {
             type: 'bubble',
@@ -499,6 +508,7 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
             footer: {
                 type: 'box',
                 layout: 'vertical',
+                spacing: 'sm',
                 contents: [
                     {
                         type: 'button',
@@ -507,9 +517,18 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
                         action: {
                             type: 'uri',
                             label: 'ดูรูปใน Drive',
-                            uri: job.driveLink || job.facebookLink || 'https://crms6it.vercel.app/gallery'
+                            uri: job.driveLink || 'https://crms6it.vercel.app/gallery'
                         }
-                    }
+                    },
+                    ...(job.facebookLink ? [{
+                        type: 'button',
+                        style: 'secondary',
+                        action: {
+                            type: 'uri',
+                            label: 'ดูใน Facebook',
+                            uri: job.facebookLink
+                        }
+                    }] : [])
                 ]
             }
         };
@@ -578,7 +597,15 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
             let queryForAI = keyword || '';
             if (date) queryForAI += ` (Date/Time context: ${date})`;
 
-            const rankedVideos = await rankVideosWithAI(queryForAI, allVideos);
+            // If we have a searchDate, only pass the date-filtered pool to AI to prevent it returning other dates
+            let aiPool = allVideos;
+            if (searchDate) {
+                const targetYMD = searchDate.split('T')[0];
+                aiPool = allVideos.filter(video => video.date && video.date.includes(targetYMD.replace(/-/g, '/')));
+                logger.info('AI Handler', `Restricting AI fallback pool to ${aiPool.length} videos for date ${targetYMD}`);
+            }
+
+            const rankedVideos = await rankVideosWithAI(queryForAI, aiPool);
             if (rankedVideos.length > 0) {
                 logger.info('AI Handler', `AI Ranking fallback: selected ${rankedVideos.length} videos`);
                 videos = rankedVideos;
@@ -600,7 +627,8 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
     logger.info('AI Handler', `Final result: ${videos.length} videos found`);
 
     const bubbles: any[] = videos.slice(0, 10).map((video) => {
-        const imageUrl = video.thumbnailUrl || video.imageUrl || null;
+        // Fallbacks for thumbnail: check thumbnailUrl, coverImage, or default placeholder
+        const imageUrl = video.thumbnailUrl || video.coverImage || video.imageUrl || 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
 
         return {
             type: 'bubble',
@@ -640,6 +668,7 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
             footer: {
                 type: 'box',
                 layout: 'vertical',
+                spacing: 'sm',
                 contents: [
                     {
                         type: 'button',
@@ -650,7 +679,16 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
                             label: 'เปิดวิดีโอ',
                             uri: video.videoUrl || (video.videoLinks?.[0]?.url) || 'https://crms6it.vercel.app/videos'
                         }
-                    }
+                    },
+                    ...(video.facebookLink ? [{
+                        type: 'button',
+                        style: 'secondary',
+                        action: {
+                            type: 'uri',
+                            label: 'ดูใน Facebook',
+                            uri: video.facebookLink
+                        }
+                    }] : [])
                 ]
             }
         };
