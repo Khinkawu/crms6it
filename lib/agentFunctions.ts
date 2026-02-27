@@ -203,6 +203,7 @@ export async function searchGallery(keyword?: string, date?: string, limit: numb
                 title: data.title,
                 location: getRoomDisplayName(data.location),
                 date: formatToThaiTime(data.startTime),
+                rawDate: data.startTime ? (data.startTime.toDate ? data.startTime.toDate() : new Date(data.startTime)) : null,
                 driveLink: data.driveLink || 'ไม่มีลิงก์ Drive',
                 facebookLink: data.facebookPermalink || data.facebookPostLink || '',
                 rawStartTime: data.startTime
@@ -229,7 +230,7 @@ export async function searchGallery(keyword?: string, date?: string, limit: numb
             });
         }
 
-        return jobs.slice(0, limit).map(({ rawStartTime, ...rest }) => rest);
+        return jobs.slice(0, limit).map(({ ...rest }) => rest);
 
     } catch (error) {
         logger.error('Gallery Search', 'Error searching gallery', error);
@@ -344,7 +345,7 @@ export async function searchVideoGallery(keyword?: string, date?: string, limit:
         }
 
         logger.info('Video Gallery Search', `=== END === Found ${videos.length} videos`);
-        return videos.slice(0, limit).map(({ rawDate, ...rest }) => rest);
+        return videos.slice(0, limit).map(({ ...rest }) => rest);
 
     } catch (error) {
         logger.error('Video Gallery Search', 'Fatal error', error);

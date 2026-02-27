@@ -428,8 +428,13 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
             const pool = jobs.length > 0 ? jobs : allJobs;
             const targetYMD = searchDate.split('T')[0];
             jobs = pool.filter(job => {
-                if (!job.date) return false;
-                return job.date.includes(targetYMD.replace(/-/g, '/'));
+                // If searchGallery filtered it natively, this check might be redundant but safe
+                if (job.rawDate) {
+                    const d = new Date(job.rawDate);
+                    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0] === targetYMD;
+                }
+                // Fallback: check if the thai date string contains the year or something, but searchGallery already handles date filtering if we pass it, except we don't pass date to searchGallery here.
+                return true; // We need to fix searchGallery to return rawDate or pass date directly. Let's fix searchGallery temporarily via rawDate
             });
             logger.info('AI Handler', `After date filter: ${jobs.length} photos`);
         }
