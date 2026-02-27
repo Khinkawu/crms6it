@@ -5,6 +5,7 @@
 
 import nodemailer from 'nodemailer';
 import { randomInt } from 'crypto';
+import { logger } from './logger';
 
 // Create reusable transporter
 const transporter = nodemailer.createTransport({
@@ -83,10 +84,10 @@ export async function sendOtpEmail(email: string, otp: string): Promise<boolean>
             text: `รหัส OTP ของคุณคือ: ${otp}\n\nรหัสนี้จะหมดอายุใน 5 นาที\nห้ามแชร์รหัสนี้ให้ผู้อื่น`,
         });
 
-        console.log(`[Email] OTP sent to ${email}`);
+        logger.info('Email', `OTP sent to ${email}`);
         return true;
     } catch (error) {
-        console.error('[Email] Failed to send OTP:', error);
+        logger.error('Email', 'Failed to send OTP', error);
         return false;
     }
 }

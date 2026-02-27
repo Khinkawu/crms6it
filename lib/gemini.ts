@@ -1,6 +1,7 @@
 // lib/gemini.ts
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { logger } from './logger';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
@@ -177,7 +178,7 @@ export function imageToGenerativePart(imageBuffer: Buffer, mimeType: string) {
 export async function rankVideosWithAI(userQuery: string, videos: any[]): Promise<any[]> {
     if (!videos || videos.length === 0) return [];
 
-    console.log(`[Gemini RAG] Ranking ${videos.length} videos for query: "${userQuery}"`);
+    logger.info('Gemini RAG', `Ranking ${videos.length} videos for query: "${userQuery}"`);
 
     // Prepare lightweight context for AI
     const videoListShort = videos.map(v => ({
@@ -234,7 +235,7 @@ Output JSON ONLY (no explanation):
         // Handle case if AI returns object instead of array
         if (!Array.isArray(rankedItems)) rankedItems = [rankedItems];
 
-        console.log(`[Gemini RAG] AI selected ${rankedItems.length} videos`);
+        logger.info('Gemini RAG', `AI selected ${rankedItems.length} videos`);
 
         // Re-map back to full video objects
         return rankedItems.map((item: any) => {
@@ -243,7 +244,7 @@ Output JSON ONLY (no explanation):
         }).filter(Boolean);
 
     } catch (error) {
-        console.error('[Gemini RAG] Error ranking videos:', error);
+        logger.error('Gemini RAG', 'Error ranking videos', error);
         return videos.slice(0, 5); // Fallback to latest 5
     }
 }
@@ -252,7 +253,7 @@ Output JSON ONLY (no explanation):
 export async function rankPhotosWithAI(userQuery: string, photos: any[]): Promise<any[]> {
     if (!photos || photos.length === 0) return [];
 
-    console.log(`[Gemini RAG] Ranking ${photos.length} photos for query: "${userQuery}"`);
+    logger.info('Gemini RAG', `Ranking ${photos.length} photos for query: "${userQuery}"`);
 
     // Prepare lightweight context for AI
     const photoListShort = photos.map(p => ({
@@ -304,14 +305,14 @@ Output JSON ONLY (no explanation):
         // Extract JSON from potential markdown blocks (using [\s\S] for dotAll compatibility)
         const jsonMatch = text.match(/\[[\s\S]*\]/) || text.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-            console.warn('[Gemini RAG] No JSON found in response');
+            logger.warn('Gemini RAG', 'No JSON found in response');
             return [];
         }
 
         let rankedItems = JSON.parse(jsonMatch[0]);
         if (!Array.isArray(rankedItems)) rankedItems = [rankedItems];
 
-        console.log(`[Gemini RAG] AI selected ${rankedItems.length} photos`);
+        logger.info('Gemini RAG', `AI selected ${rankedItems.length} photos`);
 
         // Re-map back to full objects
         return rankedItems.map((item: any) => {
@@ -320,7 +321,7 @@ Output JSON ONLY (no explanation):
         }).filter(Boolean);
 
     } catch (error) {
-        console.error('[Gemini RAG] Error ranking photos:', error);
+        logger.error('Gemini RAG', 'Error ranking photos', error);
         return photos.slice(0, 5); // Fallback to latest 5
     }
 }
@@ -329,7 +330,7 @@ Output JSON ONLY (no explanation):
 export async function findAnswerWithAI(query: string, knowledgeItems: any[]): Promise<string | null> {
     if (!knowledgeItems || knowledgeItems.length === 0) return null;
 
-    console.log(`[Gemini RAG] Finding answer for: "${query}" from ${knowledgeItems.length} items`);
+    logger.info('Gemini RAG', `Finding answer for: "${query}" from ${knowledgeItems.length} items`);
 
     const context = knowledgeItems.map(item => `- Q: ${item.question}\n- A: ${item.answer}\n`).join('\n');
 
@@ -359,7 +360,7 @@ export async function findAnswerWithAI(query: string, knowledgeItems: any[]): Pr
         return response;
 
     } catch (error) {
-        console.error('[Gemini RAG] Error finding answer:', error);
+        logger.error('Gemini RAG', 'Error finding answer', error);
         return null;
     }
 }
@@ -388,7 +389,7 @@ export async function checkConfirmationWithAI(userMessage: string, contextDescri
         if (intent.includes('CANCEL')) return 'CANCEL';
         return 'OTHER';
     } catch (error) {
-        console.error('[Gemini Intent] Error checking confirmation:', error);
+        logger.error('Gemini Intent', 'Error checking confirmation', error);
         return 'OTHER'; // Fallback
     }
 }

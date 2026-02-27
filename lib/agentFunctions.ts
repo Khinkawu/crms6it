@@ -8,6 +8,7 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { RepairTicket } from '@/types';
 import { createRepairNewFlexMessage } from '@/utils/flexMessageTemplates';
+import { logger } from './logger';
 
 // ============================================================================
 // 1. MAPPINGS & HELPERS
@@ -115,7 +116,7 @@ async function notifyTechniciansDirectly(data: {
     try {
         const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
         if (!token) {
-            console.warn('[Notify Repair] Missing LINE_CHANNEL_ACCESS_TOKEN');
+            logger.warn('Notify Repair', 'Missing LINE_CHANNEL_ACCESS_TOKEN');
             return;
         }
 
@@ -139,7 +140,7 @@ async function notifyTechniciansDirectly(data: {
         targetUserIds = Array.from(new Set(targetUserIds));
 
         if (targetUserIds.length === 0) {
-            console.warn('[Notify Repair] No technicians found for zone:', data.zone);
+            logger.warn('Notify Repair', 'No technicians found for zone: ' + data.zone);
             return;
         }
 
@@ -171,12 +172,12 @@ async function notifyTechniciansDirectly(data: {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('[Notify Repair] LINE API Error:', errorText);
+            logger.error('Notify Repair', 'LINE API Error', errorText);
         } else {
-            console.log(`[Notify Repair] Sent to ${targetUserIds.length} technicians`);
+            logger.info('Notify Repair', `Sent to ${targetUserIds.length} technicians`);
         }
     } catch (error) {
-        console.error('[Notify Repair] Error:', error);
+        logger.error('Notify Repair', 'Error', error);
     }
 }
 
@@ -187,8 +188,7 @@ async function notifyTechniciansDirectly(data: {
 // --- GALLERY SEARCH (ค้นหารูปภาพ) ---
 export async function searchGallery(keyword?: string, date?: string, limit: number = 10): Promise<any[]> {
     try {
-        console.log(`[Gallery Search] === START ===`);
-        console.log(`[Gallery Search] Keyword: "${keyword}", Date: "${date}", Limit: ${limit}`);
+        logger.info('Gallery Search', `=== START === Keyword: "${keyword}", Date: "${date}", Limit: ${limit}`);
         const snapshot = await adminDb.collection('photography_jobs')
             .where('status', '==', 'completed')
             .orderBy('startTime', 'desc')
@@ -232,7 +232,7 @@ export async function searchGallery(keyword?: string, date?: string, limit: numb
         return jobs.slice(0, limit).map(({ rawStartTime, ...rest }) => rest);
 
     } catch (error) {
-        console.error('Error searching gallery:', error);
+        logger.error('Gallery Search', 'Error searching gallery', error);
         return [];
     }
 }
@@ -240,7 +240,7 @@ export async function searchGallery(keyword?: string, date?: string, limit: numb
 // --- IT KNOWLEDGE BASE SEARCH ---
 export async function searchKnowledgeBase(query?: string): Promise<any[]> {
     try {
-        console.log(`[Knowledge Search] Query: "${query}"`);
+        logger.info('Knowledge Search', `Query: "${query}"`);
         // For RAG-lite, we fetch a broad set (or all) because the KB is usually small (<100 items)
         // If it grows, we can add basic keyword filtering here.
         const snapshot = await adminDb.collection('it_knowledge_base')
@@ -252,11 +252,11 @@ export async function searchKnowledgeBase(query?: string): Promise<any[]> {
             items.push({ id: doc.id, ...doc.data() });
         });
 
-        console.log(`[Knowledge Search] Fetched ${items.length} items for valid context`);
+        logger.info('Knowledge Search', `Fetched ${items.length} items for valid context`);
         return items;
 
     } catch (error) {
-        console.error('Error searching knowledge base:', error);
+        logger.error('Knowledge Search', 'Error searching knowledge base', error);
         return [];
     }
 }
@@ -264,8 +264,7 @@ export async function searchKnowledgeBase(query?: string): Promise<any[]> {
 // --- VIDEO GALLERY SEARCH (ค้นหาวิดีโอ) ---
 export async function searchVideoGallery(keyword?: string, date?: string, limit: number = 10): Promise<any[]> {
     try {
-        console.log(`[Video Gallery Search] === START ===`);
-        console.log(`[Video Gallery Search] Keyword: "${keyword}", Date: "${date}", Limit: ${limit}`);
+        logger.info('Video Gallery Search', `=== START === Keyword: "${keyword}", Date: "${date}", Limit: ${limit}`);
 
         let snapshot;
 
@@ -275,10 +274,10 @@ export async function searchVideoGallery(keyword?: string, date?: string, limit:
                 .where('isPublished', '==', true)
                 .orderBy('createdAt', 'desc')
                 .get();
-            console.log(`[Video Gallery Search] Query with isPublished filter: ${snapshot.size} docs`);
+            logger.info('Video Gallery Search', `Query with isPublished filter: ${snapshot.size} docs`);
         } catch (indexError: any) {
             // Fallback: Query without composite index (may happen if index not created)
-            console.warn(`[Video Gallery Search] Index error, trying fallback query:`, indexError?.message || indexError);
+            logger.warn('Video Gallery Search', 'Index error, trying fallback query', indexError?.message || indexError);
             snapshot = await adminDb.collection('video_gallery')
                 .orderBy('createdAt', 'desc')
                 .get();
@@ -306,9 +305,9 @@ export async function searchVideoGallery(keyword?: string, date?: string, limit:
             }
         });
 
-        console.log(`[Video Gallery Search] Total videos after isPublished filter: ${videos.length}`);
+        logger.info('Video Gallery Search', `Total videos after isPublished filter: ${videos.length}`);
         if (videos.length > 0) {
-            console.log(`[Video Gallery Search] Sample titles:`, videos.slice(0, 3).map(v => v.title));
+            logger.info('Video Gallery Search', `Sample titles: ${videos.slice(0, 3).map(v => v.title).join(', ')}`);
         }
 
         // Filter by Date
@@ -320,7 +319,7 @@ export async function searchVideoGallery(keyword?: string, date?: string, limit:
                 const thDate = new Date(vDate.getTime() + (7 * 60 * 60 * 1000));
                 return thDate.toISOString().split('T')[0] === targetYMD;
             });
-            console.log(`[Video Gallery Search] After date filter: ${videos.length}`);
+            logger.info('Video Gallery Search', `After date filter: ${videos.length}`);
         }
 
         // Keyword Search (title, description, category)
@@ -328,7 +327,7 @@ export async function searchVideoGallery(keyword?: string, date?: string, limit:
             const cleanKeyword = keyword.trim().toLowerCase();
             // Split by spaces, commas, or keep as single token if no separators
             const tokens = cleanKeyword.split(/[\s,]+/).filter(t => t.length > 0);
-            console.log(`[Video Gallery Search] Search tokens:`, tokens);
+            logger.info('Video Gallery Search', `Search tokens: ${tokens.join(', ')}`);
 
             const beforeFilter = videos.length;
             videos = videos.filter(video => {
@@ -337,18 +336,18 @@ export async function searchVideoGallery(keyword?: string, date?: string, limit:
                 // All words in the keyword must appear in the video details
                 const matched = tokens.every(token => textToSearch.includes(token));
                 if (matched) {
-                    console.log(`[Video Gallery Search] Match: "${video.title}" matched ALL tokens`);
+                    logger.info('Video Gallery Search', `Match: "${video.title}" matched ALL tokens`);
                 }
                 return matched;
             });
-            console.log(`[Video Gallery Search] After keyword filter: ${beforeFilter} -> ${videos.length}`);
+            logger.info('Video Gallery Search', `After keyword filter: ${beforeFilter} -> ${videos.length}`);
         }
 
-        console.log(`[Video Gallery Search] === END === Found ${videos.length} videos`);
+        logger.info('Video Gallery Search', `=== END === Found ${videos.length} videos`);
         return videos.slice(0, limit).map(({ rawDate, ...rest }) => rest);
 
     } catch (error) {
-        console.error('[Video Gallery Search] Fatal error:', error);
+        logger.error('Video Gallery Search', 'Fatal error', error);
         return [];
     }
 }
@@ -386,7 +385,7 @@ export async function getPhotoJobsByPhotographer(userId: string, date?: string):
         }
         return jobs.map(({ rawStart, ...rest }) => rest);
     } catch (e) {
-        console.error('Error getting photo jobs:', e);
+        logger.error('Photo Jobs', 'Error getting photo jobs', e);
         return [];
     }
 }
@@ -419,7 +418,7 @@ export async function createRepairFromAI(
 
         const trimmedSide = side.trim().toLowerCase();
         const normalizedSide = SIDE_MAPPING[trimmedSide] || SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
-        console.log(`[createRepairFromAI] side input: "${side}" -> normalized: "${normalizedSide}"`);
+        logger.info('Create Repair AI', `side input: "${side}" -> normalized: "${normalizedSide}"`);
 
         const images: string[] = imageUrl && imageUrl !== 'pending_upload' && imageUrl !== '' ? [imageUrl] : [];
 
@@ -455,7 +454,7 @@ export async function createRepairFromAI(
             }
         };
     } catch (error) {
-        console.error('Error creating repair:', error);
+        logger.error('Create Repair AI', 'Error creating repair', error);
         return { success: false, error: 'เกิดข้อผิดพลาด' };
     }
 }
@@ -481,7 +480,7 @@ export async function getRepairsByEmail(email: string): Promise<any[]> {
         });
         return repairs;
     } catch (error) {
-        console.error('Error getting repairs:', error);
+        logger.error('Repair Queries', 'Error getting repairs', error);
         return [];
     }
 }
@@ -515,7 +514,7 @@ export async function getRepairsForTechnician(zone: string | 'all', date?: strin
         }
         return repairs;
     } catch (error) {
-        console.error('Error getting repairs for technician:', error);
+        logger.error('Repair Queries', 'Error getting repairs for technician', error);
         return [];
     }
 }
@@ -526,7 +525,7 @@ export async function getRepairByTicketId(ticketId: string): Promise<RepairTicke
         if (!docSnap.exists) return null;
         return { id: docSnap.id, ...docSnap.data() } as RepairTicket;
     } catch (error) {
-        console.error('Error getting repair:', error);
+        logger.error('Repair Queries', 'Error getting repair ticket', error);
         return null;
     }
 }
@@ -581,7 +580,7 @@ export async function checkRoomAvailability(room: string, date: string, startTim
         });
         return { available: conflicts.length === 0, conflicts: conflicts.length > 0 ? conflicts : undefined };
     } catch (error) {
-        console.error('Error checking availability:', error);
+        logger.error('Booking Queries', 'Error checking availability', error);
         return { available: false };
     }
 }
@@ -621,7 +620,7 @@ export async function getRoomSchedule(room: string, date: string): Promise<any[]
         bookings.sort((a, b) => (a.rawStart?.toMillis?.() || 0) - (b.rawStart?.toMillis?.() || 0));
         return bookings.map(({ rawStart, ...rest }) => rest);
     } catch (error) {
-        console.error('Error getting room schedule:', error);
+        logger.error('Booking Queries', 'Error getting room schedule', error);
         return [];
     }
 }
@@ -656,7 +655,7 @@ export async function createBookingFromAI(room: string, date: string, startTime:
             }
         };
     } catch (e) {
-        console.error('Error creating booking:', e);
+        logger.error('Booking Queries', 'Error creating booking', e);
         return { success: false, error: 'เกิดข้อผิดพลาด' };
     }
 }
@@ -682,7 +681,7 @@ export async function getBookingsByEmail(email: string): Promise<any[]> {
         });
         return bookings;
     } catch (e) {
-        console.error('Error getting bookings:', e);
+        logger.error('Booking Queries', 'Error getting bookings by email', e);
         return [];
     }
 }
@@ -716,7 +715,7 @@ export async function getPendingBookings(date?: string): Promise<any[]> {
         }
         return bookings.map(({ rawStart, ...rest }) => rest);
     } catch (e) {
-        console.error('Error getting pending bookings:', e);
+        logger.error('Booking Queries', 'Error getting pending bookings', e);
         return [];
     }
 }
@@ -753,7 +752,7 @@ export async function getDailySummary(date: Date = new Date()): Promise<any> {
             photoJobs: { total: jS.size, pending: 0 }
         };
     } catch (e) {
-        console.error('Error getting daily summary:', e);
+        logger.error('Daily Summary', 'Error getting daily summary', e);
         return { error: 'Failed to get summary' };
     }
 }

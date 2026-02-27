@@ -21,11 +21,15 @@ interface UseDailyReportUploadReturn {
     // Drag state
     isDraggingFiles: boolean;
 
-    // Drive link
+    // Links
+    links: string[];
+    currentLinkInput: string;
+    setCurrentLinkInput: React.Dispatch<React.SetStateAction<string>>;
     driveLink: string;
 
     // Handlers
-    handleLinkChange: (value: string) => void;
+    addLink: () => void;
+    removeLink: (index: number) => void;
     handleReportFilesChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     handleReportFilesDragOver: (e: React.DragEvent) => void;
     handleReportFilesDragLeave: (e: React.DragEvent) => void;
@@ -33,7 +37,6 @@ interface UseDailyReportUploadReturn {
     removeFile: (index: number) => void;
     performDriveUpload: (photographerName: string, dateStr: string) => Promise<UploadResult>;
 
-    // Setters for external updates
     setIsUploading: React.Dispatch<React.SetStateAction<boolean>>;
     setUploadProgress: React.Dispatch<React.SetStateAction<number>>;
     setDriveLink: React.Dispatch<React.SetStateAction<string>>;
@@ -61,8 +64,10 @@ export function useDailyReportUpload(): UseDailyReportUploadReturn {
     // Drag state
     const [isDraggingFiles, setIsDraggingFiles] = useState<boolean>(false);
 
-    // Drive link
-    const [driveLink, setDriveLink] = useState<string>('');
+    // Links state
+    const [links, setLinks] = useState<string[]>([]);
+    const [currentLinkInput, setCurrentLinkInput] = useState<string>('');
+    const [driveLink, setDriveLink] = useState<string>(''); // Kept for backward compatibility if needed to store uploaded Google folder link
 
     // Abort controller
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -78,51 +83,51 @@ export function useDailyReportUpload(): UseDailyReportUploadReturn {
         toast('ยกเลิกการอัปโหลดแล้ว', { icon: '🚫' });
     }, []);
 
-    // Link change handler
-    const handleLinkChange = useCallback((value: string) => {
-        setDriveLink(value);
+    // Link handlers
+    const addLink = useCallback(() => {
+        const url = currentLinkInput.trim();
+        if (!url) return;
+
+        // Simple URL validation
+        try {
+            new URL(url.startsWith('http') ? url : `https://${url}`);
+            setLinks(prev => [...prev, url.startsWith('http') ? url : `https://${url}`]);
+            setCurrentLinkInput('');
+        } catch (e) {
+            toast.error('รูปแบบลิงก์ไม่ถูกต้อง');
+        }
+    }, [currentLinkInput]);
+
+    const removeLink = useCallback((index: number) => {
+        setLinks(prev => prev.filter((_, i) => i !== index));
     }, []);
 
     // Process job files
-    const MAX_FILE_SIZE_MB = 25;
-    const MAX_FILES = 10;
+    const MAX_FILE_SIZE_MB = 1024;
 
     const processReportFiles = useCallback(async (newFiles: File[]) => {
-        const imageFiles = newFiles.filter(file => file.type.startsWith('image/'));
-        if (imageFiles.length < newFiles.length) {
-            toast.error("กรุณาเลือกไฟล์รูปภาพเท่านั้น");
-        }
-
         // Reject oversized files
-        const oversized = imageFiles.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
-        const validFiles = imageFiles.filter(f => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024);
+        const oversized = newFiles.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
+        const validFiles = newFiles.filter(f => f.size <= MAX_FILE_SIZE_MB * 1024 * 1024);
 
         if (oversized.length > 0) {
             toast.error(`${oversized.length} ไฟล์มีขนาดเกิน ${MAX_FILE_SIZE_MB}MB — กรุณาลดขนาดก่อน`);
         }
 
         if (validFiles.length > 0) {
-            setReportFiles(prev => {
-                const combined = [...prev, ...validFiles];
-                if (combined.length > MAX_FILES) {
-                    toast.error(`เลือกรูปภาพได้สูงสุด ${MAX_FILES} รูป`);
-                    return combined.slice(0, MAX_FILES);
-                }
-                return combined;
-            });
+            setReportFiles(prev => [...prev, ...validFiles]);
 
-            // Generate thumbnails
+            // Generate thumbnails for images
             const newPreviews = await Promise.all(
-                validFiles.map(file =>
-                    generateThumbnail(file, 250).catch(() => URL.createObjectURL(file))
-                )
+                validFiles.map(file => {
+                    if (file.type.startsWith('image/')) {
+                        return generateThumbnail(file, 250).catch(() => URL.createObjectURL(file));
+                    }
+                    return Promise.resolve(''); // Empty string for non-images
+                })
             );
 
-            setPreviews(prev => {
-                const combined = [...prev, ...newPreviews];
-                if (combined.length > MAX_FILES) return combined.slice(0, MAX_FILES);
-                return combined;
-            });
+            setPreviews(prev => [...prev, ...newPreviews]);
         }
     }, []);
 
@@ -279,6 +284,8 @@ export function useDailyReportUpload(): UseDailyReportUploadReturn {
         setUploadProgress(0);
         setIsUploading(false);
         setDriveLink('');
+        setLinks([]);
+        setCurrentLinkInput('');
     }, []);
 
     return {
@@ -288,7 +295,11 @@ export function useDailyReportUpload(): UseDailyReportUploadReturn {
         isUploading,
         isDraggingFiles,
         driveLink,
-        handleLinkChange,
+        links,
+        currentLinkInput,
+        setCurrentLinkInput,
+        addLink,
+        removeLink,
         handleReportFilesChange,
         handleReportFilesDragOver,
         handleReportFilesDragLeave,

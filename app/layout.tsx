@@ -19,10 +19,12 @@ export const metadata: Metadata = {
     },
     description: "ระบบสารสนเทศเพื่อการบริหารจัดการงานโสตทัศนศึกษา by CRMS6 IT",
     appleWebApp: {
-        capable: true,
         statusBarStyle: "default",
         title: "CRMS6 IT",
     },
+    other: {
+        "mobile-web-app-capable": "yes",
+    }
 };
 
 export default function RootLayout({

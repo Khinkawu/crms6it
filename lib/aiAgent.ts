@@ -25,6 +25,7 @@ import {
     getRoomDisplayName
 } from './agentFunctions';
 import { formatThaiDate } from './dateUtils';
+import { logger } from './logger';
 
 
 
@@ -111,7 +112,7 @@ async function getConversationContext(lineUserId: string): Promise<ConversationC
             lastActivity,
         };
     } catch (error) {
-        console.error('Error getting conversation context:', error);
+        logger.error('Context Management', 'Error getting conversation context:', error);
         return null;
     }
 }
@@ -126,7 +127,7 @@ async function saveConversationContext(lineUserId: string, context: Conversation
             lastActivity: FieldValue.serverTimestamp(),
         });
     } catch (error) {
-        console.error('Error saving conversation context:', error);
+        logger.error('Context Management', 'Error saving conversation context:', error);
     }
 }
 
@@ -134,7 +135,7 @@ async function clearPendingAction(lineUserId: string): Promise<void> {
     try {
         await adminDb.collection('ai_conversations').doc(lineUserId).update({ pendingAction: null });
     } catch (error) {
-        console.error('Error clearing pending action:', error);
+        logger.error('Context Management', 'Error clearing pending action:', error);
     }
 }
 
@@ -170,7 +171,7 @@ async function getUserProfileFromLineBinding(lineUserId: string): Promise<UserPr
         // No binding found - user needs to link account
         return null;
     } catch (error) {
-        console.error('Error getting user profile:', error);
+        logger.error('User Profile', 'Error getting user profile:', error);
         return null;
     }
 }
@@ -190,12 +191,12 @@ function parseAIResponse(responseText: string): AIResponseParsed {
             if (validation.success) {
                 return validation.data;
             } else {
-                console.warn('AI Response Validation Failed:', validation.error);
+                logger.warn('AI Parsing', 'AI Response Validation Failed', validation.error);
                 // Fallback: use parsed object but treat as mixed content if possible, or just log error
             }
         }
     } catch (e) {
-        console.error('Error parsing AI response:', e);
+        logger.error('AI Parsing', 'Error parsing AI response', e);
     }
 
     // 3. Fallback: Treat entire text as message
@@ -406,7 +407,7 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
 
     // 1. Fetch ALL completed jobs
     let allJobs = await searchGallery(undefined, undefined, 9999);
-    console.log(`[AI Handler] Broad fetch for Photos: ${allJobs.length} jobs`);
+    logger.info('AI Handler', `Broad fetch for Photos: ${allJobs.length} jobs`);
 
     let jobs: any[] = [];
 
@@ -418,7 +419,7 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
                 const textToSearch = `${job.title} ${job.location}`.toLowerCase();
                 return tokens.some(token => textToSearch.includes(token));
             });
-            console.log(`[AI Handler] Text match: ${jobs.length} photos matched keyword "${keyword}"`);
+            logger.info('AI Handler', `Text match: ${jobs.length} photos matched keyword "${keyword}"`);
         }
 
         // Date filter (apply on text-matched results, or all if no keyword)
@@ -429,24 +430,24 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
                 if (!job.date) return false;
                 return job.date.includes(targetYMD.replace(/-/g, '/'));
             });
-            console.log(`[AI Handler] After date filter: ${jobs.length} photos`);
+            logger.info('AI Handler', `After date filter: ${jobs.length} photos`);
         }
 
         // PHASE 2: AI semantic fallback (only when text matching found nothing)
         if (jobs.length === 0) {
-            console.log(`[AI Handler] Text match found nothing, trying AI semantic search...`);
+            logger.info('AI Handler', `Text match found nothing, trying AI semantic search...`);
             let queryForAI = keyword || '';
             if (date) queryForAI += ` (Date/Time context: ${date})`;
 
             const rankedJobs = await rankPhotosWithAI(queryForAI, allJobs);
             if (rankedJobs.length > 0) {
-                console.log(`[AI Handler] AI Ranking fallback: selected ${rankedJobs.length} photos`);
+                logger.info('AI Handler', `AI Ranking fallback: selected ${rankedJobs.length} photos`);
                 jobs = rankedJobs;
             }
         }
     } else {
         // No keyword/date — show latest
-        console.log(`[AI Handler] No keyword/date, showing latest photos`);
+        logger.info('AI Handler', `No keyword/date, showing latest photos`);
         jobs = allJobs;
     }
 
@@ -478,14 +479,14 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
     const keyword = rawKeyword && rawKeyword !== 'undefined' ? rawKeyword : undefined;
     const date = rawDate && rawDate !== 'undefined' ? rawDate : undefined;
 
-    console.log(`[AI Handler] Video Search - Params: keyword="${keyword}", date="${date}"`);
+    logger.info('AI Handler', `Video Search - Params: keyword="${keyword}", date="${date}"`);
 
     let searchDate: string | undefined;
     if (date) searchDate = parseThaiDate(date);
 
     // 1. Fetch ALL published videos
     let allVideos = await searchVideoGallery(undefined, undefined, 9999);
-    console.log(`[AI Handler] Broad fetch for Videos: ${allVideos.length} videos`);
+    logger.info('AI Handler', `Broad fetch for Videos: ${allVideos.length} videos`);
 
     let videos: any[] = [];
 
@@ -497,7 +498,7 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
                 const textToSearch = `${video.title} ${video.description} ${video.category}`.toLowerCase();
                 return tokens.some(token => textToSearch.includes(token));
             });
-            console.log(`[AI Handler] Text match: ${videos.length} videos matched keyword "${keyword}"`);
+            logger.info('AI Handler', `Text match: ${videos.length} videos matched keyword "${keyword}"`);
         }
 
         // Date filter
@@ -508,35 +509,35 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
                 if (!video.date) return false;
                 return video.date.includes(targetYMD.replace(/-/g, '/'));
             });
-            console.log(`[AI Handler] After date filter: ${videos.length} videos`);
+            logger.info('AI Handler', `After date filter: ${videos.length} videos`);
         }
 
         // PHASE 2: AI semantic fallback (only when text matching found nothing)
         if (videos.length === 0) {
-            console.log(`[AI Handler] Text match found nothing, trying AI semantic search...`);
+            logger.info('AI Handler', `Text match found nothing, trying AI semantic search...`);
             let queryForAI = keyword || '';
             if (date) queryForAI += ` (Date/Time context: ${date})`;
 
             const rankedVideos = await rankVideosWithAI(queryForAI, allVideos);
             if (rankedVideos.length > 0) {
-                console.log(`[AI Handler] AI Ranking fallback: selected ${rankedVideos.length} videos`);
+                logger.info('AI Handler', `AI Ranking fallback: selected ${rankedVideos.length} videos`);
                 videos = rankedVideos;
             }
         }
     } else {
         // No keyword/date — show latest
-        console.log(`[AI Handler] No keyword/date, showing latest`);
+        logger.info('AI Handler', `No keyword/date, showing latest`);
         videos = allVideos;
     }
 
     if (videos.length === 0) {
         const dateDesc = searchDate ? (isNaN(new Date(searchDate).getTime()) ? date : new Date(searchDate).toLocaleDateString('th-TH')) : '';
         const kwDesc = keyword ? `"${keyword}"` : '';
-        console.log(`[AI Handler] Final result: 0 videos found`);
+        logger.info('AI Handler', `Final result: 0 videos found`);
         return { message: `ไม่พบวิดีโอ${kwDesc} ${dateDesc} ค่ะ ลองค้นหาใหม่นะคะ` };
     }
 
-    console.log(`[AI Handler] Final result: ${videos.length} videos found`);
+    logger.info('AI Handler', `Final result: ${videos.length} videos found`);
     const listItems = videos.slice(0, 10).map((video, index) => {
         return `${index + 1}. 🎬 ${video.title} (${video.category || 'ไม่ระบุหมวด'})`;
     }).join('\n');
@@ -608,7 +609,7 @@ Focus on identifying the IT/AV equipment and any visible defects.
         throw new Error("Invalid JSON format");
 
     } catch (e) {
-        console.error("Vision Analysis Error:", e);
+        logger.error('Vision Analysis', 'Error during image analysis', e);
         // Fallback result
         return {
             device: "ไม่ระบุอุปกรณ์",
@@ -741,7 +742,7 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
 
                     return `✉️ ส่งรหัส OTP 6 หลักไปที่ ${email} แล้วค่ะ\n\n📩 กรุณาเช็คอีเมล (รวมถึง Spam) แล้วพิมพ์รหัส OTP ที่ได้รับ\n⏰ รหัสจะหมดอายุใน 5 นาที`;
                 } catch (error) {
-                    console.error('[LINK_ACCOUNT] Send OTP Error:', error);
+                    logger.error('LINK_ACCOUNT', 'Send OTP Error', error);
                     await clearPendingAction(lineUserId);
                     return '❌ เกิดข้อผิดพลาดในการส่ง OTP กรุณาลองใหม่ค่ะ';
                 }
@@ -772,7 +773,7 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     await clearPendingAction(lineUserId);
                     return `✅ ผูกบัญชีสำเร็จค่ะ!\n\n👤 ชื่อ: ${result.displayName}\n📧 Email: ${result.email}\n\nตอนนี้สามารถแจ้งซ่อม จองห้อง และใช้งานระบบได้เลยค่ะ 🎉`;
                 } catch (error) {
-                    console.error('[LINK_ACCOUNT] Verify OTP Error:', error);
+                    logger.error('LINK_ACCOUNT', 'Verify OTP Error', error);
                     return '❌ เกิดข้อผิดพลาดในการตรวจสอบ OTP กรุณาลองใหม่ค่ะ';
                 }
             }
