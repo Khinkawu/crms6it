@@ -7,6 +7,7 @@ import { UserProfile, RepairTicket } from '@/types';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { startAIChat, geminiVisionModel, imageToGenerativePart, rankVideosWithAI, rankPhotosWithAI, findAnswerWithAI, checkConfirmationWithAI } from './gemini';
+import { FlexMessage } from '@line/bot-sdk';
 import {
     checkRoomAvailability,
     createBookingFromAI,
@@ -392,7 +393,7 @@ async function handleMyWork(userProfile: UserProfile, params?: Record<string, un
 }
 
 interface GallerySearchResult {
-    message: string;
+    message: string | FlexMessage;
     jobs?: any[];
 }
 
@@ -457,19 +458,78 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
         return { message: `ไม่พบภาพกิจกรรม${kwDesc} ${dateDesc} ค่ะ ลองค้นหาใหม่นะคะ` };
     }
 
-    const listItems = jobs.slice(0, 10).map((job, index) => {
-        return `${index + 1}. ${job.title} (${job.date})`;
-    }).join('\n');
-    let response = `📸 พบ ${jobs.length} กิจกรรม\n\n${listItems}`;
-    if (jobs.length > 10) response += `\n... และอีก ${jobs.length - 10} รายการ`;
-    response += '\n\nพิมพ์หมายเลข (เช่น 1) เพื่อดูรูปและลิงก์ค่ะ';
+    const bubbles: any[] = jobs.slice(0, 10).map((job) => {
+        const imageUrl = job.images?.[0] || job.thumbnailUrl || null;
 
-    return { message: response, jobs: jobs.slice(0, 10) };
+        return {
+            type: 'bubble',
+            hero: imageUrl ? {
+                type: 'image',
+                url: imageUrl,
+                size: 'full',
+                aspectRatio: '20:13',
+                aspectMode: 'cover'
+            } : undefined,
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'text',
+                        text: job.title || 'ไม่มีชื่อกิจกรรม',
+                        weight: 'bold',
+                        size: 'md',
+                        wrap: true
+                    },
+                    {
+                        type: 'text',
+                        text: `📅 ${job.date || '-'}`,
+                        size: 'sm',
+                        color: '#666666',
+                        margin: 'md'
+                    },
+                    {
+                        type: 'text',
+                        text: `📍 ${job.location || '-'}`,
+                        size: 'sm',
+                        color: '#666666'
+                    }
+                ]
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'button',
+                        style: 'primary',
+                        color: '#0ea5e9',
+                        action: {
+                            type: 'uri',
+                            label: 'ดูรูปใน Drive',
+                            uri: job.driveLink || job.facebookLink || 'https://crms6it.vercel.app/gallery'
+                        }
+                    }
+                ]
+            }
+        };
+    });
+
+    const flexMessage: FlexMessage = {
+        type: 'flex',
+        altText: `พบ ${jobs.length} กิจกรรม`,
+        contents: {
+            type: 'carousel',
+            contents: bubbles
+        }
+    };
+
+    return { message: flexMessage, jobs: jobs.slice(0, 10) };
 }
 
 // --- Video Gallery Search Handler ---
 interface VideoGallerySearchResult {
-    message: string;
+    message: string | FlexMessage;
     videos?: any[];
 }
 
@@ -538,14 +598,74 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
     }
 
     logger.info('AI Handler', `Final result: ${videos.length} videos found`);
-    const listItems = videos.slice(0, 10).map((video, index) => {
-        return `${index + 1}. 🎬 ${video.title} (${video.category || 'ไม่ระบุหมวด'})`;
-    }).join('\n');
-    let response = `🎬 พบ ${videos.length} วิดีโอ\n\n${listItems}`;
-    if (videos.length > 10) response += `\n... และอีก ${videos.length - 10} รายการ`;
-    response += '\n\nพิมพ์หมายเลข (เช่น 1) เพื่อดูลิงก์วิดีโอค่ะ';
 
-    return { message: response, videos: videos.slice(0, 10) };
+    const bubbles: any[] = videos.slice(0, 10).map((video) => {
+        const imageUrl = video.thumbnailUrl || video.imageUrl || null;
+
+        return {
+            type: 'bubble',
+            hero: imageUrl ? {
+                type: 'image',
+                url: imageUrl,
+                size: 'full',
+                aspectRatio: '20:13',
+                aspectMode: 'cover'
+            } : undefined,
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'text',
+                        text: video.title || 'ไม่มีชื่อวิดีโอ',
+                        weight: 'bold',
+                        size: 'md',
+                        wrap: true
+                    },
+                    {
+                        type: 'text',
+                        text: `📁 ${video.category || 'ไม่ระบุหมวด'}`,
+                        size: 'sm',
+                        color: '#666666',
+                        margin: 'md'
+                    },
+                    {
+                        type: 'text',
+                        text: `📅 ${video.date || '-'}`,
+                        size: 'sm',
+                        color: '#666666'
+                    }
+                ]
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'button',
+                        style: 'primary',
+                        color: '#ef4444',
+                        action: {
+                            type: 'uri',
+                            label: 'เปิดวิดีโอ',
+                            uri: video.videoUrl || (video.videoLinks?.[0]?.url) || 'https://crms6it.vercel.app/videos'
+                        }
+                    }
+                ]
+            }
+        };
+    });
+
+    const flexMessage: FlexMessage = {
+        type: 'flex',
+        altText: `พบ ${videos.length} วิดีโอ`,
+        contents: {
+            type: 'carousel',
+            contents: bubbles
+        }
+    };
+
+    return { message: flexMessage, videos: videos.slice(0, 10) };
 }
 
 async function handleDailySummary(userProfile: UserProfile | null): Promise<string> {
@@ -625,7 +745,7 @@ Focus on identifying the IT/AV equipment and any visible defects.
 // Main Process Function
 // ============================================
 
-export async function processAIMessage(lineUserId: string, userMessage: string, imageBuffer?: Buffer, imageMimeType?: string): Promise<string> {
+export async function processAIMessage(lineUserId: string, userMessage: string, imageBuffer?: Buffer, imageMimeType?: string): Promise<string | FlexMessage> {
     const userProfile = await getUserProfileFromLineBinding(lineUserId);
     let context = await getConversationContext(lineUserId);
     if (!context) { context = { messages: [], lastActivity: new Date() }; }
@@ -944,8 +1064,9 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
         // NEW: Parse with Zod Schema
         const aiRes = parseAIResponse(responseText);
 
+        let reply: string | FlexMessage = '';
+
         if (aiRes.intent && aiRes.intent !== 'UNKNOWN') {
-            let reply = '';
 
             // Log reasoning (Thought Process) - Optional: Save to DB
             if (aiRes.thought) {
@@ -1032,14 +1153,26 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
             // Fallback if handler returns empty string (shouldn't happen but safe)
             if (!reply) reply = aiRes.message || 'ดำเนินการเรียบร้อยค่ะ';
 
-            context.messages.push({ role: 'model', content: reply, timestamp: new Date() });
+            context.messages.push({ role: 'model', content: typeof reply === 'string' ? reply : 'ส่งข้อความสำเร็จ', timestamp: new Date() });
             await saveConversationContext(lineUserId, context);
             return reply;
 
         } else {
+            // Log missed intent
+            try {
+                await adminDb.collection('missed_intents').add({
+                    userMessage,
+                    userId: lineUserId,
+                    intent: aiRes.intent || 'NONE',
+                    timestamp: FieldValue.serverTimestamp(),
+                });
+            } catch (err) {
+                console.error('Failed to log missed intent:', err);
+            }
+
             // No Intent -> Chat Message
-            const reply = aiRes.message || responseText;
-            context.messages.push({ role: 'model', content: reply, timestamp: new Date() });
+            reply = aiRes.message || responseText;
+            context.messages.push({ role: 'model', content: typeof reply === 'string' ? reply : 'ส่งข้อความสำเร็จ', timestamp: new Date() });
             await saveConversationContext(lineUserId, context);
             return reply;
         }

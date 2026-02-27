@@ -89,13 +89,17 @@ async function handleMessageEvent(event: any) {
         // Get AI response
         const aiReply = await processAIMessage(userId, text);
 
-        console.log('[AI Agent] Reply:', aiReply?.substring(0, 100));
-
-        // Reply to user
-        await client.replyMessage(replyToken, {
-            type: 'text',
-            text: aiReply,
-        });
+        if (typeof aiReply === 'string') {
+            console.log('[AI Agent] Reply:', aiReply.substring(0, 100));
+            // Reply to user
+            await client.replyMessage(replyToken, {
+                type: 'text',
+                text: aiReply,
+            });
+        } else {
+            console.log('[AI Agent] Reply: [FlexMessage]');
+            await client.replyMessage(replyToken, aiReply);
+        }
     } catch (error: any) {
         console.error('=== AI Agent Error ===');
         console.error('Error name:', error?.name);
@@ -138,10 +142,14 @@ async function handleImageMessage(event: any) {
         // Process image with AI Agent
         const aiReply = await processAIMessage(userId, '', imageBuffer, contentType);
 
-        await client.replyMessage(replyToken, {
-            type: 'text',
-            text: aiReply,
-        });
+        if (typeof aiReply === 'string') {
+            await client.replyMessage(replyToken, {
+                type: 'text',
+                text: aiReply,
+            });
+        } else {
+            await client.replyMessage(replyToken, aiReply);
+        }
     } catch (error) {
         console.error('Image processing error:', error);
         await client.replyMessage(replyToken, {
