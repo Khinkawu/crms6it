@@ -591,7 +591,9 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                                                                                 job.id!,
                                                                                 job.title || '',
                                                                                 job.location || '',
-                                                                                job.startTime ? getBangkokDateString(job.startTime.toDate()) : undefined
+                                                                                job.startTime ? getBangkokDateString(job.startTime.toDate()) : undefined,
+                                                                                job.description || '',
+                                                                                job.bookingId || undefined
                                                                             )}
                                                                             disabled={fb.isGeneratingCaption[job.id!]}
                                                                             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-sm hover:from-purple-600 hover:to-indigo-600 focus:ring-2 focus:ring-purple-500 disabled:opacity-50 transition-all"
@@ -607,6 +609,9 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                                                                         className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500"
                                                                         placeholder="เขียนข้อความสำหรับโพส..."
                                                                     />
+                                                                    <p className="mt-1.5 text-[11px] text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                                                        <span aria-label="lightbulb">💡</span> AI จะถูกลอกกำหนดการและรายชื่อจาก "ข้อมูลจองห้อง" มาเขียนแคปชั่นให้อัตโนมัติ (หากมี)
+                                                                    </p>
                                                                 </div>
 
                                                                 {/* Draft Mode Toggle */}

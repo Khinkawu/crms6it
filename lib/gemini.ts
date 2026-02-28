@@ -31,7 +31,7 @@ export const geminiModel = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
     generationConfig: {
         temperature: 0.4, // ลด Temperature เพื่อความแม่นยำและลดการเดา
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8192,
     },
     safetySettings,
 });

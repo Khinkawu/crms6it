@@ -98,7 +98,7 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                 </div>
 
                 {/* Right Side: Details & Content */}
-                <div className="flex-1 bg-white dark:bg-gray-800 flex flex-col relative">
+                <div className="flex-1 min-w-0 bg-white dark:bg-gray-800 flex flex-col relative">
                     <button
                         onClick={onClose}
                         className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-full transition-colors z-10"
@@ -138,6 +138,9 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                                     </p>
                                     <p className="text-gray-700 dark:text-gray-300 leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
                                         {data.description || data.details}
+                                    </p>
+                                    <p className="mt-2 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                                        <span aria-label="lightbulb">💡</span> AI จะนำ "รายละเอียดเพิ่มเติม" ส่วนนี้ไปช่วยเขียนโพสต์ลง Facebook (หากมีการขอช่างภาพ)
                                     </p>
                                 </div>
                             )}
@@ -215,7 +218,7 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                                                     href={url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                                    className="flex-1 min-w-0 text-sm text-blue-600 dark:text-blue-400 hover:underline truncate"
                                                 >
                                                     {url}
                                                 </a>

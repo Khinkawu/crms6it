@@ -21,7 +21,7 @@ interface UsePhotographyFacebookReturn {
     selectFirstN: (jobId: string, n: number, totalPhotos: number) => void;
     selectAll: (jobId: string, totalPhotos: number) => void;
     selectNone: (jobId: string) => void;
-    generateAutoCaption: (jobId: string, title: string, location?: string, date?: string) => Promise<void>;
+    generateAutoCaption: (jobId: string, title: string, location?: string, date?: string, description?: string, bookingId?: string) => Promise<void>;
     performFacebookPost: (
         jobId: string,
         files: File[],
@@ -95,7 +95,7 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
     }, []);
 
     // Generate Auto Caption
-    const generateAutoCaption = useCallback(async (jobId: string, title: string, location?: string, date?: string) => {
+    const generateAutoCaption = useCallback(async (jobId: string, title: string, location?: string, date?: string, description?: string, bookingId?: string) => {
         setIsGeneratingCaption(prev => ({ ...prev, [jobId]: true }));
         try {
             const currentUser = auth.currentUser;
@@ -108,7 +108,7 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${idToken}`
                 },
-                body: JSON.stringify({ title, location, date })
+                body: JSON.stringify({ title, location, date, description, bookingId })
             });
 
             if (!res.ok) {
