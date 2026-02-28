@@ -22,6 +22,10 @@ export const metadata: Metadata = {
         statusBarStyle: "default",
         title: "CRMS6 IT",
     },
+    icons: {
+        icon: '/icon.png',
+        apple: '/apple-icon.png',
+    },
     other: {
         "mobile-web-app-capable": "yes",
     }

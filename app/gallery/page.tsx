@@ -400,18 +400,36 @@ export default function GalleryPage() {
                                 </button>
 
                                 <div className="flex items-center gap-1">
-                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                        <button
-                                            key={page}
-                                            onClick={() => setCurrentPage(page)}
-                                            className={`w-10 h-10 rounded-xl text-sm font-medium transition-colors ${page === currentPage
-                                                ? 'bg-blue-500 text-white'
-                                                : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                                                }`}
-                                        >
-                                            {page}
-                                        </button>
-                                    ))}
+                                    {(() => {
+                                        const pages: (number | string)[] = [];
+                                        if (totalPages <= 7) {
+                                            for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                        } else {
+                                            if (currentPage <= 4) {
+                                                pages.push(1, 2, 3, 4, 5, '...', totalPages);
+                                            } else if (currentPage >= totalPages - 3) {
+                                                pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                            } else {
+                                                pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                            }
+                                        }
+                                        return pages.map((page, idx) => (
+                                            page === '...' ? (
+                                                <span key={`ellipsis-${idx}`} className="w-10 h-10 flex items-center justify-center text-gray-500">...</span>
+                                            ) : (
+                                                <button
+                                                    key={page}
+                                                    onClick={() => setCurrentPage(page as number)}
+                                                    className={`w-10 h-10 rounded-xl text-sm font-medium transition-colors ${page === currentPage
+                                                        ? 'bg-blue-500 text-white shadow-md'
+                                                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                                        }`}
+                                                >
+                                                    {page}
+                                                </button>
+                                            )
+                                        ));
+                                    })()}
                                 </div>
 
                                 <button

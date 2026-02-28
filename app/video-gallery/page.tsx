@@ -139,8 +139,8 @@ export default function VideoGalleryPage() {
                             <button
                                 onClick={() => setSelectedCategory("all")}
                                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${selectedCategory === "all"
-                                        ? "bg-purple-500 text-white"
-                                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                    ? "bg-purple-500 text-white"
+                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                                     }`}
                             >
                                 ทั้งหมด
@@ -150,8 +150,8 @@ export default function VideoGalleryPage() {
                                     key={cat}
                                     onClick={() => setSelectedCategory(cat)}
                                     className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${selectedCategory === cat
-                                            ? "bg-purple-500 text-white"
-                                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                        ? "bg-purple-500 text-white"
+                                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                                         }`}
                                 >
                                     {cat}
@@ -226,30 +226,36 @@ export default function VideoGalleryPage() {
                                 </button>
 
                                 <div className="flex items-center gap-1">
-                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                        let page;
-                                        if (totalPages <= 5) {
-                                            page = i + 1;
-                                        } else if (currentPage <= 3) {
-                                            page = i + 1;
-                                        } else if (currentPage >= totalPages - 2) {
-                                            page = totalPages - 4 + i;
+                                    {(() => {
+                                        const pages: (number | string)[] = [];
+                                        if (totalPages <= 7) {
+                                            for (let i = 1; i <= totalPages; i++) pages.push(i);
                                         } else {
-                                            page = currentPage - 2 + i;
+                                            if (currentPage <= 4) {
+                                                pages.push(1, 2, 3, 4, 5, '...', totalPages);
+                                            } else if (currentPage >= totalPages - 3) {
+                                                pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                            } else {
+                                                pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                            }
                                         }
-                                        return (
-                                            <button
-                                                key={page}
-                                                onClick={() => setCurrentPage(page)}
-                                                className={`w-10 h-10 rounded-xl text-sm font-medium transition-colors ${page === currentPage
-                                                        ? "bg-purple-500 text-white"
-                                                        : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400"
-                                                    }`}
-                                            >
-                                                {page}
-                                            </button>
-                                        );
-                                    })}
+                                        return pages.map((page, idx) => (
+                                            page === '...' ? (
+                                                <span key={`ellipsis-${idx}`} className="w-10 h-10 flex items-center justify-center text-gray-500">...</span>
+                                            ) : (
+                                                <button
+                                                    key={page}
+                                                    onClick={() => setCurrentPage(page as number)}
+                                                    className={`w-10 h-10 rounded-xl text-sm font-medium transition-colors ${page === currentPage
+                                                        ? 'bg-purple-500 text-white shadow-md'
+                                                        : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                                        }`}
+                                                >
+                                                    {page}
+                                                </button>
+                                            )
+                                        ));
+                                    })()}
                                 </div>
 
                                 <button
