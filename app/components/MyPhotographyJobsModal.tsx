@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Calendar, MapPin, ExternalLink, Save, CheckCircle2, UploadCloud, Image as ImageIcon, Facebook, XCircle, Eye } from "lucide-react";
+import { X, Calendar, MapPin, ExternalLink, Save, CheckCircle2, UploadCloud, Image as ImageIcon, Facebook, XCircle, Eye, Wand2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { db, storage } from "../../lib/firebase";
@@ -583,7 +583,23 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                                                         {fb.facebookEnabled[job.id!] && (
                                                             <div className="space-y-4 pl-6 border-l-2 border-blue-100 dark:border-blue-900/50 ml-2">
                                                                 <div>
-                                                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Caption</label>
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Caption</label>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => fb.generateAutoCaption(
+                                                                                job.id!,
+                                                                                job.title || '',
+                                                                                job.location || '',
+                                                                                job.startTime ? getBangkokDateString(job.startTime.toDate()) : undefined
+                                                                            )}
+                                                                            disabled={fb.isGeneratingCaption[job.id!]}
+                                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-sm hover:from-purple-600 hover:to-indigo-600 focus:ring-2 focus:ring-purple-500 disabled:opacity-50 transition-all"
+                                                                        >
+                                                                            <Wand2 size={14} className={fb.isGeneratingCaption[job.id!] ? "animate-pulse" : ""} />
+                                                                            {fb.isGeneratingCaption[job.id!] ? 'กำลังสร้างด้วย AI...' : '✨ สร้างแคปชั่นอัตโนมัติ (AI)'}
+                                                                        </button>
+                                                                    </div>
                                                                     <textarea
                                                                         value={fb.facebookCaption[job.id!] || ''}
                                                                         onChange={(e) => fb.setFacebookCaption(prev => ({ ...prev, [job.id!]: e.target.value }))}
@@ -678,9 +694,9 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                                                                     {/* Photo Grid (max 4 preview like FB) */}
                                                                     {fb.facebookSelectedOrder[job.id!]?.length > 0 && (
                                                                         <div className={`grid gap-0.5 ${fb.facebookSelectedOrder[job.id!].length === 1 ? 'grid-cols-1' :
-                                                                                fb.facebookSelectedOrder[job.id!].length === 2 ? 'grid-cols-2' :
-                                                                                    fb.facebookSelectedOrder[job.id!].length === 3 ? 'grid-cols-2' :
-                                                                                        'grid-cols-2'
+                                                                            fb.facebookSelectedOrder[job.id!].length === 2 ? 'grid-cols-2' :
+                                                                                fb.facebookSelectedOrder[job.id!].length === 3 ? 'grid-cols-2' :
+                                                                                    'grid-cols-2'
                                                                             }`}>
                                                                             {fb.facebookSelectedOrder[job.id!].slice(0, 4).map((photoIdx, i) => {
                                                                                 const src = upload.previews[job.id!]?.[photoIdx];

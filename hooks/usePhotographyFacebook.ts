@@ -13,6 +13,7 @@ interface UsePhotographyFacebookReturn {
     facebookDraftMode: Record<string, boolean>;
     facebookProgress: Record<string, number>;
     lastClickedIndex: Record<string, number>;
+    isGeneratingCaption: Record<string, boolean>;
 
     // Handlers
     handleFacebookToggle: (jobId: string) => void;
@@ -20,6 +21,7 @@ interface UsePhotographyFacebookReturn {
     selectFirstN: (jobId: string, n: number, totalPhotos: number) => void;
     selectAll: (jobId: string, totalPhotos: number) => void;
     selectNone: (jobId: string) => void;
+    generateAutoCaption: (jobId: string, title: string, location?: string, date?: string) => Promise<void>;
     performFacebookPost: (
         jobId: string,
         files: File[],
@@ -48,6 +50,7 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
     const [facebookDraftMode, setFacebookDraftMode] = useState<Record<string, boolean>>({});
     const [facebookProgress, setFacebookProgress] = useState<Record<string, number>>({});
     const [lastClickedIndex, setLastClickedIndex] = useState<Record<string, number>>({});
+    const [isGeneratingCaption, setIsGeneratingCaption] = useState<Record<string, boolean>>({});
 
     // Toggle Facebook posting
     const handleFacebookToggle = useCallback((jobId: string) => {
@@ -90,6 +93,40 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
     const selectNone = useCallback((jobId: string) => {
         setFacebookSelectedOrder(prev => ({ ...prev, [jobId]: [] }));
     }, []);
+
+    // Generate Auto Caption
+    const generateAutoCaption = useCallback(async (jobId: string, title: string, location?: string, date?: string) => {
+        setIsGeneratingCaption(prev => ({ ...prev, [jobId]: true }));
+        try {
+            const currentUser = auth.currentUser;
+            if (!currentUser) throw new Error('User not authenticated');
+            const idToken = await currentUser.getIdToken();
+
+            const res = await fetchWithRetry('/api/facebook/generate-caption', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ title, location, date })
+            });
+
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({}));
+                throw new Error(error.error || `Error ${res.status}`);
+            }
+
+            const data = await res.json();
+            if (data.success && data.caption) {
+                setFacebookCaption(prev => ({ ...prev, [jobId]: data.caption }));
+            }
+        } catch (error: any) {
+            console.error('Error generating caption:', error);
+            throw new Error(error.message || 'ไม่สามารถสร้างแคปชั่นได้');
+        } finally {
+            setIsGeneratingCaption(prev => ({ ...prev, [jobId]: false }));
+        }
+    }, [setFacebookCaption]);
 
     // Perform Facebook post (with idempotency check, compression, and detailed error handling)
     const performFacebookPost = useCallback(async (
@@ -211,6 +248,7 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
         setFacebookDraftMode(prev => { const n = { ...prev }; delete n[jobId]; return n; });
         setFacebookProgress(prev => { const n = { ...prev }; delete n[jobId]; return n; });
         setLastClickedIndex(prev => { const n = { ...prev }; delete n[jobId]; return n; });
+        setIsGeneratingCaption(prev => { const n = { ...prev }; delete n[jobId]; return n; });
     }, []);
 
     return {
@@ -221,11 +259,13 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
         facebookDraftMode,
         facebookProgress,
         lastClickedIndex,
+        isGeneratingCaption,
         handleFacebookToggle,
         handleFacebookPhotoClick,
         selectFirstN,
         selectAll,
         selectNone,
+        generateAutoCaption,
         performFacebookPost,
         setFacebookCaption,
         setFacebookDraftMode,
