@@ -27,7 +27,7 @@ export default function BottomNavigation() {
 
     const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician';
     const isModerator = role === 'admin' || role === 'moderator';
-    const canAssignPhotoJobs = role === 'admin' || role === 'moderator';
+    const canAssignPhotoJobs = role === 'admin';
 
     // Main nav items - change last item based on role
     const navItems = [
@@ -55,13 +55,13 @@ export default function BottomNavigation() {
         { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician"] },
         { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "admin", "moderator", "technician"], action: () => setReportModalOpen(true) },
         { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician"], allowPhotographer: true },
-        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator"] },
+        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin"] },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
         { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician"] },
         { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician"] },
         { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
-        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "moderator"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin"] },
         { name: "จัดการอุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["technician"], allowPhotographer: true }, // Admin removed from here for mobile menu simplicity
         { name: "จัดการผู้ใช้", icon: Settings, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
@@ -176,8 +176,8 @@ export default function BottomNavigation() {
                                 {moreMenuItems.map((item, index) => {
                                     const isAction = !!item.action;
                                     const commonClasses = `flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === item.path
-                                            ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                                            : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                        ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                        : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                         }`;
 
                                     if (isAction) {

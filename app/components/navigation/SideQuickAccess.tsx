@@ -29,10 +29,10 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
     ];
 
     const adminItems = [
-        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator"] },
+        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin"] },
         { name: "งานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
         { name: "การจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
-        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "moderator"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin"] },
         { name: "อุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["technician"], allowPhotographer: true },
         { name: "ผู้ใช้", icon: Users, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
