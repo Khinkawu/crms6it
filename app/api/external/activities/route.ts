@@ -5,6 +5,22 @@ import { PhotographyJob } from "../../../../types";
 // Revalidate every 60 seconds (ISR-like behavior for API)
 export const revalidate = 60;
 
+const ALLOWED_ORIGINS = [
+    "https://www.tesaban6.ac.th",
+    "https://tesaban6.ac.th",
+    "http://www.tesaban6.ac.th",
+    "http://tesaban6.ac.th"
+];
+
+function getCorsOrigin(request: Request) {
+    const origin = request.headers.get("origin");
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+        return origin;
+    }
+    // Fallback if not matching or missing
+    return ALLOWED_ORIGINS[0];
+}
+
 export async function GET(request: Request) {
     try {
         console.log("[API] External Activities: Fetching confirmed jobs...");
@@ -70,12 +86,14 @@ export async function GET(request: Request) {
         // Limit to top 6 for the widget
         const result = activities.slice(0, 6);
 
-        // Add CORS headers to allow School Website (any domain or specific) to fetch
+        const corsOrigin = getCorsOrigin(request);
+
+        // Add CORS headers to allow specific School Website origins to fetch
         return NextResponse.json(
             { success: true, data: result },
             {
                 headers: {
-                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Origin": corsOrigin,
                     "Access-Control-Allow-Methods": "GET, OPTIONS",
                     "Access-Control-Allow-Headers": "Content-Type, Authorization",
                     "Cache-Control": "s-maxage=60, stale-while-revalidate=300"
@@ -93,10 +111,12 @@ export async function GET(request: Request) {
 }
 
 // Handle OPTIONS for CORS preflight
-export async function OPTIONS() {
+export async function OPTIONS(request: Request) {
+    const corsOrigin = getCorsOrigin(request);
+
     return NextResponse.json({}, {
         headers: {
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": corsOrigin,
             "Access-Control-Allow-Methods": "GET, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Authorization",
         },
