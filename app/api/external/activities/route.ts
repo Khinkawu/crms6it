@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { adminDb } from "../../../../lib/firebaseAdmin";
 import { PhotographyJob } from "../../../../types";
 
-// Revalidate every 60 seconds (ISR-like behavior for API)
-export const revalidate = 60;
+// Disable static caching so CORS origins don't collide
+export const dynamic = 'force-dynamic';
 
 const ALLOWED_ORIGINS = [
     "https://www.tesaban6.ac.th",
@@ -96,7 +96,8 @@ export async function GET(request: Request) {
                     "Access-Control-Allow-Origin": corsOrigin,
                     "Access-Control-Allow-Methods": "GET, OPTIONS",
                     "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                    "Cache-Control": "s-maxage=60, stale-while-revalidate=300"
+                    "Cache-Control": "s-maxage=60, stale-while-revalidate=300",
+                    "Vary": "Origin"
                 },
             }
         );
@@ -119,6 +120,7 @@ export async function OPTIONS(request: Request) {
             "Access-Control-Allow-Origin": corsOrigin,
             "Access-Control-Allow-Methods": "GET, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Vary": "Origin"
         },
     });
 }
