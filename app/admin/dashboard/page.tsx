@@ -1,130 +1,204 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
     Wrench, Calendar, Package, Users, Camera, Clock,
     FileSpreadsheet, Printer, ArrowUpRight, Loader2,
-    AlertTriangle, TrendingUp, TrendingDown, MoreVertical,
-    Building2, Activity, CheckCircle2, Timer, PauseCircle
+    CheckCircle2, Timer, PauseCircle, Activity, TrendingUp
 } from "lucide-react";
+import {
+    PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
+    ResponsiveContainer, Legend
+} from "recharts";
 import { useDashboardStats, canSee } from "@/hooks/useDashboardStats";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { exportDashboardToExcel, printDashboardStats } from "@/utils/dashboardExport";
 import toast from "react-hot-toast";
 
-// ─── Stat Card ──────────────────────────────────────────────────────
-function StatCard({ label, value, icon: Icon, iconBg, iconColor, href, change, changeLabel }: {
+// ─── Colors ─────────────────────────────────────────────────────────
+const COLORS = {
+    pending: "#F59E0B",
+    in_progress: "#3B82F6",
+    waiting_parts: "#F97316",
+    completed: "#10B981",
+    cancelled: "#EF4444",
+    approved: "#10B981",
+    rejected: "#EF4444",
+    assigned: "#8B5CF6",
+    pending_assign: "#F59E0B",
+};
+
+// ─── Donut Chart Component ──────────────────────────────────────────
+function DonutChart({ data, centerLabel, centerValue }: {
+    data: { name: string; value: number; color: string }[];
+    centerLabel: string;
+    centerValue: number;
+}) {
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) {
+        return (
+            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+                ยังไม่มีข้อมูล
+            </div>
+        );
+    }
+
+    return (
+        <div className="relative">
+            <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                    <Pie
+                        data={data}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        dataKey="value"
+                        strokeWidth={0}
+                    >
+                        {data.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                        ))}
+                    </Pie>
+                    <Tooltip
+                        contentStyle={{
+                            background: 'rgba(255,255,255,0.95)',
+                            border: '1px solid #E5E7EB',
+                            borderRadius: '12px',
+                            fontSize: '13px',
+                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                        }}
+                        formatter={(value: number) => [`${value} รายการ`, '']}
+                    />
+                </PieChart>
+            </ResponsiveContainer>
+            {/* Center text */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{centerValue}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{centerLabel}</span>
+            </div>
+        </div>
+    );
+}
+
+// ─── Activity Bar Chart ─────────────────────────────────────────────
+function ActivityBarChart({ activities }: { activities: any[] }) {
+    const chartData = useMemo(() => {
+        const last7 = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - (6 - i));
+            return {
+                date: d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
+                dateKey: d.toISOString().slice(0, 10),
+                ซ่อม: 0,
+                อุปกรณ์: 0,
+                อื่นๆ: 0,
+            };
+        });
+
+        activities.forEach(a => {
+            if (!a.timestamp) return;
+            const ts = a.timestamp.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+            const key = ts.toISOString().slice(0, 10);
+            const day = last7.find(d => d.dateKey === key);
+            if (day) {
+                if (a.action?.includes('repair')) day['ซ่อม']++;
+                else if (['borrow', 'return', 'requisition', 'add'].includes(a.action)) day['อุปกรณ์']++;
+                else day['อื่นๆ']++;
+            }
+        });
+
+        return last7;
+    }, [activities]);
+
+    return (
+        <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={chartData} barCategoryGap="20%">
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} allowDecimals={false} width={30} />
+                <Tooltip
+                    contentStyle={{
+                        background: 'rgba(255,255,255,0.95)',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '12px',
+                        fontSize: '13px',
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                    }}
+                />
+                <Bar dataKey="ซ่อม" stackId="a" fill="#EF4444" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="อุปกรณ์" stackId="a" fill="#3B82F6" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="อื่นๆ" stackId="a" fill="#D1D5DB" radius={[4, 4, 0, 0]} />
+            </BarChart>
+        </ResponsiveContainer>
+    );
+}
+
+// ─── Progress Ring ──────────────────────────────────────────────────
+function ProgressRing({ percent, label, color, size = 72 }: {
+    percent: number; label: string; color: string; size?: number;
+}) {
+    const r = (size - 8) / 2;
+    const c = 2 * Math.PI * r;
+    const offset = c - (percent / 100) * c;
+
+    return (
+        <div className="flex flex-col items-center gap-1.5">
+            <svg width={size} height={size} className="-rotate-90">
+                <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={6} className="text-gray-100 dark:text-slate-700" />
+                <circle
+                    cx={size / 2} cy={size / 2} r={r} fill="none"
+                    stroke={color} strokeWidth={6} strokeLinecap="round"
+                    strokeDasharray={c} strokeDashoffset={offset}
+                    style={{ transition: 'stroke-dashoffset 0.5s ease-out' }}
+                />
+            </svg>
+            <div className="absolute flex flex-col items-center justify-center" style={{ width: size, height: size }}>
+                <span className="text-sm font-bold tabular-nums text-gray-900 dark:text-white">{percent}%</span>
+            </div>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 text-center">{label}</span>
+        </div>
+    );
+}
+
+// ─── Stat Mini Card ─────────────────────────────────────────────────
+function MiniStat({ label, value, icon: Icon, iconBg, iconColor, href }: {
     label: string; value: number; icon: React.ElementType;
     iconBg: string; iconColor: string; href?: string;
-    change?: number; changeLabel?: string;
 }) {
+    const inner = (
+        <div className="flex items-center gap-3 p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
+            <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
+                <Icon size={20} className={iconColor} />
+            </div>
+            <div className="min-w-0">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{value.toLocaleString()}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</p>
+            </div>
+        </div>
+    );
+    return href ? <Link href={href}>{inner}</Link> : inner;
+}
+
+// ─── Legend Dot ─────────────────────────────────────────────────────
+function LegendDot({ color, label }: { color: string; label: string }) {
     return (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow border border-gray-100 dark:border-slate-700">
-            <div className="flex items-start justify-between mb-4">
-                <div className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center`}>
-                    <Icon size={22} className={iconColor} />
-                </div>
-                {href && (
-                    <Link href={href} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                        <MoreVertical size={18} />
-                    </Link>
-                )}
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{label}</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{value.toLocaleString()}</p>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-slate-700">
-                {change !== undefined ? (
-                    <span className={`flex items-center gap-1 text-xs font-medium ${change >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {change >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                        {change >= 0 ? '+' : ''}{change}%
-                    </span>
-                ) : (
-                    <span />
-                )}
-                {href && (
-                    <Link href={href} className="text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1">
-                        ดูรายละเอียด <ArrowUpRight size={11} />
-                    </Link>
-                )}
-            </div>
+        <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+            {label}
         </div>
     );
 }
 
-// ─── Status Chip ────────────────────────────────────────────────────
-function StatusChip({ icon: Icon, label, value, bg, textColor }: {
-    icon: React.ElementType; label: string; value: number; bg: string; textColor: string;
-}) {
-    return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${bg}`}>
-            <div className={`w-9 h-9 rounded-lg bg-white/60 dark:bg-white/10 flex items-center justify-center ${textColor}`}>
-                <Icon size={18} />
-            </div>
-            <div>
-                <p className={`text-lg font-bold tabular-nums ${textColor}`}>{value.toLocaleString()}</p>
-                <p className={`text-xs ${textColor} opacity-70`}>{label}</p>
-            </div>
-        </div>
-    );
-}
-
-// ─── Technician Row ─────────────────────────────────────────────────
-function TechnicianRow({ name, pending, inProgress, completed, total, rank }: {
-    name: string; pending: number; inProgress: number; completed: number; total: number; rank: number;
-}) {
-    const initials = name.slice(0, 2);
-    const avatarColors = [
-        'bg-indigo-100 text-indigo-600', 'bg-emerald-100 text-emerald-600',
-        'bg-amber-100 text-amber-600', 'bg-rose-100 text-rose-600',
-        'bg-cyan-100 text-cyan-600', 'bg-purple-100 text-purple-600',
-    ];
-    const color = avatarColors[rank % avatarColors.length];
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-    return (
-        <div className="flex items-center gap-4 py-3.5 px-5 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
-            <div className={`w-10 h-10 rounded-full ${color} flex items-center justify-center text-sm font-bold shrink-0`}>
-                {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{name}</p>
-                <p className="text-xs text-gray-400">{total} งาน</p>
-            </div>
-            <div className="flex items-center gap-6 tabular-nums text-sm">
-                <div className="text-center hidden sm:block">
-                    <p className="font-semibold text-amber-500">{pending}</p>
-                    <p className="text-[10px] text-gray-400">รอ</p>
-                </div>
-                <div className="text-center hidden sm:block">
-                    <p className="font-semibold text-blue-500">{inProgress}</p>
-                    <p className="text-[10px] text-gray-400">ทำ</p>
-                </div>
-                <div className="text-center hidden sm:block">
-                    <p className="font-semibold text-emerald-500">{completed}</p>
-                    <p className="text-[10px] text-gray-400">เสร็จ</p>
-                </div>
-                <div className="w-16 text-right">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${completionRate >= 80 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                            completionRate >= 50 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' :
-                                'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                        }`}>
-                        {completionRate}%
-                    </span>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ─── Page ───────────────────────────────────────────────────────────
+// ─── Main ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
     const { user, role, isPhotographer, loading, getDisplayName } = useAuth();
     const router = useRouter();
     const { stats, personStats, loading: statsLoading } = useDashboardStats();
-    const { activities } = useActivityLogs({ limitCount: 8, filterRepairOnly: false });
+    const { activities } = useActivityLogs({ limitCount: 50, filterRepairOnly: false });
 
     const hasAccess = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician' || isPhotographer;
 
@@ -140,10 +214,40 @@ export default function AdminDashboard() {
         );
     }
 
+    const showRepairs = canSee(role, isPhotographer, 'repairs');
+    const showBookings = canSee(role, isPhotographer, 'bookings');
+    const showPhotography = canSee(role, isPhotographer, 'photography');
+    const showInventory = canSee(role, isPhotographer, 'inventory');
+    const showUsers = canSee(role, isPhotographer, 'users');
+
+    const displayName = getDisplayName();
+    const today = new Date().toLocaleDateString('th-TH', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+
     const handleExport = () => {
-        exportDashboardToExcel(stats, personStats, getDisplayName());
+        exportDashboardToExcel(stats, personStats, displayName);
         toast.success("ส่งออก Excel สำเร็จ");
     };
+
+    // Repair donut data
+    const repairDonut = [
+        { name: 'รอดำเนินการ', value: stats.repairs.pending, color: COLORS.pending },
+        { name: 'กำลังดำเนินการ', value: stats.repairs.in_progress, color: COLORS.in_progress },
+        { name: 'รออะไหล่', value: stats.repairs.waiting_parts, color: COLORS.waiting_parts },
+        { name: 'เสร็จสิ้น', value: stats.repairs.completed, color: COLORS.completed },
+    ];
+
+    // Booking donut data
+    const bookingDonut = [
+        { name: 'รออนุมัติ', value: stats.bookings.pending, color: COLORS.pending },
+        { name: 'อนุมัติ', value: stats.bookings.approved, color: COLORS.approved },
+        { name: 'ไม่อนุมัติ', value: stats.bookings.rejected, color: COLORS.rejected },
+    ];
+
+    // Completion rate
+    const repairTotal = stats.repairs.pending + stats.repairs.in_progress + stats.repairs.waiting_parts + stats.repairs.completed;
+    const repairCompletionRate = repairTotal > 0 ? Math.round((stats.repairs.completed / repairTotal) * 100) : 0;
 
     const timeAgo = (ts: any) => {
         if (!ts) return '';
@@ -156,7 +260,7 @@ export default function AdminDashboard() {
     };
 
     const actionLabels: Record<string, string> = {
-        repair: 'แจ้งซ่อม', repair_update: 'อัปเดตงานซ่อม',
+        repair: 'แจ้งซ่อม', repair_update: 'อัปเดตซ่อม',
         borrow: 'ยืมอุปกรณ์', return: 'คืนอุปกรณ์',
         requisition: 'เบิกอุปกรณ์', add: 'เพิ่มอุปกรณ์',
     };
@@ -167,255 +271,224 @@ export default function AdminDashboard() {
         requisition: 'bg-purple-500', add: 'bg-cyan-500',
     };
 
-    const showRepairs = canSee(role, isPhotographer, 'repairs');
-    const showBookings = canSee(role, isPhotographer, 'bookings');
-    const showPhotography = canSee(role, isPhotographer, 'photography');
-    const showInventory = canSee(role, isPhotographer, 'inventory');
-    const showUsers = canSee(role, isPhotographer, 'users');
-
-    const displayName = getDisplayName();
-    const today = new Date().toLocaleDateString('th-TH', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-    });
-
-    const roleBadges: Record<string, { label: string; color: string }> = {
-        admin: { label: 'Admin', color: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' },
-        moderator: { label: 'Moderator', color: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' },
-        technician: { label: 'ช่าง IT', color: 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' },
-        facility_technician: { label: 'ช่างอาคาร', color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    };
-    const badge = roleBadges[role || ''] || { label: role, color: 'bg-gray-100 text-gray-600' };
-
     return (
-        <div className="max-w-6xl mx-auto space-y-6 pb-24 animate-fade-in">
+        <div className="max-w-7xl mx-auto space-y-6 pb-24 animate-fade-in">
 
-            {/* ─── Header ─── */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* ────── Header ────── */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                 <div>
-                    <div className="flex items-center gap-3 mb-1">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            สวัสดี, {displayName.split(' ')[0]} 👋
-                        </h1>
-                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${badge.color}`}>
-                            {badge.label}
-                        </span>
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{today}</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        ภาพรวมระบบ
+                    </h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5">
+                        <Clock size={13} /> {today}
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex gap-2">
                     <button
                         onClick={handleExport}
-                        className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:border-indigo-300 dark:hover:border-indigo-500 transition-colors shadow-sm"
+                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:border-indigo-300 transition-colors shadow-sm"
                     >
-                        <FileSpreadsheet size={16} />
-                        Export
+                        <FileSpreadsheet size={16} /> Export
                     </button>
                     <button
                         onClick={() => printDashboardStats(stats, personStats, displayName)}
-                        className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 rounded-xl text-sm text-white transition-colors shadow-sm shadow-indigo-500/20"
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-xl text-sm text-white transition-colors shadow-sm"
                     >
-                        <Printer size={16} />
-                        Print
+                        <Printer size={16} /> Print
                     </button>
                 </div>
             </div>
 
-            {/* ─── Stat Cards ─── */}
+            {/* ────── Top Stats Row ────── */}
             {statsLoading ? (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[...Array(4)].map((_, i) => (
-                        <div key={i} className="h-40 bg-white dark:bg-slate-800 rounded-2xl animate-pulse border border-gray-100 dark:border-slate-700" />
-                    ))}
+                    {[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-white dark:bg-slate-800 rounded-2xl animate-pulse" />)}
                 </div>
             ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {showRepairs && (
-                        <StatCard
-                            label="งานซ่อมรอดำเนินการ"
-                            value={stats.repairs.pending}
-                            icon={Wrench}
-                            iconBg="bg-rose-50 dark:bg-rose-900/20"
-                            iconColor="text-rose-500"
-                            href="/admin/repairs"
-                        />
-                    )}
-                    {showBookings && (
-                        <StatCard
-                            label="การจองรออนุมัติ"
-                            value={stats.bookings.pending}
-                            icon={Calendar}
-                            iconBg="bg-amber-50 dark:bg-amber-900/20"
-                            iconColor="text-amber-500"
-                            href="/admin/bookings"
-                        />
-                    )}
-                    {showInventory && (
-                        <StatCard
-                            label="อุปกรณ์ใกล้หมด"
-                            value={stats.inventory.lowStock}
-                            icon={Package}
-                            iconBg="bg-blue-50 dark:bg-blue-900/20"
-                            iconColor="text-blue-500"
-                            href="/admin/inventory"
-                        />
-                    )}
-                    {showUsers && (
-                        <StatCard
-                            label="ผู้ใช้งานทั้งหมด"
-                            value={stats.users.total}
-                            icon={Users}
-                            iconBg="bg-indigo-50 dark:bg-indigo-900/20"
-                            iconColor="text-indigo-500"
-                            href="/admin/users"
-                        />
-                    )}
-                    {showPhotography && (
-                        <StatCard
-                            label="งานถ่ายภาพที่มอบหมาย"
-                            value={stats.photography.assigned}
-                            icon={Camera}
-                            iconBg="bg-purple-50 dark:bg-purple-900/20"
-                            iconColor="text-purple-500"
-                            href="/admin/photography"
-                        />
-                    )}
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    {showRepairs && <MiniStat label="งานซ่อมรอ" value={stats.repairs.pending} icon={Wrench} iconBg="bg-rose-50 dark:bg-rose-900/20" iconColor="text-rose-500" href="/admin/repairs" />}
+                    {showRepairs && <MiniStat label="กำลังดำเนินการ" value={stats.repairs.in_progress} icon={Timer} iconBg="bg-blue-50 dark:bg-blue-900/20" iconColor="text-blue-500" href="/admin/repairs" />}
+                    {showBookings && <MiniStat label="การจองรออนุมัติ" value={stats.bookings.pending} icon={Calendar} iconBg="bg-amber-50 dark:bg-amber-900/20" iconColor="text-amber-500" href="/admin/bookings" />}
+                    {showInventory && <MiniStat label="อุปกรณ์ใกล้หมด" value={stats.inventory.lowStock} icon={Package} iconBg="bg-orange-50 dark:bg-orange-900/20" iconColor="text-orange-500" href="/admin/inventory" />}
+                    {showUsers && <MiniStat label="ผู้ใช้งาน" value={stats.users.total} icon={Users} iconBg="bg-indigo-50 dark:bg-indigo-900/20" iconColor="text-indigo-500" href="/admin/users" />}
                 </div>
             )}
 
-            {/* ─── Repair Breakdown + Booking Breakdown ─── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* ────── Charts Row ────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+                {/* Repair Donut Chart */}
                 {showRepairs && (
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="lg:col-span-4 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
+                        <div className="flex items-center justify-between mb-2">
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Wrench size={16} className="text-rose-500" />
-                                สถานะงานซ่อม
+                                <Wrench size={16} className="text-rose-500" /> สัดส่วนงานซ่อม
                             </h2>
                             <Link href="/admin/repairs" className="text-xs text-indigo-500 hover:text-indigo-600 font-medium">ดูทั้งหมด →</Link>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <StatusChip icon={Timer} label="รอดำเนินการ" value={stats.repairs.pending} bg="bg-amber-50 dark:bg-amber-900/10" textColor="text-amber-600 dark:text-amber-400" />
-                            <StatusChip icon={Loader2} label="กำลังดำเนินการ" value={stats.repairs.in_progress} bg="bg-blue-50 dark:bg-blue-900/10" textColor="text-blue-600 dark:text-blue-400" />
-                            <StatusChip icon={PauseCircle} label="รออะไหล่" value={stats.repairs.waiting_parts} bg="bg-orange-50 dark:bg-orange-900/10" textColor="text-orange-600 dark:text-orange-400" />
-                            <StatusChip icon={CheckCircle2} label="เสร็จสิ้น" value={stats.repairs.completed} bg="bg-emerald-50 dark:bg-emerald-900/10" textColor="text-emerald-600 dark:text-emerald-400" />
+                        <DonutChart data={repairDonut} centerLabel="ทั้งหมด" centerValue={repairTotal} />
+                        <div className="flex flex-wrap gap-3 justify-center mt-2">
+                            <LegendDot color={COLORS.pending} label="รอ" />
+                            <LegendDot color={COLORS.in_progress} label="กำลังทำ" />
+                            <LegendDot color={COLORS.waiting_parts} label="รออะไหล่" />
+                            <LegendDot color={COLORS.completed} label="เสร็จ" />
                         </div>
                     </div>
                 )}
 
-                {showBookings && (
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Calendar size={16} className="text-amber-500" />
-                                สถานะการจอง
-                            </h2>
-                            <Link href="/admin/bookings" className="text-xs text-indigo-500 hover:text-indigo-600 font-medium">ดูทั้งหมด →</Link>
+                {/* Activity Bar Chart */}
+                <div className={`${showRepairs ? 'lg:col-span-5' : 'lg:col-span-8'} bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700`}>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <Activity size={16} className="text-indigo-500" /> กิจกรรมย้อนหลัง 7 วัน
+                        </h2>
+                        <div className="flex gap-3">
+                            <LegendDot color="#EF4444" label="ซ่อม" />
+                            <LegendDot color="#3B82F6" label="อุปกรณ์" />
+                            <LegendDot color="#D1D5DB" label="อื่นๆ" />
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
-                            <StatusChip icon={Timer} label="รออนุมัติ" value={stats.bookings.pending} bg="bg-amber-50 dark:bg-amber-900/10" textColor="text-amber-600 dark:text-amber-400" />
-                            <StatusChip icon={CheckCircle2} label="อนุมัติ" value={stats.bookings.approved} bg="bg-emerald-50 dark:bg-emerald-900/10" textColor="text-emerald-600 dark:text-emerald-400" />
-                            <StatusChip icon={Activity} label="ทั้งหมด" value={stats.bookings.total} bg="bg-gray-50 dark:bg-slate-700/50" textColor="text-gray-600 dark:text-gray-300" />
+                    </div>
+                    <ActivityBarChart activities={activities} />
+                </div>
+
+                {/* Completion Progress */}
+                {showRepairs && (
+                    <div className="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
+                        <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                            <TrendingUp size={16} className="text-emerald-500" /> อัตราการทำงาน
+                        </h2>
+                        <div className="flex flex-col items-center gap-5 py-2">
+                            <div className="relative">
+                                <ProgressRing percent={repairCompletionRate} label="ซ่อมสำเร็จ" color="#10B981" size={100} />
+                            </div>
+                            {showBookings && (
+                                <div className="w-full space-y-3">
+                                    <div>
+                                        <div className="flex items-center justify-between text-xs mb-1">
+                                            <span className="text-gray-500 dark:text-gray-400">การจอง</span>
+                                            <span className="font-medium text-gray-900 dark:text-white tabular-nums">
+                                                {stats.bookings.approved}/{stats.bookings.total}
+                                            </span>
+                                        </div>
+                                        <div className="w-full h-2 bg-gray-100 dark:bg-slate-700 rounded-full">
+                                            <div
+                                                className="h-2 bg-amber-500 rounded-full transition-all"
+                                                style={{ width: `${stats.bookings.total > 0 ? (stats.bookings.approved / stats.bookings.total * 100) : 0}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                    {showPhotography && (
+                                        <div>
+                                            <div className="flex items-center justify-between text-xs mb-1">
+                                                <span className="text-gray-500 dark:text-gray-400">ถ่ายภาพ</span>
+                                                <span className="font-medium text-gray-900 dark:text-white tabular-nums">
+                                                    {stats.photography.completed}/{stats.photography.total}
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-2 bg-gray-100 dark:bg-slate-700 rounded-full">
+                                                <div
+                                                    className="h-2 bg-purple-500 rounded-full transition-all"
+                                                    style={{ width: `${stats.photography.total > 0 ? (stats.photography.completed / stats.photography.total * 100) : 0}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* ─── Per-Person Table + Activity Feed ─── */}
+            {/* ────── Bottom: Technicians + Activity Feed ────── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
                 {/* Technician Leaderboard */}
-                <div className={`${personStats.length > 0 ? 'lg:col-span-7' : 'lg:col-span-12'} bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden`}>
-                    {personStats.length > 0 ? (
-                        <>
-                            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
-                                <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <Users size={16} className="text-indigo-500" />
-                                    ช่างเทคนิค
-                                </h2>
-                                <span className="text-xs text-gray-400">{personStats.length} คน</span>
-                            </div>
-                            <div className="divide-y divide-gray-100 dark:divide-slate-700">
-                                {personStats.map((p, i) => (
-                                    <TechnicianRow
-                                        key={p.id}
-                                        name={p.name}
-                                        pending={p.pending}
-                                        inProgress={p.in_progress}
-                                        completed={p.completed}
-                                        total={p.total}
-                                        rank={i}
-                                    />
-                                ))}
-                            </div>
-                        </>
-                    ) : (
-                        /* Activity takes full width when no person stats */
-                        <>
-                            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
-                                <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <Activity size={16} className="text-indigo-500" />
-                                    กิจกรรมล่าสุด
-                                </h2>
-                            </div>
-                            {activities.length === 0 ? (
-                                <div className="py-12 text-center text-gray-400 text-sm">ยังไม่มีกิจกรรม</div>
-                            ) : (
-                                <div className="divide-y divide-gray-100 dark:divide-slate-700">
-                                    {activities.map((a, i) => (
-                                        <div key={a.id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
-                                            <div className={`w-2 h-2 rounded-full shrink-0 ${actionColors[a.action] || 'bg-gray-400'}`} />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm text-gray-900 dark:text-white">
-                                                    <span className="font-medium">{a.userName}</span>
-                                                    {' '}
-                                                    <span className="text-gray-500 dark:text-gray-400">{actionLabels[a.action] || a.action}</span>
-                                                </p>
-                                                {(a.productName || a.details) && (
-                                                    <p className="text-xs text-gray-400 truncate">{a.productName || a.details}</p>
-                                                )}
-                                            </div>
-                                            <span className="text-xs text-gray-400 tabular-nums shrink-0">{timeAgo(a.timestamp)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
-
-                {/* Activity Feed (shown alongside technician table) */}
                 {personStats.length > 0 && (
-                    <div className="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+                    <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Activity size={16} className="text-indigo-500" />
-                                กิจกรรมล่าสุด
+                                <Users size={16} className="text-indigo-500" /> สถิติรายช่าง
                             </h2>
                         </div>
-                        {activities.length === 0 ? (
-                            <div className="py-12 text-center text-gray-400 text-sm">ยังไม่มีกิจกรรม</div>
-                        ) : (
-                            <div className="divide-y divide-gray-100 dark:divide-slate-700">
-                                {activities.map((a, i) => (
-                                    <div key={a.id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
-                                        <div className={`w-2 h-2 rounded-full shrink-0 ${actionColors[a.action] || 'bg-gray-400'}`} />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-gray-900 dark:text-white">
-                                                <span className="font-medium">{a.userName}</span>
-                                                {' '}
-                                                <span className="text-gray-500 dark:text-gray-400">{actionLabels[a.action] || a.action}</span>
-                                            </p>
-                                            {(a.productName || a.details) && (
-                                                <p className="text-xs text-gray-400 truncate">{a.productName || a.details}</p>
-                                            )}
-                                        </div>
-                                        <span className="text-xs text-gray-400 tabular-nums shrink-0">{timeAgo(a.timestamp)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-slate-700">
+                                        <th className="text-left py-3 px-5 font-medium">ชื่อ</th>
+                                        <th className="text-center py-3 px-3 font-medium">รอ</th>
+                                        <th className="text-center py-3 px-3 font-medium">กำลังทำ</th>
+                                        <th className="text-center py-3 px-3 font-medium">เสร็จ</th>
+                                        <th className="text-center py-3 px-3 font-medium">รวม</th>
+                                        <th className="text-center py-3 px-5 font-medium">%สำเร็จ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {personStats.map((p, i) => {
+                                        const rate = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
+                                        const avatarColors = ['bg-indigo-100 text-indigo-600', 'bg-emerald-100 text-emerald-600', 'bg-amber-100 text-amber-600', 'bg-rose-100 text-rose-600', 'bg-cyan-100 text-cyan-600'];
+                                        return (
+                                            <tr key={p.id} className="border-b border-gray-50 dark:border-slate-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
+                                                <td className="py-3 px-5">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-full ${avatarColors[i % avatarColors.length]} flex items-center justify-center text-xs font-bold shrink-0`}>
+                                                            {p.name.slice(0, 2)}
+                                                        </div>
+                                                        <span className="font-medium text-gray-900 dark:text-white truncate">{p.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 px-3 text-center tabular-nums text-amber-500 font-medium">{p.pending}</td>
+                                                <td className="py-3 px-3 text-center tabular-nums text-blue-500 font-medium">{p.in_progress}</td>
+                                                <td className="py-3 px-3 text-center tabular-nums text-emerald-500 font-medium">{p.completed}</td>
+                                                <td className="py-3 px-3 text-center tabular-nums font-bold text-gray-900 dark:text-white">{p.total}</td>
+                                                <td className="py-3 px-5 text-center">
+                                                    <div className="flex items-center gap-2 justify-center">
+                                                        <div className="w-16 h-1.5 bg-gray-100 dark:bg-slate-700 rounded-full">
+                                                            <div className="h-1.5 rounded-full transition-all" style={{ width: `${rate}%`, backgroundColor: rate >= 80 ? '#10B981' : rate >= 50 ? '#F59E0B' : '#EF4444' }} />
+                                                        </div>
+                                                        <span className="text-xs font-medium tabular-nums text-gray-600 dark:text-gray-400">{rate}%</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
+
+                {/* Activity Feed */}
+                <div className={`${personStats.length > 0 ? 'lg:col-span-5' : 'lg:col-span-12'} bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden`}>
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
+                        <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <Clock size={16} className="text-indigo-500" /> กิจกรรมล่าสุด
+                        </h2>
+                    </div>
+                    {activities.length === 0 ? (
+                        <div className="py-12 text-center text-gray-400 text-sm">ยังไม่มีกิจกรรม</div>
+                    ) : (
+                        <div className="divide-y divide-gray-50 dark:divide-slate-700/50 max-h-[380px] overflow-y-auto custom-scrollbar">
+                            {activities.slice(0, 15).map((a, i) => (
+                                <div key={a.id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
+                                    <div className={`w-2 h-2 rounded-full shrink-0 ${actionColors[a.action] || 'bg-gray-400'}`} />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-gray-900 dark:text-white">
+                                            <span className="font-medium">{a.userName}</span>
+                                            {' '}
+                                            <span className="text-gray-500 dark:text-gray-400">{actionLabels[a.action] || a.action}</span>
+                                        </p>
+                                        {(a.productName || a.details) && (
+                                            <p className="text-xs text-gray-400 truncate mt-0.5">{a.productName || a.details}</p>
+                                        )}
+                                    </div>
+                                    <span className="text-[11px] text-gray-400 tabular-nums shrink-0">{timeAgo(a.timestamp)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
