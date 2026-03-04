@@ -34,7 +34,7 @@ export default function MyWorkPage() {
     const router = useRouter();
 
     // Determine user capabilities
-    const isTechnician = role === 'technician';
+    const isTechnician = role === 'technician' || role === 'facility_technician';
     const canViewRepairs = isTechnician;
     const canViewPhotography = isPhotographer;
 

@@ -173,7 +173,7 @@ export default function Dashboard() {
                         )}
 
                         {/* Hide Admin from Inventory (moved to Command Center) */}
-                        {role !== 'admin' && (role === 'technician' || isPhotographer) && (
+                        {role !== 'admin' && (role === 'technician' || role === 'facility_technician' || isPhotographer) && (
                             <QuickAction icon={Package} title="อุปกรณ์" description="จัดการอุปกรณ์" href="/admin/inventory" gradient="from-violet-500 to-purple-500" delay={0.3} />
                         )}
 

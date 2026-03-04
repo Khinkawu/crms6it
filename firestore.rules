@@ -26,6 +26,14 @@ service cloud.firestore {
       return isAuthenticated() && myData().role == 'technician';
     }
 
+    function isFacilityTechnician() {
+      return isAuthenticated() && myData().role == 'facility_technician';
+    }
+
+    function isAnyTechnician() {
+      return isAuthenticated() && myData().role in ['technician', 'facility_technician'];
+    }
+
     function isOwner(uid) {
       return isAuthenticated() && request.auth.uid == uid;
     }
@@ -83,16 +91,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // stats — ดูได้, admin เขียนได้
+    // stats — ดูได้, admin + technician เขียนได้ (pre-computed aggregation)
     match /stats/{statId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isAnyTechnician();
     }
 
-    // activities — ดูได้, photographer/technician/admin create ได้ (client-side logActivity), admin แก้/ลบได้
+    // activities — ดูได้, photographer/technician/facility_technician/admin create ได้
     match /activities/{activityId} {
       allow read: if isAuthenticated();
-      allow create: if isPhotographer() || isAdmin() || isTechnician();
+      allow create: if isPhotographer() || isAdmin() || isAnyTechnician();
       allow update, delete: if isAdmin();
     }
 
@@ -139,6 +147,25 @@ service cloud.firestore {
         (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin();
+    }
+
+    // ====================================================================
+    // Facilities Maintenance Module
+    // ====================================================================
+
+    // facility_items — คลังวัสดุช่างอาคาร
+    match /facility_items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isFacilityTechnician();
+    }
+
+    // facility_tickets — ใบแจ้งซ่อมอาคารสถานที่
+    match /facility_tickets/{ticketId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || isModerator() || isFacilityTechnician();
+      allow delete: if isAdmin();
     }
   }
 }

@@ -8,7 +8,7 @@ import { db } from "../../../lib/firebase";
 import { UserProfile, UserRole } from "../../../types";
 import ConfirmationModal from "../../components/ConfirmationModal";
 import toast from "react-hot-toast";
-import { Search, Shield, User, Wrench, GraduationCap, ChevronDown, LayoutGrid, List, Camera } from "lucide-react";
+import { Search, Shield, User, Wrench, GraduationCap, ChevronDown, LayoutGrid, List, Camera, Building2 } from "lucide-react";
 
 export default function UsersPage() {
     const { user, role, loading } = useAuth();
@@ -145,6 +145,7 @@ export default function UsersPage() {
         switch (role) {
             case 'admin': return <Shield className="w-4 h-4" />;
             case 'technician': return <Wrench className="w-4 h-4" />;
+            case 'facility_technician': return <Building2 className="w-4 h-4" />;
             case 'moderator': return <GraduationCap className="w-4 h-4" />;
             default: return <User className="w-4 h-4" />;
         }
@@ -154,6 +155,7 @@ export default function UsersPage() {
         switch (role) {
             case 'admin': return 'bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-500/20';
             case 'technician': return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 border-cyan-500/20';
+            case 'facility_technician': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/20';
             case 'moderator': return 'bg-orange-500/10 text-orange-600 dark:text-orange-300 border-orange-500/20';
             default: return 'bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/20';
         }
@@ -241,14 +243,15 @@ export default function UsersPage() {
                                                         >
                                                             <option value="user">User</option>
                                                             <option value="moderator">Moderator</option>
-                                                            <option value="technician">Technician</option>
+                                                            <option value="technician">Technician (IT)</option>
+                                                            <option value="facility_technician">Technician (Facility)</option>
                                                             <option value="admin">Admin</option>
                                                         </select>
                                                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
                                                     </div>
                                                 </div>
 
-                                                {u.role === 'technician' && (
+                                                {(u.role === 'technician' || u.role === 'facility_technician') && (
                                                     <div>
                                                         <label className="text-xs text-text-secondary uppercase font-bold block mb-1.5">Zone</label>
                                                         <div className="relative">
@@ -274,8 +277,8 @@ export default function UsersPage() {
                                                         onClick={() => handlePhotographerToggle(u.uid, u.isPhotographer || false)}
                                                         disabled={updatingUserId === u.uid}
                                                         className={`w-full py-2 px-3 rounded-lg border flex items-center justify-center gap-2 transition-colors ${u.isPhotographer
-                                                                ? 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300'
-                                                                : 'bg-background border-border text-text-secondary hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                            ? 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300'
+                                                            : 'bg-background border-border text-text-secondary hover:bg-gray-50 dark:hover:bg-gray-800'
                                                             }`}
                                                     >
                                                         <Camera size={16} />
@@ -332,13 +335,14 @@ export default function UsersPage() {
                                                             >
                                                                 <option value="user">User</option>
                                                                 <option value="moderator">Moderator</option>
-                                                                <option value="technician">Technician</option>
+                                                                <option value="technician">Technician (IT)</option>
+                                                                <option value="facility_technician">Technician (Facility)</option>
                                                                 <option value="admin">Admin</option>
                                                             </select>
                                                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
                                                         </div>
 
-                                                        {u.role === 'technician' && (
+                                                        {(u.role === 'technician' || u.role === 'facility_technician') && (
                                                             <div className="relative w-40 animate-fade-in-right">
                                                                 <select
                                                                     value={u.responsibility || "all"}
@@ -360,8 +364,8 @@ export default function UsersPage() {
                                                             disabled={updatingUserId === u.uid}
                                                             title="Toggle Photographer Role"
                                                             className={`p-2 rounded-lg border transition-all ${u.isPhotographer
-                                                                    ? 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300'
-                                                                    : 'bg-background border-border text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                                                                ? 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300'
+                                                                : 'bg-background border-border text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
                                                                 }`}
                                                         >
                                                             <Camera size={20} />

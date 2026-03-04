@@ -18,7 +18,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
 
     if (!user) return null;
 
-    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician';
+    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician';
 
     const mainItems = [
         { name: "Dashboard", icon: LayoutDashboard, path: "/" },

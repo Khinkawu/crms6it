@@ -43,7 +43,7 @@ export interface Transaction {
     userPosition?: string; // for requisition
 }
 
-export type UserRole = 'user' | 'technician' | 'admin' | 'moderator';
+export type UserRole = 'user' | 'technician' | 'facility_technician' | 'admin' | 'moderator';
 
 export interface UserProfile {
     uid: string;
@@ -201,4 +201,51 @@ export interface VideoItem {
     jobStatus?: VideoStatus;
     relatedPhotographyJobId?: string;  // เชื่อมกับงานถ่ายภาพ
     completedAt?: Timestamp;
+}
+
+// ============================================================================
+// Facilities Maintenance Types (ระบบแจ้งซ่อมอาคารสถานที่)
+// ============================================================================
+
+export type FacilityIssueCategory = 'แอร์' | 'ไฟฟ้า' | 'ประปา' | 'โครงสร้าง' | 'เบ็ดเตล็ด';
+
+export interface FacilityItem {
+    id?: string;
+    name: string;             // "หลอดไฟ LED 18W", "ก๊อกน้ำสแตนเลส"
+    category: string;         // "ไฟฟ้า", "ประปา", "เบ็ดเตล็ด"
+    quantity: number;         // จำนวนคงเหลือ
+    unit: string;             // "หลอด", "อัน", "ชิ้น"
+    reorderLevel: number;     // จุดสั่งซื้อ (ถ้าน้อยกว่านี้ → แจ้งเตือน)
+    imageUrl?: string;
+    location?: string;        // ตำแหน่งจัดเก็บในห้องช่าง
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
+export type FacilityTicketStatus = 'pending' | 'in_progress' | 'waiting_parts' | 'completed' | 'cancelled';
+
+export interface FacilityTicket {
+    id?: string;
+    requesterName: string;
+    requesterEmail: string;
+    position: string;
+    phone: string;
+    room: string;             // ใช้ Location Master Data เดิม
+    zone: 'junior_high' | 'senior_high';
+    issueCategory: FacilityIssueCategory;
+    description: string;
+    images: string[];
+    status: FacilityTicketStatus;
+    priority?: 'low' | 'normal' | 'urgent';
+    technicianId?: string;
+    technicianName?: string;
+    solutionNote?: string;
+    completionImage?: string;
+    partsUsed?: {
+        itemId: string;
+        name: string;
+        quantity: number;
+    }[];
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
 }

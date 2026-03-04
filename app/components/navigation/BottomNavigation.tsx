@@ -25,7 +25,7 @@ export default function BottomNavigation() {
 
     if (!user) return null;
 
-    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician';
+    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician';
     const isModerator = role === 'admin' || role === 'moderator';
     const canAssignPhotoJobs = role === 'admin';
 
@@ -52,13 +52,13 @@ export default function BottomNavigation() {
 
     // More menu items for admin
     const moreMenuItems = [
-        { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician"] },
-        { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "admin", "moderator", "technician"], action: () => setReportModalOpen(true) },
-        { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician"], allowPhotographer: true },
+        { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
+        { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "admin", "moderator", "technician", "facility_technician"], action: () => setReportModalOpen(true) },
+        { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician", "facility_technician"], allowPhotographer: true },
         { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin"] },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
-        { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician"] },
-        { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician"] },
+        { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
+        { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician", "facility_technician"] },
         { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
         { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin"] },
