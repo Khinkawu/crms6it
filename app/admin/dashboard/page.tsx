@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
     Wrench, Calendar, Package, Users, Camera, Clock,
     FileSpreadsheet, Printer, ArrowUpRight, Loader2,
-    CheckCircle2, Timer, PauseCircle, Activity, TrendingUp
+    CheckCircle2, Timer, PauseCircle, Activity, TrendingUp, Building2
 } from "lucide-react";
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -72,7 +72,7 @@ function DonutChart({ data, centerLabel, centerValue }: {
                             fontSize: '13px',
                             boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
                         }}
-                        formatter={(value: number) => [`${value} รายการ`, '']}
+                        formatter={(value: any) => [`${value} รายการ`, '']}
                     />
                 </PieChart>
             </ResponsiveContainer>
@@ -215,6 +215,7 @@ export default function AdminDashboard() {
     }
 
     const showRepairs = canSee(role, isPhotographer, 'repairs');
+    const showFacilityRepairs = canSee(role, isPhotographer, 'facility_repairs');
     const showBookings = canSee(role, isPhotographer, 'bookings');
     const showPhotography = canSee(role, isPhotographer, 'photography');
     const showInventory = canSee(role, isPhotographer, 'inventory');
@@ -245,9 +246,19 @@ export default function AdminDashboard() {
         { name: 'ไม่อนุมัติ', value: stats.bookings.rejected, color: COLORS.rejected },
     ];
 
+    // Facility Repair donut
+    const facilityRepairDonut = [
+        { name: 'รอดำเนินการ', value: stats.facilityRepairs.pending, color: COLORS.pending },
+        { name: 'กำลังดำเนินการ', value: stats.facilityRepairs.in_progress, color: COLORS.in_progress },
+        { name: 'เสร็จสิ้น', value: stats.facilityRepairs.completed, color: COLORS.completed },
+    ];
+
     // Completion rate
     const repairTotal = stats.repairs.pending + stats.repairs.in_progress + stats.repairs.waiting_parts + stats.repairs.completed;
     const repairCompletionRate = repairTotal > 0 ? Math.round((stats.repairs.completed / repairTotal) * 100) : 0;
+
+    const facilityTotal = stats.facilityRepairs.pending + stats.facilityRepairs.in_progress + stats.facilityRepairs.completed;
+    const facilityCompletionRate = facilityTotal > 0 ? Math.round((stats.facilityRepairs.completed / facilityTotal) * 100) : 0;
 
     const timeAgo = (ts: any) => {
         if (!ts) return '';
@@ -302,16 +313,17 @@ export default function AdminDashboard() {
 
             {/* ────── Top Stats Row ────── */}
             {statsLoading ? (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-white dark:bg-slate-800 rounded-2xl animate-pulse" />)}
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                    {[...Array(6)].map((_, i) => <div key={i} className="h-20 bg-white dark:bg-slate-800 rounded-2xl animate-pulse" />)}
                 </div>
             ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                    {showRepairs && <MiniStat label="งานซ่อมรอ" value={stats.repairs.pending} icon={Wrench} iconBg="bg-rose-50 dark:bg-rose-900/20" iconColor="text-rose-500" href="/admin/repairs" />}
-                    {showRepairs && <MiniStat label="กำลังดำเนินการ" value={stats.repairs.in_progress} icon={Timer} iconBg="bg-blue-50 dark:bg-blue-900/20" iconColor="text-blue-500" href="/admin/repairs" />}
-                    {showBookings && <MiniStat label="การจองรออนุมัติ" value={stats.bookings.pending} icon={Calendar} iconBg="bg-amber-50 dark:bg-amber-900/20" iconColor="text-amber-500" href="/admin/bookings" />}
-                    {showInventory && <MiniStat label="อุปกรณ์ใกล้หมด" value={stats.inventory.lowStock} icon={Package} iconBg="bg-orange-50 dark:bg-orange-900/20" iconColor="text-orange-500" href="/admin/inventory" />}
-                    {showUsers && <MiniStat label="ผู้ใช้งาน" value={stats.users.total} icon={Users} iconBg="bg-indigo-50 dark:bg-indigo-900/20" iconColor="text-indigo-500" href="/admin/users" />}
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                    {showRepairs && <MiniStat label="งานซ่อม (IT) รอ" value={stats.repairs.pending} icon={Wrench} iconBg="bg-rose-50 dark:bg-rose-900/20" iconColor="text-rose-500" href="/admin/repairs" />}
+                    {showFacilityRepairs && <MiniStat label="ซ่อมอาคารรอ" value={stats.facilityRepairs.pending} icon={Building2} iconBg="bg-amber-50 dark:bg-amber-900/20" iconColor="text-amber-500" href="/admin/facility" />}
+                    {showBookings && <MiniStat label="การจองรออนุมัติ" value={stats.bookings.pending} icon={Calendar} iconBg="bg-orange-50 dark:bg-orange-900/20" iconColor="text-orange-500" href="/admin/bookings" />}
+                    {showInventory && <MiniStat label="อุปกรณ์ใกล้หมด" value={stats.inventory.lowStock} icon={Package} iconBg="bg-blue-50 dark:bg-blue-900/20" iconColor="text-blue-500" href="/admin/inventory" />}
+                    {showUsers && <MiniStat label="ผู้ใช้งานรวม" value={stats.users.total} icon={Users} iconBg="bg-indigo-50 dark:bg-indigo-900/20" iconColor="text-indigo-500" href="/admin/users" />}
+                    {showPhotography && <MiniStat label="ถ่ายภาพมอบหมาย" value={stats.photography.assigned} icon={Camera} iconBg="bg-purple-50 dark:bg-purple-900/20" iconColor="text-purple-500" href="/admin/photography" />}
                 </div>
             )}
 
@@ -337,33 +349,58 @@ export default function AdminDashboard() {
                     </div>
                 )}
 
-                {/* Activity Bar Chart */}
-                <div className={`${showRepairs ? 'lg:col-span-5' : 'lg:col-span-8'} bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700`}>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <Activity size={16} className="text-indigo-500" /> กิจกรรมย้อนหลัง 7 วัน
-                        </h2>
-                        <div className="flex gap-3">
-                            <LegendDot color="#EF4444" label="ซ่อม" />
-                            <LegendDot color="#3B82F6" label="อุปกรณ์" />
-                            <LegendDot color="#D1D5DB" label="อื่นๆ" />
+                {/* Facility Repair Donut Chart */}
+                {showFacilityRepairs && (
+                    <div className="lg:col-span-4 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
+                        <div className="flex items-center justify-between mb-2">
+                            <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <Building2 size={16} className="text-amber-500" /> สัดส่วนซ่อมอาคาร
+                            </h2>
+                            <Link href="/admin/facility" className="text-xs text-indigo-500 hover:text-indigo-600 font-medium">ดูทั้งหมด →</Link>
+                        </div>
+                        <DonutChart data={facilityRepairDonut} centerLabel="ทั้งหมด" centerValue={facilityTotal} />
+                        <div className="flex flex-wrap gap-3 justify-center mt-2">
+                            <LegendDot color={COLORS.pending} label="รอ" />
+                            <LegendDot color={COLORS.in_progress} label="กำลังทำ" />
+                            <LegendDot color={COLORS.completed} label="เสร็จ" />
                         </div>
                     </div>
-                    <ActivityBarChart activities={activities} />
-                </div>
+                )}
 
                 {/* Completion Progress */}
-                {showRepairs && (
-                    <div className="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
+                {(showRepairs || showFacilityRepairs) && (
+                    <div className={`${showRepairs && showFacilityRepairs ? 'lg:col-span-4' : 'lg:col-span-3'} bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700`}>
                         <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
                             <TrendingUp size={16} className="text-emerald-500" /> อัตราการทำงาน
                         </h2>
                         <div className="flex flex-col items-center gap-5 py-2">
                             <div className="relative">
-                                <ProgressRing percent={repairCompletionRate} label="ซ่อมสำเร็จ" color="#10B981" size={100} />
+                                <ProgressRing
+                                    percent={showRepairs ? repairCompletionRate : facilityCompletionRate}
+                                    label={showRepairs ? "IT ซ่อมสำเร็จ" : "อาคารซ่อมสำเร็จ"}
+                                    color="#10B981"
+                                    size={100}
+                                />
                             </div>
-                            {showBookings && (
-                                <div className="w-full space-y-3">
+
+                            <div className="w-full space-y-3">
+                                {showFacilityRepairs && showRepairs && (
+                                    <div>
+                                        <div className="flex items-center justify-between text-xs mb-1">
+                                            <span className="text-gray-500 dark:text-gray-400">ซ่อมอาคาร</span>
+                                            <span className="font-medium text-gray-900 dark:text-white tabular-nums">
+                                                {stats.facilityRepairs.completed}/{facilityTotal}
+                                            </span>
+                                        </div>
+                                        <div className="w-full h-2 bg-gray-100 dark:bg-slate-700 rounded-full">
+                                            <div
+                                                className="h-2 bg-amber-500 rounded-full transition-all"
+                                                style={{ width: `${facilityTotal > 0 ? (stats.facilityRepairs.completed / facilityTotal * 100) : 0}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                {showBookings && (
                                     <div>
                                         <div className="flex items-center justify-between text-xs mb-1">
                                             <span className="text-gray-500 dark:text-gray-400">การจอง</span>
@@ -378,27 +415,42 @@ export default function AdminDashboard() {
                                             />
                                         </div>
                                     </div>
-                                    {showPhotography && (
-                                        <div>
-                                            <div className="flex items-center justify-between text-xs mb-1">
-                                                <span className="text-gray-500 dark:text-gray-400">ถ่ายภาพ</span>
-                                                <span className="font-medium text-gray-900 dark:text-white tabular-nums">
-                                                    {stats.photography.completed}/{stats.photography.total}
-                                                </span>
-                                            </div>
-                                            <div className="w-full h-2 bg-gray-100 dark:bg-slate-700 rounded-full">
-                                                <div
-                                                    className="h-2 bg-purple-500 rounded-full transition-all"
-                                                    style={{ width: `${stats.photography.total > 0 ? (stats.photography.completed / stats.photography.total * 100) : 0}%` }}
-                                                />
-                                            </div>
+                                )}
+                                {showPhotography && (
+                                    <div>
+                                        <div className="flex items-center justify-between text-xs mb-1">
+                                            <span className="text-gray-500 dark:text-gray-400">ถ่ายภาพ</span>
+                                            <span className="font-medium text-gray-900 dark:text-white tabular-nums">
+                                                {stats.photography.completed}/{stats.photography.total}
+                                            </span>
                                         </div>
-                                    )}
-                                </div>
-                            )}
+                                        <div className="w-full h-2 bg-gray-100 dark:bg-slate-700 rounded-full">
+                                            <div
+                                                className="h-2 bg-purple-500 rounded-full transition-all"
+                                                style={{ width: `${stats.photography.total > 0 ? (stats.photography.completed / stats.photography.total * 100) : 0}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
+
+                {/* Activity Bar Chart */}
+                <div className="lg:col-span-12 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <Activity size={16} className="text-indigo-500" /> กิจกรรมย้อนหลัง 7 วัน
+                        </h2>
+                        <div className="flex gap-3">
+                            <LegendDot color="#EF4444" label="ซ่อม" />
+                            <LegendDot color="#3B82F6" label="อุปกรณ์" />
+                            <LegendDot color="#D1D5DB" label="อื่นๆ" />
+                        </div>
+                    </div>
+                    <ActivityBarChart activities={activities} />
+                </div>
             </div>
 
             {/* ────── Bottom: Technicians + Activity Feed ────── */}
@@ -490,6 +542,6 @@ export default function AdminDashboard() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

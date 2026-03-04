@@ -18,6 +18,12 @@ export interface DashboardStats {
         completed: number;
         total: number;
     };
+    facilityRepairs: {
+        pending: number;
+        in_progress: number;
+        completed: number;
+        total: number;
+    };
     bookings: {
         pending: number;
         approved: number;
@@ -51,6 +57,7 @@ export interface PersonStat {
 
 const EMPTY_STATS: DashboardStats = {
     repairs: { pending: 0, in_progress: 0, waiting_parts: 0, completed: 0, total: 0 },
+    facilityRepairs: { pending: 0, in_progress: 0, completed: 0, total: 0 },
     bookings: { pending: 0, approved: 0, rejected: 0, total: 0 },
     photography: { pending_assign: 0, assigned: 0, completed: 0, total: 0 },
     inventory: { total: 0, available: 0, lowStock: 0 },
@@ -149,6 +156,25 @@ export function useDashboardStats() {
                             completed: d.completed || 0,
                             total: d.total || 0,
                         };
+                    }
+                }
+
+                // ----- Facility Repairs (อาคาร) -----
+                if (canSee(role, isPhotographer, 'facility_repairs')) {
+                    try {
+                        const [fPending, fInProgress, fCompleted] = await Promise.all([
+                            getCountFromServer(query(collection(db, "facility_tickets"), where("status", "==", "pending"))),
+                            getCountFromServer(query(collection(db, "facility_tickets"), where("status", "==", "in_progress"))),
+                            getCountFromServer(query(collection(db, "facility_tickets"), where("status", "==", "completed"))),
+                        ]);
+                        newStats.facilityRepairs = {
+                            pending: fPending.data().count,
+                            in_progress: fInProgress.data().count,
+                            completed: fCompleted.data().count,
+                            total: fPending.data().count + fInProgress.data().count + fCompleted.data().count,
+                        };
+                    } catch {
+                        // Collection doesn't exist yet — keep zeros
                     }
                 }
 
