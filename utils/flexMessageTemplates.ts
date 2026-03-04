@@ -374,6 +374,44 @@ export function createRepairCompleteFlexMessage(data: {
 }
 
 /**
+ * Create a Flex Message for new facility repair requests
+ */
+export function createFacilityNewFlexMessage(data: {
+    description: string;
+    room: string;
+    issueCategory: string;
+    requesterName: string;
+    imageUrl?: string;
+    ticketId?: string;
+    deepLink: string;
+    zone?: 'junior_high' | 'senior_high';
+}) {
+    const zoneLabel = data.zone === 'senior_high' ? 'ม.ปลาย' : 'ม.ต้น';
+    return {
+        type: 'flex',
+        altText: `🏢 แจ้งซ่อมอาคารใหม่: ${data.room} (${zoneLabel})`,
+        contents: createFlexBubble({
+            type: 'repair_new', // Reuse the blue style for new tickets
+            title: `[${data.issueCategory}] ${data.description}`,
+            badge: '🏢 แจ้งซ่อมอาคาร',
+            badgeColor: COLORS.warning, // Use amber specifically for facility
+            imageUrl: data.imageUrl,
+            details: [
+                { icon: '📍', label: 'สถานที่', value: `${data.room} (${zoneLabel})` },
+                { icon: '👤', label: 'ผู้แจ้ง', value: data.requesterName },
+                { icon: '🏷️', label: 'หมวดหมู่', value: data.issueCategory },
+                { icon: '🕐', label: 'เวลาแจ้ง', value: formatThaiDate(new Date(), { includeTime: true }) }
+            ],
+            footer: {
+                label: '📋 รับงานซ่อมอาคาร',
+                uri: data.deepLink,
+                color: COLORS.warning
+            }
+        })
+    };
+}
+
+/**
  * Create a Flex Message for photography job assignment
  */
 export function createPhotographyFlexMessage(data: {

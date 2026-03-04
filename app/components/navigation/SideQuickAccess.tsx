@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
 import {
     Home, Wrench, Calendar, Package, Users,
-    ClipboardList, LayoutDashboard, Camera, Video
+    ClipboardList, LayoutDashboard, Camera, Video, Building2
 } from "lucide-react";
 
 interface SideQuickAccessProps {
@@ -23,6 +23,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
     const mainItems = [
         { name: "Dashboard", icon: LayoutDashboard, path: "/" },
         { name: "แจ้งซ่อม", icon: Wrench, path: "/repair" },
+        { name: "ซ่อมอาคาร", icon: Building2, path: "/facility" },
         { name: "จองห้อง", icon: Calendar, path: "/booking" },
         { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery" },
         { name: "ภาพกิจกรรม", icon: Camera, path: "/gallery" },
@@ -30,7 +31,8 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
 
     const adminItems = [
         { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
-        { name: "งานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
+        { name: "ซ่อม IT", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
+        { name: "ซ่อมอาคาร", icon: Building2, path: "/admin/facility", roles: ["moderator", "facility_technician", "admin"] },
         { name: "การจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
         { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin"] },
         { name: "อุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["technician"], allowPhotographer: true },

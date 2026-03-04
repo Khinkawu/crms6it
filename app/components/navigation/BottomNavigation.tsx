@@ -11,7 +11,7 @@ import ReportIssueModal from "../ReportIssueModal";
 import {
     Home, Wrench, Calendar, User,
     Plus, Package, ClipboardList, MoreHorizontal,
-    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard, Video, AlertCircle
+    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard, Video, AlertCircle, Building2
 } from "lucide-react";
 
 export default function BottomNavigation() {
@@ -44,6 +44,7 @@ export default function BottomNavigation() {
     // FAB quick actions - add photo job assignment for admins
     const fabActions = [
         { name: "แจ้งซ่อม", icon: Wrench, path: "/repair", color: "from-orange-500 to-red-500", isModal: false },
+        { name: "ซ่อมอาคาร", icon: Building2, path: "/facility", color: "from-amber-400 to-amber-600", isModal: false },
         { name: "จองห้อง", icon: Calendar, path: "/booking", color: "from-blue-500 to-cyan-500", isModal: false },
         ...(canAssignPhotoJobs ? [
             { name: "มอบหมายงานภาพ", icon: Camera, path: null, color: "from-amber-500 to-yellow-500", isModal: true, modalAction: () => setPhotoJobModalOpen(true) }
@@ -60,6 +61,7 @@ export default function BottomNavigation() {
         { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
         { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician", "facility_technician"] },
         { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
+        { name: "จัดการอาคาร", icon: Building2, path: "/admin/facility", roles: ["moderator", "facility_technician", "admin"] },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
         { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin"] },
         { name: "จัดการอุปกรณ์", icon: Package, path: "/admin/inventory", roles: ["technician"], allowPhotographer: true }, // Admin removed from here for mobile menu simplicity
