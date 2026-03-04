@@ -1,423 +1,313 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
     Wrench, Calendar, Package, Users, Camera, Clock,
-    TrendingUp, ClipboardList, FileSpreadsheet, Printer,
-    BookOpen, Building2, ArrowRight, ChevronRight, Activity
+    FileSpreadsheet, Printer, ArrowRight, ArrowUpRight,
+    AlertTriangle, CheckCircle2, Loader2, Building2
 } from "lucide-react";
-import { useDashboardStats, canSee, PersonStat } from "@/hooks/useDashboardStats";
+import { useDashboardStats, canSee } from "@/hooks/useDashboardStats";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
-import PersonFilter from "@/app/components/dashboard/PersonFilter";
 import { exportDashboardToExcel, printDashboardStats } from "@/utils/dashboardExport";
 import toast from "react-hot-toast";
 
-// ============================================================================
-// Stat Card — Clean, data-focused
-// ============================================================================
-
-function StatCard({
-    label, value, icon: Icon, accent, href, sub, delay = 0
-}: {
-    label: string; value: number; icon: React.ElementType;
-    accent: string; href?: string; sub?: string; delay?: number;
-}) {
+// ─── Metric ─────────────────────────────────────────────────────────
+function Metric({ label, value, href }: { label: string; value: number; href?: string }) {
     const inner = (
-        <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay, duration: 0.2, ease: [0, 0, 0.2, 1] }}
-            className={`relative rounded-2xl border border-border bg-card p-5 transition-shadow hover:shadow-md ${href ? 'cursor-pointer group' : ''}`}
-        >
-            <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                    <p className="text-sm text-text-secondary truncate">{label}</p>
-                    <p className="text-3xl font-bold text-text tabular-nums">{value.toLocaleString()}</p>
-                    {sub && <p className="text-xs text-text-secondary">{sub}</p>}
-                </div>
-                <div className={`size-10 rounded-xl ${accent} flex items-center justify-center text-white shrink-0`}>
-                    <Icon size={20} />
-                </div>
-            </div>
-            {href && (
-                <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
-            )}
-        </motion.div>
+        <div className={`${href ? 'group cursor-pointer' : ''}`}>
+            <p className="text-[13px] text-text-secondary">{label}</p>
+            <p className="text-2xl font-semibold text-text tabular-nums mt-0.5">{value.toLocaleString()}</p>
+        </div>
     );
-
-    return href ? <Link href={href}>{inner}</Link> : inner;
+    return href ? <Link href={href} className="hover:opacity-70 transition-opacity">{inner}</Link> : inner;
 }
 
-// ============================================================================
-// Section Header
-// ============================================================================
-
-function SectionHeader({ title, icon: Icon, actions }: {
-    title: string; icon: React.ElementType; actions?: React.ReactNode;
+// ─── Activity Row ───────────────────────────────────────────────────
+function ActivityRow({ userName, action, detail, time }: {
+    userName: string; action: string; detail?: string; time: string;
 }) {
+    const labels: Record<string, string> = {
+        repair: 'แจ้งซ่อม', repair_update: 'อัปเดตซ่อม',
+        borrow: 'ยืม', return: 'คืน', requisition: 'เบิก',
+        add: 'เพิ่ม', create: 'สร้าง', delete: 'ลบ', update: 'แก้ไข',
+    };
     return (
-        <div className="flex items-center justify-between gap-3 mb-4">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-text text-balance">
-                <Icon size={18} className="text-cyan-500" />
-                {title}
-            </h2>
-            {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+        <div className="flex items-baseline gap-3 py-2.5 border-b border-border/50 last:border-0">
+            <span className="text-[13px] text-text-secondary w-20 shrink-0 tabular-nums">{time}</span>
+            <div className="flex-1 min-w-0">
+                <span className="text-[13px] text-text">
+                    <span className="font-medium">{userName}</span>
+                    {' '}
+                    <span className="text-text-secondary">{labels[action] || action}</span>
+                    {detail && (
+                        <span className="text-text-secondary"> — {detail}</span>
+                    )}
+                </span>
+            </div>
         </div>
     );
 }
 
-// ============================================================================
-// Quick Link
-// ============================================================================
-
-function QuickLink({ title, icon: Icon, href, count }: {
-    title: string; icon: React.ElementType; href: string; count?: number;
-}) {
-    return (
-        <Link href={href}>
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-background group">
-                <div className="size-8 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0">
-                    <Icon size={16} />
-                </div>
-                <span className="text-sm font-medium text-text-secondary group-hover:text-text transition-colors flex-1 truncate">
-                    {title}
-                </span>
-                {count !== undefined && count > 0 && (
-                    <span className="text-xs font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full tabular-nums">
-                        {count}
-                    </span>
-                )}
-                <ArrowRight size={14} className="text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-            </div>
-        </Link>
-    );
-}
-
-// ============================================================================
-// Main Dashboard
-// ============================================================================
-
+// ─── Page ───────────────────────────────────────────────────────────
 export default function AdminDashboard() {
     const { user, role, isPhotographer, loading, getDisplayName } = useAuth();
     const router = useRouter();
     const { stats, personStats, loading: statsLoading } = useDashboardStats();
-    const { activities } = useActivityLogs({ limitCount: 10, filterRepairOnly: false });
+    const { activities } = useActivityLogs({ limitCount: 12, filterRepairOnly: false });
 
-    const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
-
-    // Access control
     const hasAccess = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician' || isPhotographer;
 
     React.useEffect(() => {
-        if (!loading && (!user || !hasAccess)) {
-            router.push("/");
-        }
+        if (!loading && (!user || !hasAccess)) router.push("/");
     }, [user, role, loading, hasAccess, router]);
 
     if (loading || !user || !hasAccess) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="size-8 border-4 border-cyan-500 rounded-full border-t-transparent animate-spin" />
+                <Loader2 size={24} className="animate-spin text-text-secondary" />
             </div>
         );
     }
-
-    const filteredPersonStats: PersonStat[] = selectedPerson
-        ? personStats.filter(p => p.id === selectedPerson)
-        : personStats;
-
-    const today = new Date().toLocaleDateString('th-TH', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    });
-
-    const roleName: Record<string, string> = {
-        admin: 'ผู้ดูแลระบบ', moderator: 'Moderator',
-        technician: 'ช่าง IT/โสตฯ', facility_technician: 'ช่างอาคาร'
-    };
 
     const handleExport = () => {
         exportDashboardToExcel(stats, personStats, getDisplayName());
         toast.success("ส่งออก Excel สำเร็จ");
     };
-    const handlePrint = () => printDashboardStats(stats, personStats, getDisplayName());
 
-    // Time-ago helper
     const timeAgo = (ts: any) => {
         if (!ts) return '';
         const d = ts.toDate ? ts.toDate() : new Date(ts);
         const m = Math.floor((Date.now() - d.getTime()) / 60000);
         if (m < 1) return 'เมื่อกี้';
-        if (m < 60) return `${m} นาทีที่แล้ว`;
-        if (m < 1440) return `${Math.floor(m / 60)} ชม.ที่แล้ว`;
-        return `${Math.floor(m / 1440)} วันที่แล้ว`;
+        if (m < 60) return `${m}น.`;
+        if (m < 1440) return `${Math.floor(m / 60)}ชม.`;
+        return `${Math.floor(m / 1440)}ว.`;
     };
 
-    const actionLabel: Record<string, string> = {
-        repair: 'แจ้งซ่อม', repair_update: 'อัปเดตงานซ่อม',
-        borrow: 'ยืมอุปกรณ์', return: 'คืนอุปกรณ์',
-        requisition: 'เบิกอุปกรณ์', add: 'เพิ่มอุปกรณ์',
-        create: 'สร้าง', delete: 'ลบ', update: 'แก้ไข',
-    };
-
-    const actionDot = (a: string) => {
-        if (a.includes('repair')) return 'bg-rose-500';
-        if (a.includes('borrow') || a.includes('return')) return 'bg-blue-500';
-        return 'bg-gray-400';
-    };
+    const showRepairs = canSee(role, isPhotographer, 'repairs');
+    const showBookings = canSee(role, isPhotographer, 'bookings');
+    const showPhotography = canSee(role, isPhotographer, 'photography');
+    const showInventory = canSee(role, isPhotographer, 'inventory');
+    const showUsers = canSee(role, isPhotographer, 'users');
 
     return (
-        <div className="space-y-6 animate-fade-in pb-20">
+        <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-fade-in">
 
-            {/* ───────── Header ───────── */}
-            <div className="rounded-2xl border border-border bg-card p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="space-y-1">
-                        <p className="text-sm text-text-secondary flex items-center gap-1.5">
-                            <Clock size={14} /> {today}
-                        </p>
-                        <h1 className="text-2xl font-bold text-text text-balance">
-                            สวัสดี, {getDisplayName().split(' ')[0]}! 👋
-                        </h1>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs font-medium bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 px-2.5 py-0.5 rounded-full">
-                                {roleName[role || ''] || role}
-                            </span>
-                            {isPhotographer && (
-                                <span className="text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full">
-                                    📸 ช่างภาพ
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleExport}
-                            aria-label="Export to Excel"
-                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-text-secondary text-sm hover:bg-background hover:text-text transition-colors"
-                        >
-                            <FileSpreadsheet size={16} />
-                            <span className="hidden sm:inline">Export</span>
-                        </button>
-                        <button
-                            onClick={handlePrint}
-                            aria-label="Print report"
-                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-card text-text-secondary text-sm hover:bg-background hover:text-text transition-colors"
-                        >
-                            <Printer size={16} />
-                            <span className="hidden sm:inline">Print</span>
-                        </button>
-                    </div>
+            {/* ──── Header ──── */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-xl font-semibold text-text">ภาพรวม</h1>
+                    <p className="text-[13px] text-text-secondary mt-0.5">
+                        {new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={handleExport}
+                        aria-label="Export to Excel"
+                        className="p-2 rounded-lg text-text-secondary hover:text-text hover:bg-card transition-colors"
+                    >
+                        <FileSpreadsheet size={18} />
+                    </button>
+                    <button
+                        onClick={() => printDashboardStats(stats, personStats, getDisplayName())}
+                        aria-label="Print report"
+                        className="p-2 rounded-lg text-text-secondary hover:text-text hover:bg-card transition-colors"
+                    >
+                        <Printer size={18} />
+                    </button>
                 </div>
             </div>
 
-            {/* ───────── Stats Grid ───────── */}
+            {/* ──── Metrics Bar ──── */}
             {statsLoading ? (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[...Array(4)].map((_, i) => (
-                        <div key={i} className="h-[110px] bg-card border border-border rounded-2xl animate-pulse" />
-                    ))}
-                </div>
+                <div className="h-20 bg-card border border-border rounded-xl animate-pulse" />
             ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {canSee(role, isPhotographer, 'repairs') && (
-                        <>
-                            <StatCard
-                                label="งานซ่อม IT — รอ"
-                                value={stats.repairs.pending}
-                                icon={Wrench}
-                                accent="bg-rose-500"
-                                href="/admin/repairs"
-                                sub={`${stats.repairs.in_progress} กำลังดำเนินการ`}
-                                delay={0}
-                            />
-                            <StatCard
-                                label="งานซ่อม IT — เสร็จ"
-                                value={stats.repairs.completed}
-                                icon={Wrench}
-                                accent="bg-emerald-500"
-                                href="/admin/repairs"
-                                sub={`${stats.repairs.total} ทั้งหมด`}
-                                delay={0.04}
-                            />
-                        </>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 p-5 bg-card border border-border rounded-xl">
+                    {showRepairs && (
+                        <Metric label="งานซ่อม — รอ" value={stats.repairs.pending} href="/admin/repairs" />
                     )}
-                    {canSee(role, isPhotographer, 'bookings') && (
-                        <StatCard
-                            label="การจอง — รออนุมัติ"
-                            value={stats.bookings.pending}
-                            icon={Calendar}
-                            accent="bg-amber-500"
-                            href="/admin/bookings"
-                            sub={`${stats.bookings.approved} อนุมัติแล้ว`}
-                            delay={0.08}
-                        />
+                    {showRepairs && (
+                        <Metric label="กำลังดำเนินการ" value={stats.repairs.in_progress} href="/admin/repairs" />
                     )}
-                    {canSee(role, isPhotographer, 'photography') && (
-                        <StatCard
-                            label="งานถ่ายภาพ — มอบหมาย"
-                            value={stats.photography.assigned}
-                            icon={Camera}
-                            accent="bg-indigo-500"
-                            href="/admin/photography"
-                            sub={`${stats.photography.completed} เสร็จสิ้น`}
-                            delay={0.12}
-                        />
+                    {showBookings && (
+                        <Metric label="จอง — รออนุมัติ" value={stats.bookings.pending} href="/admin/bookings" />
                     )}
-                    {canSee(role, isPhotographer, 'inventory') && (
-                        <StatCard
-                            label="อุปกรณ์ใกล้หมด"
-                            value={stats.inventory.lowStock}
-                            icon={Package}
-                            accent="bg-blue-500"
-                            href="/admin/inventory"
-                            sub="ต่ำกว่า 5 ชิ้น"
-                            delay={0.16}
-                        />
+                    {showInventory && (
+                        <Metric label="อุปกรณ์ใกล้หมด" value={stats.inventory.lowStock} href="/admin/inventory" />
                     )}
-                    {canSee(role, isPhotographer, 'users') && (
-                        <StatCard
-                            label="ผู้ใช้งานทั้งหมด"
-                            value={stats.users.total}
-                            icon={Users}
-                            accent="bg-teal-500"
-                            href="/admin/users"
-                            delay={0.2}
-                        />
+                    {showUsers && (
+                        <Metric label="ผู้ใช้งาน" value={stats.users.total} href="/admin/users" />
                     )}
                 </div>
             )}
 
-            {/* ───────── Per-Person Table ───────── */}
+            {/* ──── Cards Grid ──── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                {/* Repair Summary */}
+                {showRepairs && (
+                    <div className="bg-card border border-border rounded-xl p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <Wrench size={16} className="text-text-secondary" />
+                                <h2 className="text-sm font-semibold text-text">งานซ่อม</h2>
+                            </div>
+                            <Link href="/admin/repairs" className="text-xs text-text-secondary hover:text-text flex items-center gap-1 transition-colors">
+                                ดูทั้งหมด <ArrowRight size={12} />
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-4 gap-3">
+                            <StatusPill label="รอ" value={stats.repairs.pending} color="amber" />
+                            <StatusPill label="กำลังทำ" value={stats.repairs.in_progress} color="blue" />
+                            <StatusPill label="รออะไหล่" value={stats.repairs.waiting_parts} color="orange" />
+                            <StatusPill label="เสร็จ" value={stats.repairs.completed} color="emerald" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Booking Summary */}
+                {showBookings && (
+                    <div className="bg-card border border-border rounded-xl p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <Calendar size={16} className="text-text-secondary" />
+                                <h2 className="text-sm font-semibold text-text">การจอง</h2>
+                            </div>
+                            <Link href="/admin/bookings" className="text-xs text-text-secondary hover:text-text flex items-center gap-1 transition-colors">
+                                ดูทั้งหมด <ArrowRight size={12} />
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <StatusPill label="รออนุมัติ" value={stats.bookings.pending} color="amber" />
+                            <StatusPill label="อนุมัติ" value={stats.bookings.approved} color="emerald" />
+                            <StatusPill label="ทั้งหมด" value={stats.bookings.total} color="gray" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Photography Summary */}
+                {showPhotography && (
+                    <div className="bg-card border border-border rounded-xl p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <Camera size={16} className="text-text-secondary" />
+                                <h2 className="text-sm font-semibold text-text">งานถ่ายภาพ</h2>
+                            </div>
+                            <Link href="/admin/photography" className="text-xs text-text-secondary hover:text-text flex items-center gap-1 transition-colors">
+                                ดูทั้งหมด <ArrowRight size={12} />
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <StatusPill label="มอบหมาย" value={stats.photography.assigned} color="blue" />
+                            <StatusPill label="เสร็จ" value={stats.photography.completed} color="emerald" />
+                            <StatusPill label="ทั้งหมด" value={stats.photography.total} color="gray" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Inventory Summary */}
+                {showInventory && (
+                    <div className="bg-card border border-border rounded-xl p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <Package size={16} className="text-text-secondary" />
+                                <h2 className="text-sm font-semibold text-text">คลังอุปกรณ์</h2>
+                            </div>
+                            <Link href="/admin/inventory" className="text-xs text-text-secondary hover:text-text flex items-center gap-1 transition-colors">
+                                ดูทั้งหมด <ArrowRight size={12} />
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <StatusPill label="ทั้งหมด" value={stats.inventory.total} color="gray" />
+                            <StatusPill label="พร้อมใช้" value={stats.inventory.available} color="emerald" />
+                            <div className="flex flex-col items-center p-3 rounded-lg bg-rose-500/5">
+                                <span className="text-lg font-semibold tabular-nums text-rose-600 dark:text-rose-400">{stats.inventory.lowStock}</span>
+                                <span className="text-[11px] text-rose-500 dark:text-rose-400 flex items-center gap-0.5 mt-0.5">
+                                    <AlertTriangle size={10} /> ใกล้หมด
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* ──── Per-Person Table ──── */}
             {personStats.length > 0 && (
-                <div className="rounded-2xl border border-border bg-card p-5">
-                    <SectionHeader
-                        title="สถิติรายบุคคล"
-                        icon={Users}
-                        actions={
-                            <PersonFilter
-                                persons={personStats}
-                                selectedId={selectedPerson}
-                                onChange={setSelectedPerson}
-                            />
-                        }
-                    />
-                    <div className="overflow-x-auto -mx-5 px-5">
-                        <table className="w-full text-sm">
+                <div className="bg-card border border-border rounded-xl">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                        <h2 className="text-sm font-semibold text-text">สถิติรายช่าง</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-[13px]">
                             <thead>
-                                <tr className="border-b border-border text-text-secondary text-left">
-                                    <th className="pb-3 pr-4 font-medium">ชื่อ</th>
-                                    <th className="pb-3 px-4 font-medium text-center w-20">รอ</th>
-                                    <th className="pb-3 px-4 font-medium text-center w-20">กำลังทำ</th>
-                                    <th className="pb-3 px-4 font-medium text-center w-20">เสร็จ</th>
-                                    <th className="pb-3 pl-4 font-medium text-center w-20">รวม</th>
+                                <tr className="text-text-secondary text-left border-b border-border">
+                                    <th className="py-2.5 px-5 font-medium">ชื่อ</th>
+                                    <th className="py-2.5 px-4 font-medium text-right">รอ</th>
+                                    <th className="py-2.5 px-4 font-medium text-right">กำลังทำ</th>
+                                    <th className="py-2.5 px-4 font-medium text-right">เสร็จ</th>
+                                    <th className="py-2.5 px-5 font-medium text-right">รวม</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredPersonStats.map(p => (
-                                    <tr key={p.id} className="border-b border-border/50 last:border-0">
-                                        <td className="py-3 pr-4 font-medium text-text">{p.name}</td>
-                                        <td className="py-3 px-4 text-center">
-                                            <span className="inline-block min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                                {p.pending}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center">
-                                            <span className="inline-block min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-medium tabular-nums bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                                                {p.in_progress}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4 text-center">
-                                            <span className="inline-block min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-medium tabular-nums bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                                                {p.completed}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 pl-4 text-center font-bold text-text tabular-nums">{p.total}</td>
+                                {personStats.map(p => (
+                                    <tr key={p.id} className="border-b border-border/50 last:border-0 hover:bg-background/50 transition-colors">
+                                        <td className="py-2.5 px-5 font-medium text-text">{p.name}</td>
+                                        <td className="py-2.5 px-4 text-right tabular-nums text-amber-600 dark:text-amber-400">{p.pending}</td>
+                                        <td className="py-2.5 px-4 text-right tabular-nums text-blue-600 dark:text-blue-400">{p.in_progress}</td>
+                                        <td className="py-2.5 px-4 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{p.completed}</td>
+                                        <td className="py-2.5 px-5 text-right tabular-nums font-semibold text-text">{p.total}</td>
                                     </tr>
                                 ))}
-                                {filteredPersonStats.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="py-10 text-center text-text-secondary text-sm">
-                                            ยังไม่มีข้อมูลรายบุคคล
-                                        </td>
-                                    </tr>
-                                )}
                             </tbody>
                         </table>
                     </div>
                 </div>
             )}
 
-            {/* ───────── Quick Links + Activity ───────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-                {/* Quick Links */}
-                <div className="lg:col-span-4 rounded-2xl border border-border bg-card p-5">
-                    <SectionHeader title="เมนูลัด" icon={ClipboardList} />
-                    <div className="space-y-0.5">
-                        {canSee(role, isPhotographer, 'repairs') && (
-                            <QuickLink title="จัดการงานซ่อม" icon={Wrench} href="/admin/repairs" count={stats.repairs.pending} />
-                        )}
-                        {canSee(role, isPhotographer, 'bookings') && (
-                            <QuickLink title="จัดการการจอง" icon={Calendar} href="/admin/bookings" count={stats.bookings.pending} />
-                        )}
-                        {canSee(role, isPhotographer, 'inventory') && (
-                            <QuickLink title="คลังอุปกรณ์" icon={Package} href="/admin/inventory" />
-                        )}
-                        {canSee(role, isPhotographer, 'photography') && (
-                            <QuickLink title="งานตากล้อง" icon={Camera} href="/admin/photography" />
-                        )}
-                        {canSee(role, isPhotographer, 'users') && (
-                            <QuickLink title="จัดการผู้ใช้" icon={Users} href="/admin/users" />
-                        )}
-                        <QuickLink title="คลังความรู้ IT" icon={BookOpen} href="/admin/knowledge-base" />
+            {/* ──── Activity Feed ──── */}
+            <div className="bg-card border border-border rounded-xl">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                    <h2 className="text-sm font-semibold text-text">กิจกรรมล่าสุด</h2>
+                </div>
+                {activities.length === 0 ? (
+                    <div className="py-12 text-center text-text-secondary text-sm">
+                        ยังไม่มีกิจกรรม
                     </div>
-                </div>
-
-                {/* Recent Activity */}
-                <div className="lg:col-span-8 rounded-2xl border border-border bg-card p-5">
-                    <SectionHeader title="กิจกรรมล่าสุด" icon={Activity} />
-
-                    {activities.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
-                            <Clock size={28} className="mb-2 opacity-40" />
-                            <p className="text-sm">ยังไม่มีกิจกรรม</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-0.5">
-                            {activities.map((a, i) => (
-                                <div
-                                    key={a.id || i}
-                                    className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-background transition-colors"
-                                >
-                                    <div className={`size-2 mt-2 rounded-full shrink-0 ${actionDot(a.action)}`} />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-text text-pretty">
-                                            <span className="font-medium">{a.userName}</span>
-                                            {' '}
-                                            <span className="text-text-secondary">
-                                                {actionLabel[a.action] || a.action}
-                                            </span>
-                                        </p>
-                                        {(a.productName || a.details) && (
-                                            <p className="text-sm text-cyan-600 dark:text-cyan-400 font-medium truncate">
-                                                {a.productName || a.details}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <span className="text-xs text-text-secondary tabular-nums shrink-0 mt-0.5">
-                                        {timeAgo(a.timestamp)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                ) : (
+                    <div className="px-5">
+                        {activities.map((a, i) => (
+                            <ActivityRow
+                                key={a.id || i}
+                                userName={a.userName}
+                                action={a.action}
+                                detail={a.productName || a.details}
+                                time={timeAgo(a.timestamp)}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
+        </div>
+    );
+}
+
+// ─── Status Pill ────────────────────────────────────────────────────
+function StatusPill({ label, value, color }: { label: string; value: number; color: string }) {
+    const colorMap: Record<string, string> = {
+        amber: 'bg-amber-500/5 text-amber-600 dark:text-amber-400',
+        blue: 'bg-blue-500/5 text-blue-600 dark:text-blue-400',
+        emerald: 'bg-emerald-500/5 text-emerald-600 dark:text-emerald-400',
+        orange: 'bg-orange-500/5 text-orange-600 dark:text-orange-400',
+        gray: 'bg-gray-500/5 text-text-secondary',
+    };
+    return (
+        <div className={`flex flex-col items-center p-3 rounded-lg ${colorMap[color] || colorMap.gray}`}>
+            <span className="text-lg font-semibold tabular-nums">{value.toLocaleString()}</span>
+            <span className="text-[11px] mt-0.5">{label}</span>
         </div>
     );
 }
