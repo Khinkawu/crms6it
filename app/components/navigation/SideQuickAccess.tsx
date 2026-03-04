@@ -29,7 +29,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
     ];
 
     const adminItems = [
-        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin"] },
+        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
         { name: "งานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician"] },
         { name: "การจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
         { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin"] },

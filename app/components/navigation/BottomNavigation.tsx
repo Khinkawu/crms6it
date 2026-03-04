@@ -55,7 +55,7 @@ export default function BottomNavigation() {
         { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
         { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "admin", "moderator", "technician", "facility_technician"], action: () => setReportModalOpen(true) },
         { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician", "facility_technician"], allowPhotographer: true },
-        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin"] },
+        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
         { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
         { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician", "facility_technician"] },
