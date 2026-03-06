@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '../../../lib/firebaseAdmin';
-import { createRepairCompleteFlexMessage } from '@/utils/flexMessageTemplates';
+import { createRepairCompleteFlexMessage, createStatusBubble } from '@/utils/flexMessageTemplates';
+import { getThaiStatus, getStatusHexColor } from '@/utils/repairHelpers';
 
 export async function POST(request: Request) {
     try {
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { email, ticketId, room, problem, technicianNote, completionImage } = await request.json();
+        const { email, ticketId, room, problem, technicianNote, completionImage, status } = await request.json();
 
         if (!email) {
             return NextResponse.json({ error: 'Email is required' }, { status: 400 });
@@ -43,14 +44,36 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
         }
 
-        // Use new professional Flex Message template
-        const flexMessage = createRepairCompleteFlexMessage({
-            problem,
-            room,
-            technicianNote,
-            completionImage,
-            historyLink: `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}?mode=history`
-        });
+        // Choose message template based on status
+        const historyLink = `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}?mode=history`;
+        let flexMessage;
+
+        if (status === 'completed') {
+            flexMessage = createRepairCompleteFlexMessage({
+                problem,
+                room,
+                technicianNote,
+                completionImage,
+                historyLink
+            });
+        } else {
+            // in_progress, waiting_parts, etc.
+            flexMessage = {
+                type: 'flex',
+                altText: `แจ้งซ่อม: ${getThaiStatus(status)} — ห้อง ${room}`,
+                contents: createStatusBubble({
+                    id: ticketId,
+                    description: problem,
+                    room,
+                    status,
+                    statusColor: getStatusHexColor(status),
+                    statusText: getThaiStatus(status),
+                    createdAt: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }),
+                    technicianNote: technicianNote || undefined,
+                    historyLink
+                })
+            };
+        }
 
         const message = {
             to: lineUserId,

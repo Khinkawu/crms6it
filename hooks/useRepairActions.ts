@@ -87,7 +87,7 @@ export function useRepairActions({ userId, userName }: UseRepairActionsOptions):
                 zone: ticket.zone
             });
 
-            if (status === 'completed') {
+            if (['in_progress', 'waiting_parts', 'completed'].includes(status)) {
                 try {
                     const idToken = await auth.currentUser?.getIdToken();
                     await fetch('/api/notify-user', {
@@ -102,7 +102,8 @@ export function useRepairActions({ userId, userName }: UseRepairActionsOptions):
                             room: ticket.room,
                             problem: ticket.description,
                             technicianNote,
-                            completionImage: completionImageUrl || ticket.completionImage
+                            completionImage: completionImageUrl || ticket.completionImage,
+                            status
                         })
                     });
                 } catch (notifyError) {
