@@ -379,7 +379,6 @@ export function createRepairCompleteFlexMessage(data: {
 export function createFacilityNewFlexMessage(data: {
     description: string;
     room: string;
-    issueCategory: string;
     requesterName: string;
     imageUrl?: string;
     ticketId?: string;
@@ -392,14 +391,13 @@ export function createFacilityNewFlexMessage(data: {
         altText: `🏢 แจ้งซ่อมอาคารใหม่: ${data.room} (${zoneLabel})`,
         contents: createFlexBubble({
             type: 'repair_new', // Reuse the blue style for new tickets
-            title: `[${data.issueCategory}] ${data.description}`,
+            title: data.description,
             badge: '🏢 แจ้งซ่อมอาคาร',
             badgeColor: COLORS.warning, // Use amber specifically for facility
             imageUrl: data.imageUrl,
             details: [
                 { icon: '📍', label: 'สถานที่', value: `${data.room} (${zoneLabel})` },
                 { icon: '👤', label: 'ผู้แจ้ง', value: data.requesterName },
-                { icon: '🏷️', label: 'หมวดหมู่', value: data.issueCategory },
                 { icon: '🕐', label: 'เวลาแจ้ง', value: formatThaiDate(new Date(), { includeTime: true }) }
             ],
             footer: {

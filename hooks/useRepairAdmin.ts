@@ -54,7 +54,7 @@ export function useRepairAdmin({ userId, userName }: UseRepairAdminOptions = {})
             });
             setTickets(ticketsList);
             setLoading(false);
-        });
+        }, () => setLoading(false));
 
         // Limit to 200 products and only fetch bulk items with quantity > 0
         const inventoryQuery = query(

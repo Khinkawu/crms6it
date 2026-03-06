@@ -5,8 +5,8 @@ import { useLiff } from "../../../hooks/useLiff";
 import { useRouter } from "next/navigation";
 import { signInWithCustomToken } from "firebase/auth";
 import { auth } from "../../../lib/firebase";
-import BookingForm from "../../components/BookingForm";
-import { LiffSkeleton, LiffError, triggerHaptic } from "../../components/liff/LiffComponents";
+import BookingForm from "@/components/BookingForm";
+import { LiffSkeleton, LiffError, triggerHaptic } from "@/components/liff/LiffComponents";
 import liff from "@line/liff";
 
 export default function BookingLiffPage() {
@@ -109,7 +109,7 @@ export default function BookingLiffPage() {
                 <p className="text-gray-500 mb-8">ระบบได้บันทึกการจองของคุณเรียบร้อยแล้ว</p>
                 <button
                     onClick={handleClose}
-                    className="px-8 py-3 bg-green-600 text-white font-medium rounded-xl hover:bg-green-700 transition-colors shadow-lg"
+                    className="px-8 py-3 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-700 transition-colors"
                 >
                     ปิด
                 </button>

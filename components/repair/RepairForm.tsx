@@ -1,18 +1,19 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useRef } from "react";
-import { useAuth } from "../../context/AuthContext";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import React, { useState, useRef, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { collection, addDoc, serverTimestamp, getDoc, doc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../../lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { Toaster, toast } from 'react-hot-toast';
-import { logActivity } from "../../utils/logger";
-import { compressImage } from "../../utils/imageCompression";
+import { logActivity } from "@/utils/logger";
+import { compressImage } from "@/utils/imageCompression";
 import {
     User, MapPin, Image as ImageIcon, FileText,
     Send, Loader2, X, Plus, Wrench, Phone, Building
 } from "lucide-react";
+import { POSITIONS, DEPARTMENTS } from "@/config/bookingConfig";
 
 export default function RepairForm() {
     const { user, loading: authLoading } = useAuth();
@@ -20,6 +21,7 @@ export default function RepairForm() {
 
     const [formData, setFormData] = useState({
         position: "ครู",
+        department: "",
         phone: "",
         room: "",
         description: "",
@@ -28,6 +30,26 @@ export default function RepairForm() {
     const [images, setImages] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Auto-fill from user profile
+    useEffect(() => {
+        const fetchProfile = async () => {
+            if (!user?.uid) return;
+            try {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    setFormData(prev => ({
+                        ...prev,
+                        phone: data.phone || prev.phone,
+                        position: data.position || prev.position,
+                        department: data.department || prev.department,
+                    }));
+                }
+            } catch { /* silent */ }
+        };
+        fetchProfile();
+    }, [user]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -101,6 +123,7 @@ export default function RepairForm() {
                 requesterName: user.displayName || "Unknown",
                 requesterEmail: user.email || "Unknown",
                 position: formData.position,
+                department: formData.department,
                 phone: formData.phone,
                 room: formData.room,
                 zone: formData.zone,
@@ -137,6 +160,7 @@ export default function RepairForm() {
 
             setFormData({
                 position: "ครู",
+                department: "",
                 phone: "",
                 room: "",
                 description: "",
@@ -161,22 +185,12 @@ export default function RepairForm() {
         <div className="w-full max-w-4xl mx-auto animate-fade-in">
             <Toaster position="top-center" />
 
-            {/* Header */}
-            <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/30 mb-4">
-                    <Wrench size={32} />
-                </div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">แจ้งซ่อม</h1>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">แจ้งปัญหาอุปกรณ์ชำรุดหรือเสียหาย</p>
-            </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* User Info Section */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-                    <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">
-                        <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                            <User size={16} />
-                        </div>
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        <User size={14} className="text-gray-400" />
                         ข้อมูลผู้แจ้ง
                     </div>
 
@@ -187,7 +201,7 @@ export default function RepairForm() {
                                 type="text"
                                 value={user.displayName || user.email || ""}
                                 disabled
-                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm"
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm"
                             />
                         </div>
                         <div>
@@ -196,12 +210,21 @@ export default function RepairForm() {
                                 name="position"
                                 value={formData.position}
                                 onChange={handleInputChange}
-                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 outline-none"
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none"
                             >
-                                <option value="ผู้บริหาร">ผู้บริหาร</option>
-                                <option value="ครู">ครู</option>
-                                <option value="ครู LS">ครู LS</option>
-                                <option value="บุคลากร">บุคลากร</option>
+                                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">ฝ่ายงาน</label>
+                            <select
+                                name="department"
+                                value={formData.department}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none"
+                            >
+                                <option value="">-- เลือกฝ่ายงาน --</option>
+                                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </div>
                         <div className="sm:col-span-2">
@@ -215,7 +238,7 @@ export default function RepairForm() {
                                 value={formData.phone}
                                 onChange={handleInputChange}
                                 placeholder="08x-xxx-xxxx"
-                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 outline-none placeholder:text-gray-400"
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none placeholder:text-gray-400"
                                 required
                             />
                         </div>
@@ -223,11 +246,9 @@ export default function RepairForm() {
                 </div>
 
                 {/* Location Section */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-                    <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">
-                        <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
-                            <MapPin size={16} />
-                        </div>
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        <MapPin size={14} className="text-gray-400" />
                         สถานที่
                     </div>
 
@@ -243,7 +264,7 @@ export default function RepairForm() {
                                 value={formData.room}
                                 onChange={handleInputChange}
                                 placeholder="เช่น ห้อง 101, ห้องประชุม ฯลฯ"
-                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 outline-none placeholder:text-gray-400"
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none placeholder:text-gray-400"
                                 required
                             />
                         </div>
@@ -259,7 +280,7 @@ export default function RepairForm() {
                                         className={`
                                             flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all
                                             ${formData.zone === option.value
-                                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-300 shadow-sm'
+                                                ? 'bg-gray-900 dark:bg-white border-gray-900 dark:border-white text-white dark:text-gray-900 shadow-sm'
                                                 : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                             }
                                         `}
@@ -282,12 +303,10 @@ export default function RepairForm() {
                 </div>
 
                 {/* Images Section */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">
-                            <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
-                                <ImageIcon size={16} />
-                            </div>
+                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                            <ImageIcon size={14} className="text-gray-400" />
                             รูปภาพประกอบ <span className="text-red-500">*</span>
                         </div>
                         <span className="text-xs text-gray-400 font-medium">{images.length}/5</span>
@@ -311,7 +330,7 @@ export default function RepairForm() {
                             <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
-                                className="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-500 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-all bg-gray-50 dark:bg-gray-700/30"
+                                className="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-all bg-gray-50 dark:bg-gray-700/30"
                             >
                                 <Plus size={24} />
                                 <span className="text-xs mt-1">เพิ่มรูป</span>
@@ -329,11 +348,9 @@ export default function RepairForm() {
                 </div>
 
                 {/* Description Section */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-                    <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold">
-                        <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-                            <FileText size={16} />
-                        </div>
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        <FileText size={14} className="text-gray-400" />
                         รายละเอียดอาการเสีย <span className="text-red-500">*</span>
                     </div>
                     <textarea
@@ -341,7 +358,7 @@ export default function RepairForm() {
                         value={formData.description}
                         onChange={handleInputChange}
                         placeholder="ระบุอาการเสียหรือปัญหาที่พบ..."
-                        className="w-full min-h-[120px] px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 outline-none resize-none placeholder:text-gray-400"
+                        className="w-full min-h-[120px] px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none resize-none placeholder:text-gray-400"
                         required
                     />
                 </div>
@@ -350,7 +367,7 @@ export default function RepairForm() {
                 <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold shadow-xl shadow-orange-500/30 hover:shadow-orange-500/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:hover:scale-100 transition-all text-base flex items-center justify-center gap-2 tap-scale"
+                    className="w-full py-3.5 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold hover:bg-gray-700 dark:hover:bg-gray-100 disabled:opacity-50 transition-all text-sm flex items-center justify-center gap-2"
                 >
                     {isSubmitting ? (
                         <>

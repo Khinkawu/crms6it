@@ -16,8 +16,14 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
         }
 
-        // Validate it's a Firebase Storage URL
-        if (!imageUrl.includes('firebasestorage.googleapis.com')) {
+        // Validate it's a Firebase Storage URL — use hostname to prevent SSRF bypass via path/query tricks
+        let parsedUrl: URL;
+        try {
+            parsedUrl = new URL(imageUrl);
+        } catch {
+            return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+        }
+        if (parsedUrl.hostname !== 'firebasestorage.googleapis.com') {
             return NextResponse.json({ error: 'Only Firebase Storage URLs allowed' }, { status: 403 });
         }
 
@@ -57,7 +63,9 @@ export async function POST(request: Request) {
 
         await Promise.all(limitedUrls.map(async (url: string) => {
             try {
-                if (!url.includes('firebasestorage.googleapis.com')) return;
+                let parsedBatch: URL;
+                try { parsedBatch = new URL(url); } catch { return; }
+                if (parsedBatch.hostname !== 'firebasestorage.googleapis.com') return;
                 const response = await fetch(url);
                 if (!response.ok) return;
                 const buffer = await response.arrayBuffer();

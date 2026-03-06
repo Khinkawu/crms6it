@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, where, orderBy, onSnapshot, or } from "firebase/firestore";
+import { collection, query, where, onSnapshot, or } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { RepairTicket, RepairStatus } from "../types";
 
@@ -43,35 +43,33 @@ export function useMyRepairs({ userId, userName }: UseMyRepairsOptions): UseMyRe
         // Priority: technicianId (preferred), fallback to technicianName
         let q;
         if (userId && userName) {
-            // If we have both, use OR query
+            // OR query — drop orderBy to avoid composite index requirement, sort client-side
             q = query(
                 collection(db, "repair_tickets"),
                 or(
                     where("technicianId", "==", userId),
                     where("technicianName", "==", userName)
-                ),
-                orderBy("updatedAt", "desc")
+                )
             );
         } else if (userId) {
-            // Only userId available
             q = query(
                 collection(db, "repair_tickets"),
-                where("technicianId", "==", userId),
-                orderBy("updatedAt", "desc")
+                where("technicianId", "==", userId)
             );
         } else {
-            // Only userName available (fallback for legacy)
             q = query(
                 collection(db, "repair_tickets"),
-                where("technicianName", "==", userName),
-                orderBy("updatedAt", "desc")
+                where("technicianName", "==", userName)
             );
         }
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const jobs: RepairTicket[] = [];
-            snapshot.forEach((doc) => {
-                jobs.push({ id: doc.id, ...doc.data() } as RepairTicket);
+            const jobs: RepairTicket[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RepairTicket));
+            // Sort client-side descending by updatedAt
+            jobs.sort((a, b) => {
+                const aMs = (a.updatedAt as any)?.toMillis?.() || 0;
+                const bMs = (b.updatedAt as any)?.toMillis?.() || 0;
+                return bMs - aMs;
             });
             setAllJobs(jobs);
             setLoading(false);

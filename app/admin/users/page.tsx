@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { collection, getDocs, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { UserProfile, UserRole } from "../../../types";
-import ConfirmationModal from "../../components/ConfirmationModal";
+import ConfirmationModal from "@/components/ConfirmationModal";
 import toast from "react-hot-toast";
 import { Search, Shield, User, Wrench, GraduationCap, ChevronDown, LayoutGrid, List, Camera, Building2 } from "lucide-react";
 
@@ -157,7 +157,7 @@ export default function UsersPage() {
             case 'technician': return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 border-cyan-500/20';
             case 'facility_technician': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/20';
             case 'moderator': return 'bg-orange-500/10 text-orange-600 dark:text-orange-300 border-orange-500/20';
-            default: return 'bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/20';
+            default: return 'bg-gray-500/10 text-gray-600 dark:text-gray-300 border-gray-500/20';
         }
     };
 
@@ -181,7 +181,7 @@ export default function UsersPage() {
                             placeholder="Search users by name or email..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-card border border-border text-text placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 transition-all shadow-sm"
+                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-card border border-border text-text placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-gray-500/50 transition-all shadow-sm"
                         />
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary w-5 h-5" />
                     </div>
@@ -193,7 +193,7 @@ export default function UsersPage() {
                     {isLoadingUsers ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {[1, 2, 3, 4, 5, 6].map((i) => (
-                                <div key={i} className="h-40 bg-card rounded-2xl animate-pulse border border-border"></div>
+                                <div key={i} className="h-40 bg-white dark:bg-gray-900 rounded-2xl animate-pulse border border-gray-200 dark:border-gray-800"></div>
                             ))}
                         </div>
                     ) : filteredUsers.length === 0 ? (
@@ -212,7 +212,7 @@ export default function UsersPage() {
                                     <div key={u.uid} className="bg-card border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-all">
                                         <div className="flex items-start justify-between mb-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg overflow-hidden shadow-sm">
+                                                <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-700 dark:text-gray-300 font-bold text-lg overflow-hidden shadow-sm">
                                                     {u.photoURL ? (
                                                         <img src={u.photoURL} alt={u.displayName || "User"} className="w-full h-full object-cover" />
                                                     ) : (
@@ -239,7 +239,7 @@ export default function UsersPage() {
                                                             value={u.role || "user"}
                                                             onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
                                                             disabled={u.uid === user.uid || updatingUserId === u.uid}
-                                                            className="w-full pl-2 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 appearance-none capitalize"
+                                                            className="w-full pl-2 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-gray-500/50 appearance-none capitalize"
                                                         >
                                                             <option value="user">User</option>
                                                             <option value="moderator">Moderator</option>
@@ -259,7 +259,7 @@ export default function UsersPage() {
                                                                 value={u.responsibility || "all"}
                                                                 onChange={(e) => handleResponsibilityChange(u.uid, e.target.value as any)}
                                                                 disabled={updatingUserId === u.uid}
-                                                                className="w-full pl-2 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 appearance-none"
+                                                                className="w-full pl-2 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-gray-500/50 appearance-none"
                                                             >
                                                                 <option value="all">All</option>
                                                                 <option value="junior_high">M.3</option>
@@ -307,7 +307,7 @@ export default function UsersPage() {
                                             <tr key={u.uid} className="hover:bg-background/50 transition-colors group">
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
+                                                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-700 dark:text-gray-300 font-bold overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
                                                             {u.photoURL ? (
                                                                 <img src={u.photoURL} alt={u.displayName || "User"} className="w-full h-full object-cover" />
                                                             ) : (
@@ -331,7 +331,7 @@ export default function UsersPage() {
                                                                 value={u.role || "user"}
                                                                 onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
                                                                 disabled={u.uid === user.uid || updatingUserId === u.uid}
-                                                                className="w-full pl-3 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 disabled:opacity-50 cursor-pointer appearance-none capitalize transition-colors hover:border-cyan-500/30"
+                                                                className="w-full pl-3 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-gray-500/50 disabled:opacity-50 cursor-pointer appearance-none capitalize transition-colors hover:border-gray-500/30"
                                                             >
                                                                 <option value="user">User</option>
                                                                 <option value="moderator">Moderator</option>
@@ -348,7 +348,7 @@ export default function UsersPage() {
                                                                     value={u.responsibility || "all"}
                                                                     onChange={(e) => handleResponsibilityChange(u.uid, e.target.value as any)}
                                                                     disabled={updatingUserId === u.uid}
-                                                                    className="w-full pl-3 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-cyan-500/50 disabled:opacity-50 cursor-pointer appearance-none transition-colors hover:border-cyan-500/30"
+                                                                    className="w-full pl-3 pr-8 py-2 rounded-lg bg-background border border-border text-text text-sm focus:outline-none focus:border-gray-500/50 disabled:opacity-50 cursor-pointer appearance-none transition-colors hover:border-gray-500/30"
                                                                 >
                                                                     <option value="all">All Zones</option>
                                                                     <option value="junior_high">Junior High</option>

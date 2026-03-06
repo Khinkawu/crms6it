@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { collection, query, where, orderBy, getDocs, doc, updateDoc } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { db } from "@/lib/firebase";
 import { Camera, Search, Calendar, ExternalLink, User, Filter, X, ChevronLeft, ChevronRight, Pencil, Link, Save, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PhotographyJob } from "../../types";
-import { useAuth } from "../../context/AuthContext";
+import { PhotographyJob } from "@/types";
+import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 
 // Thai months for filter
@@ -180,104 +180,91 @@ export default function GalleryPage() {
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-            {/* Header */}
-            <div className="sticky top-0 z-20 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50">
-                <div className="max-w-7xl mx-auto px-4 py-4">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/30">
-                                <Camera size={24} />
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-bold text-gray-900 dark:text-white">ประมวลภาพกิจกรรม</h1>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">{filteredJobs.length} กิจกรรม</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={`p-2.5 rounded-xl border transition-all ${hasActiveFilters
-                                ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/30 dark:border-blue-700'
-                                : 'bg-gray-50 border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'
-                                }`}
-                        >
-                            <Filter size={20} />
-                        </button>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="ค้นหาชื่อกิจกรรม, ตากล้อง, สถานที่..."
-                            className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                    </div>
-
-                    {/* Filter Panel */}
-                    <AnimatePresence>
-                        {showFilters && (
-                            <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="overflow-hidden"
-                            >
-                                <div className="pt-4 flex flex-wrap gap-3">
-                                    <select
-                                        value={selectedDay ?? ''}
-                                        onChange={(e) => setSelectedDay(e.target.value ? Number(e.target.value) : null)}
-                                        className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
-                                    >
-                                        <option value="">ทุกวัน</option>
-                                        {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                                            <option key={d} value={d}>{d}</option>
-                                        ))}
-                                    </select>
-
-                                    <select
-                                        value={selectedMonth ?? ''}
-                                        onChange={(e) => setSelectedMonth(e.target.value ? Number(e.target.value) : null)}
-                                        className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
-                                    >
-                                        <option value="">ทุกเดือน</option>
-                                        {THAI_MONTHS.map((m) => (
-                                            <option key={m.value} value={m.value}>{m.label}</option>
-                                        ))}
-                                    </select>
-
-                                    <select
-                                        value={selectedYear ?? ''}
-                                        onChange={(e) => setSelectedYear(e.target.value ? Number(e.target.value) : null)}
-                                        className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
-                                    >
-                                        <option value="">ทุกปี</option>
-                                        {YEARS.map((y) => (
-                                            <option key={y.value} value={y.value}>{y.label}</option>
-                                        ))}
-                                    </select>
-
-                                    {hasActiveFilters && (
-                                        <button
-                                            onClick={clearFilters}
-                                            className="px-4 py-2 rounded-xl bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-sm flex items-center gap-2"
-                                        >
-                                            <X size={16} />
-                                            ล้างตัวกรอง
-                                        </button>
-                                    )}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+        <div className="space-y-6">
+            {/* Page Header */}
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">ประมวลภาพกิจกรรม</h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{filteredJobs.length} กิจกรรม</p>
                 </div>
+                <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${hasActiveFilters
+                        ? 'bg-gray-900 border-gray-900 text-white dark:bg-white dark:border-white dark:text-gray-900'
+                        : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-400'
+                        }`}
+                >
+                    <Filter size={14} />
+                    ตัวกรอง
+                </button>
+            </div>
+
+            {/* Search + Filters */}
+            <div className="space-y-3">
+                <div className="relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="ค้นหาชื่อกิจกรรม, ตากล้อง, สถานที่..."
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-gray-400 dark:focus:border-gray-600"
+                    />
+                </div>
+
+                <AnimatePresence>
+                    {showFilters && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                <select
+                                    value={selectedDay ?? ''}
+                                    onChange={(e) => setSelectedDay(e.target.value ? Number(e.target.value) : null)}
+                                    className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+                                >
+                                    <option value="">ทุกวัน</option>
+                                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                                        <option key={d} value={d}>{d}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={selectedMonth ?? ''}
+                                    onChange={(e) => setSelectedMonth(e.target.value ? Number(e.target.value) : null)}
+                                    className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+                                >
+                                    <option value="">ทุกเดือน</option>
+                                    {THAI_MONTHS.map((m) => (
+                                        <option key={m.value} value={m.value}>{m.label}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={selectedYear ?? ''}
+                                    onChange={(e) => setSelectedYear(e.target.value ? Number(e.target.value) : null)}
+                                    className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+                                >
+                                    <option value="">ทุกปี</option>
+                                    {YEARS.map((y) => (
+                                        <option key={y.value} value={y.value}>{y.label}</option>
+                                    ))}
+                                </select>
+                                {hasActiveFilters && (
+                                    <button onClick={clearFilters} className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1.5">
+                                        <X size={14} />
+                                        ล้างตัวกรอง
+                                    </button>
+                                )}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* Content */}
-            <div className="max-w-7xl mx-auto px-4 py-6">
+            <div>
                 {loading ? (
                     <div className="text-center py-20">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
@@ -300,7 +287,7 @@ export default function GalleryPage() {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
-                                    className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700"
+                                    className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200"
                                 >
                                     {/* Cover Image */}
                                     <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 relative overflow-hidden">
@@ -421,7 +408,7 @@ export default function GalleryPage() {
                                                     key={page}
                                                     onClick={() => setCurrentPage(page as number)}
                                                     className={`w-10 h-10 rounded-xl text-sm font-medium transition-colors ${page === currentPage
-                                                        ? 'bg-blue-500 text-white shadow-md'
+                                                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
                                                         : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
                                                         }`}
                                                 >
@@ -459,7 +446,7 @@ export default function GalleryPage() {
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                            className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl w-full max-w-md overflow-hidden"
                             onClick={(e) => e.stopPropagation()}
                         >
                             {/* Modal Header */}
@@ -534,7 +521,7 @@ export default function GalleryPage() {
                                 <button
                                     onClick={handleSaveEdit}
                                     disabled={isSaving}
-                                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 flex items-center gap-2"
+                                    className="px-5 py-2 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-medium hover:bg-gray-700 dark:hover:bg-gray-100 transition-all disabled:opacity-50 flex items-center gap-2"
                                 >
                                     {isSaving ? (
                                         <>

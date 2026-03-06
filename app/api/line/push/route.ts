@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
     try {
+        const apiKey = req.headers.get('x-api-key');
+        const validApiKey = process.env.CRMS_API_SECRET_KEY;
+        if (!validApiKey || apiKey !== validApiKey) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await req.json();
         const { to, messages } = body;
         const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;

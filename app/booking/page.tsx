@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import BookingForm from "../components/BookingForm";
-import { PageSkeleton } from "../components/ui/Skeleton";
+import BookingForm from "@/components/BookingForm";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 
 export default function BookingPage() {
     const { user, loading: authLoading } = useAuth();
@@ -20,15 +20,15 @@ export default function BookingPage() {
     }
 
     return (
-        <div className="animate-fade-in pb-20 min-h-screen bg-gray-50/50 dark:bg-gray-900">
-            <div className="max-w-3xl mx-auto p-4 md:p-8">
-                <BookingForm
-                    onSuccess={() => {
-                        router.push("/");
-                    }}
-                    onCancel={() => router.push("/")}
-                />
+        <div className="max-w-2xl mx-auto space-y-6">
+            <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">จองห้อง / คิว</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">จองห้องประชุม อุปกรณ์โสตฯ หรือคิวช่างภาพ</p>
             </div>
+            <BookingForm
+                onSuccess={() => router.push("/")}
+                onCancel={() => router.push("/")}
+            />
         </div>
     );
 }

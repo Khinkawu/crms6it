@@ -8,7 +8,7 @@ import { signInWithCustomToken } from "firebase/auth";
 import { db, auth } from "../../../lib/firebase";
 import RepairForm from "../../../components/repair/RepairForm";
 import RepairHistory from "../../../components/repair/RepairHistory";
-import { LiffSkeleton, LiffError, triggerHaptic } from "../../components/liff/LiffComponents";
+import { LiffSkeleton, LiffError, triggerHaptic } from "@/components/liff/LiffComponents";
 
 export default function RepairLiffPage() {
     const { profile, isLoggedIn, isLoading: liffLoading, error } = useLiff(process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || "");
@@ -105,17 +105,17 @@ export default function RepairLiffPage() {
                 <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-gray-100 flex">
                     <button
                         onClick={() => handleTabChange('new')}
-                        className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${activeTab === 'new' ? 'text-blue-600' : 'text-gray-400'}`}
+                        className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${activeTab === 'new' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
                     >
                         แจ้งซ่อม
-                        {activeTab === 'new' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
+                        {activeTab === 'new' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-900 dark:bg-white rounded-t-full" />}
                     </button>
                     <button
                         onClick={() => handleTabChange('history')}
-                        className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-400'}`}
+                        className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${activeTab === 'history' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
                     >
                         ประวัติ
-                        {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full" />}
+                        {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-900 dark:bg-white rounded-t-full" />}
                     </button>
                 </div>
 

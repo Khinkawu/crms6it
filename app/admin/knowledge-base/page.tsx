@@ -16,7 +16,7 @@ import {
     Tag
 } from "lucide-react";
 import Link from "next/link";
-import KnowledgeModal from "@/app/components/admin/KnowledgeModal";
+import KnowledgeModal from "@/components/admin/KnowledgeModal";
 
 interface KnowledgeItem {
     id: string;
@@ -94,17 +94,17 @@ export default function KnowledgeBasePage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900 p-4 pb-24 md:p-6 space-y-6">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 pb-24 md:p-6 space-y-6">
 
             {/* Header */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800">
                 <div className="flex items-center gap-4">
-                    <Link href="/admin/dashboard" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+                    <Link href="/admin/dashboard" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
                         <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
                     </Link>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            <BookOpen className="text-blue-600" />
+                            <BookOpen className="text-gray-400" />
                             คลังความรู้ IT
                         </h1>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -120,13 +120,13 @@ export default function KnowledgeBasePage() {
                             placeholder="ค้นหาข้อมูล..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2 w-full md:w-64 rounded-xl bg-gray-100 dark:bg-gray-900 border-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-white"
+                            className="pl-10 pr-4 py-2 w-full md:w-64 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-gray-400 transition-all dark:text-white"
                         />
                         <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                     </div>
                     <button
                         onClick={handleAddNew}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-lg shadow-blue-500/30"
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white hover:bg-gray-700 dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-xl font-medium transition-all"
                     >
                         <Plus size={18} />
                         <span className="hidden sm:inline">เพิ่มข้อมูล</span>
@@ -144,12 +144,12 @@ export default function KnowledgeBasePage() {
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
                             key={item.id}
-                            className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all group"
+                            className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all group"
                         >
                             <div className="flex justify-between items-start gap-4">
                                 <div className="space-y-2 flex-1">
                                     <div className="flex items-center gap-2">
-                                        <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-lg">
+                                        <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs font-semibold rounded-lg">
                                             {item.category}
                                         </span>
                                         <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-1">
@@ -175,7 +175,7 @@ export default function KnowledgeBasePage() {
                                 <div className="flex flex-col gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => handleEdit(item)}
-                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                        className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                                     >
                                         <Edit2 size={18} />
                                     </button>

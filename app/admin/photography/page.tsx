@@ -23,9 +23,9 @@ import { collection, query, orderBy, onSnapshot, doc, deleteDoc, Timestamp, limi
 import { db } from "@/lib/firebase";
 import { PhotographyJob, UserProfile } from "@/types";
 import toast from "react-hot-toast";
-import PhotographyJobModal from "@/app/components/PhotographyJobModal";
-import EditPhotographyJobModal from "@/app/components/EditPhotographyJobModal";
-import ConfirmationModal from "@/app/components/ConfirmationModal";
+import PhotographyJobModal from "@/components/PhotographyJobModal";
+import EditPhotographyJobModal from "@/components/EditPhotographyJobModal";
+import ConfirmationModal from "@/components/ConfirmationModal";
 
 export default function PhotographyManagement() {
     const { user, role, isPhotographer, loading } = useAuth();
@@ -271,7 +271,7 @@ export default function PhotographyManagement() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent" />
+                <div className="animate-spin h-8 w-8 border-4 border-gray-300 dark:border-gray-700 border-t-gray-900 dark:border-t-white rounded-full" />
             </div>
         );
     }
@@ -288,19 +288,14 @@ export default function PhotographyManagement() {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500">
-                            <Camera size={24} className="text-white" />
-                        </div>
-                        จัดการงานตากล้อง
-                    </h1>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">จัดการงานตากล้อง</h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">
                         ดูและจัดการงานถ่ายภาพทั้งหมด
                     </p>
                 </div>
                 <button
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-medium hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors"
                 >
                     <Plus size={18} />
                     มอบหมายงานใหม่
@@ -309,7 +304,7 @@ export default function PhotographyManagement() {
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-4">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30">
                             <AlertCircle size={20} className="text-amber-600 dark:text-amber-400" />
@@ -320,7 +315,7 @@ export default function PhotographyManagement() {
                         </div>
                     </div>
                 </div>
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-4">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
                             <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
@@ -331,7 +326,7 @@ export default function PhotographyManagement() {
                         </div>
                     </div>
                 </div>
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-4">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700">
                             <XCircle size={20} className="text-gray-600 dark:text-gray-400" />
@@ -347,7 +342,7 @@ export default function PhotographyManagement() {
 
 
             {/* Search and Filter */}
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
                 <div className="flex flex-col md:flex-row gap-4">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -374,7 +369,7 @@ export default function PhotographyManagement() {
                             <button
                                 onClick={() => setFilterSource('direct')}
                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterSource === 'direct'
-                                    ? 'bg-white dark:bg-gray-600 shadow-sm text-purple-600 dark:text-purple-300'
+                                    ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-white'
                                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
                                     }`}
                             >
@@ -383,7 +378,7 @@ export default function PhotographyManagement() {
                             <button
                                 onClick={() => setFilterSource('booking')}
                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterSource === 'booking'
-                                    ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-300'
+                                    ? 'bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-white'
                                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
                                     }`}
                             >
@@ -396,8 +391,8 @@ export default function PhotographyManagement() {
                                 key={status}
                                 onClick={() => setFilterStatus(status)}
                                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors flex-1 sm:flex-none whitespace-nowrap ${filterStatus === status
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                                     }`}
                             >
                                 {status === 'all' ? 'ทุกสถานะ' :
@@ -410,7 +405,7 @@ export default function PhotographyManagement() {
             </div>
 
             {/* Jobs List */}
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
                 {loadingJobs ? (
                     <div className="p-8 text-center text-gray-500">กำลังโหลด...</div>
                 ) : filteredJobs.length === 0 ? (
@@ -479,21 +474,21 @@ export default function PhotographyManagement() {
                                             {/* Details Grid */}
                                             <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-500 dark:text-gray-400">
                                                 <div className="flex items-center gap-2 min-w-0">
-                                                    <Calendar size={14} className="flex-shrink-0 text-blue-500" />
+                                                    <Calendar size={14} className="flex-shrink-0 text-gray-400" />
                                                     <span className="truncate">{formatDate(job.startTime)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2 min-w-0">
-                                                    <Clock size={14} className="flex-shrink-0 text-orange-500" />
+                                                    <Clock size={14} className="flex-shrink-0 text-gray-400" />
                                                     <span className="truncate">{formatTime(job.startTime)} - {formatTime(job.endTime)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2 min-w-0 sm:col-span-2">
-                                                    <MapPin size={14} className="flex-shrink-0 text-red-500" />
+                                                    <MapPin size={14} className="flex-shrink-0 text-gray-400" />
                                                     <span className="truncate">{job.location}</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="pt-3 border-t border-gray-100 dark:border-gray-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                             {/* Assignees */}
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <div className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 flex-shrink-0">

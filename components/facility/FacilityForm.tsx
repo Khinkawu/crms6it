@@ -1,19 +1,20 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useRef } from "react";
-import { useAuth } from "../../context/AuthContext";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import React, { useState, useRef, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { collection, addDoc, serverTimestamp, getDoc, doc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../../lib/firebase";
-import { toast } from 'react-hot-toast';
-import { logActivity } from "../../utils/logger";
-import { compressImage } from "../../utils/imageCompression";
+import { db, storage } from "@/lib/firebase";
+import { Toaster, toast } from 'react-hot-toast';
+import { logActivity } from "@/utils/logger";
+import { compressImage } from "@/utils/imageCompression";
 import {
     User, MapPin, Image as ImageIcon, FileText,
-    Send, Loader2, X, Plus, Phone, Building2, Tag
+    Send, Loader2, X, Plus, Phone, Building2
 } from "lucide-react";
-import { FacilityIssueCategory } from "../../types";
+import { FacilityIssueCategory } from "@/types";
+import { POSITIONS, DEPARTMENTS } from "@/config/bookingConfig";
 
 export default function FacilityForm() {
     const { user, loading: authLoading } = useAuth();
@@ -21,17 +22,35 @@ export default function FacilityForm() {
 
     const [formData, setFormData] = useState({
         position: "ครู",
+        department: "",
         phone: "",
         room: "",
         description: "",
         zone: "junior_high",
-        issueCategory: "หลอดไฟ" as FacilityIssueCategory,
     });
     const [images, setImages] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const categories: FacilityIssueCategory[] = ['แอร์', 'ไฟฟ้า', 'ประปา', 'โครงสร้าง', 'เบ็ดเตล็ด'];
+    // Auto-fill from user profile
+    useEffect(() => {
+        const fetchProfile = async () => {
+            if (!user?.uid) return;
+            try {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    setFormData(prev => ({
+                        ...prev,
+                        phone: data.phone || prev.phone,
+                        position: data.position || prev.position,
+                        department: data.department || prev.department,
+                    }));
+                }
+            } catch { /* silent */ }
+        };
+        fetchProfile();
+    }, [user]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -70,7 +89,7 @@ export default function FacilityForm() {
             return;
         }
 
-        if (!formData.phone || !formData.room || !formData.description || !formData.issueCategory) {
+        if (!formData.phone || !formData.room || !formData.description) {
             toast.error("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
             return;
         }
@@ -81,7 +100,7 @@ export default function FacilityForm() {
         }
 
         setIsSubmitting(true);
-        const toastId = toast.loading("กำลังส่งข้อมูลแจ้งซ่อมอาคาร...");
+        const toastId = toast.loading("กำลังบันทึกข้อมูล...");
 
         try {
             // Compress and upload images
@@ -100,15 +119,14 @@ export default function FacilityForm() {
                 imageUrls.push(url);
             }
 
-            // Save to facility_tickets collection
             const docRef = await addDoc(collection(db, "facility_tickets"), {
                 requesterName: user.displayName || "Unknown",
                 requesterEmail: user.email || "Unknown",
                 position: formData.position,
+                department: formData.department,
                 phone: formData.phone,
                 room: formData.room,
                 zone: formData.zone,
-                issueCategory: formData.issueCategory,
                 description: formData.description,
                 images: imageUrls,
                 status: 'pending',
@@ -116,7 +134,6 @@ export default function FacilityForm() {
                 updatedAt: serverTimestamp(),
             });
 
-            // Call LINE Notify API
             fetch('/api/notify-facility', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -125,31 +142,29 @@ export default function FacilityForm() {
                     requesterName: user.displayName || "Unknown",
                     room: formData.room,
                     zone: formData.zone,
-                    issueCategory: formData.issueCategory,
                     description: formData.description,
                     imageOneUrl: imageUrls.length > 0 ? imageUrls[0] : null
                 })
             }).catch(err => console.error("Failed to send LINE notification:", err));
 
             await logActivity({
-                action: 'create',
+                action: 'repair',
                 productName: `ซ่อมอาคาร: ${formData.room}`,
                 userName: user.displayName || "Unknown",
-                details: `แจ้งซ่อมหมวด${formData.issueCategory} - ${formData.description}`,
+                details: formData.description,
                 imageUrl: imageUrls.length > 0 ? imageUrls[0] : undefined,
                 zone: formData.zone
             });
 
-            toast.success("ส่งเรื่องแจ้งซ่อมอาคารเรียบร้อยแล้ว", { id: toastId });
+            toast.success("แจ้งซ่อมอาคารเรียบร้อยแล้ว", { id: toastId });
 
-            // Reset form
             setFormData({
                 position: "ครู",
+                department: "",
                 phone: "",
                 room: "",
                 description: "",
                 zone: "junior_high",
-                issueCategory: "ไฟฟ้า",
             });
             setImages([]);
             setPreviews([]);
@@ -167,216 +182,209 @@ export default function FacilityForm() {
     if (!user) return <div className="p-8 text-center text-red-500">กรุณาเข้าสู่ระบบ</div>;
 
     return (
-        <div className="max-w-2xl mx-auto">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-8 text-white relative overflow-hidden">
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-white/20 backdrop-blur-sm rounded-xl">
-                                <Building2 size={24} className="text-white" />
-                            </div>
-                            <h2 className="text-2xl font-bold">แจ้งซ่อมอาคารสถานที่</h2>
+        <div className="w-full max-w-4xl mx-auto animate-fade-in">
+            <Toaster position="top-center" />
+
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {/* User Info Section */}
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        <User size={14} className="text-gray-400" />
+                        ข้อมูลผู้แจ้ง
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">ชื่อผู้แจ้ง</label>
+                            <input
+                                type="text"
+                                value={user.displayName || user.email || ""}
+                                disabled
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm"
+                            />
                         </div>
-                        <p className="text-amber-50 opacity-90 pl-14">
-                            รายงานปัญหา ไฟฟ้า ประปา แอร์ โครงสร้าง หรืออื่นๆ ภายในโรงเรียน
-                        </p>
+                        <div>
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">ตำแหน่ง</label>
+                            <select
+                                name="position"
+                                value={formData.position}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none"
+                            >
+                                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">ฝ่ายงาน</label>
+                            <select
+                                name="department"
+                                value={formData.department}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none"
+                            >
+                                <option value="">-- เลือกฝ่ายงาน --</option>
+                                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block flex items-center gap-1">
+                                <Phone size={12} />
+                                เบอร์โทรศัพท์ <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="tel"
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleInputChange}
+                                placeholder="08x-xxx-xxxx"
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none placeholder:text-gray-400"
+                                required
+                            />
+                        </div>
                     </div>
                 </div>
 
-                <div className="p-6 md:p-8">
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Section 1: ข้อมูลผู้แจ้ง */}
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                <User size={18} className="text-amber-500" />
-                                1. ข้อมูลผู้แจ้ง
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">ตำแหน่ง / Role</label>
-                                    <select
-                                        name="position"
-                                        value={formData.position}
-                                        onChange={handleInputChange}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all outline-none"
-                                    >
-                                        <option value="ครู">ครู</option>
-                                        <option value="นักเรียน">นักเรียน</option>
-                                        <option value="เจ้าหน้าที่">เจ้าหน้าที่</option>
-                                        <option value="ผู้บริหาร">ผู้บริหาร</option>
-                                        <option value="อื่นๆ">อื่นๆ</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">เบอร์โทรศัพท์ติดต่อ <span className="text-red-500">*</span></label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <Phone size={16} className="text-gray-400" />
-                                        </div>
-                                        <input
-                                            type="tel"
-                                            name="phone"
-                                            placeholder="08X-XXX-XXXX"
-                                            value={formData.phone}
-                                            onChange={handleInputChange}
-                                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all outline-none"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                {/* Location Section */}
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        <MapPin size={14} className="text-gray-400" />
+                        สถานที่
+                    </div>
 
-                        <hr className="border-gray-100 dark:border-slate-700" />
-
-                        {/* Section 2: สถานที่และหมวดหมู่ */}
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                <MapPin size={18} className="text-amber-500" />
-                                2. สถานที่และปัญหา
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">โซน / ฝั่ง <span className="text-red-500">*</span></label>
-                                    <select
-                                        name="zone"
-                                        value={formData.zone}
-                                        onChange={handleInputChange}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all outline-none"
-                                    >
-                                        <option value="junior_high">มัธยมต้น (ม.1-3)</option>
-                                        <option value="senior_high">มัธยมปลาย (ม.4-6)</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">อาคาร/ห้อง/สถานที่ <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        name="room"
-                                        placeholder="เช่น อาคาร 1 ห้อง 115"
-                                        value={formData.room}
-                                        onChange={handleInputChange}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all outline-none"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">หมวดหมู่ปัญหา <span className="text-red-500">*</span></label>
-                                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                                    {categories.map((cat) => (
-                                        <button
-                                            key={cat}
-                                            type="button"
-                                            onClick={() => setFormData(p => ({ ...p, issueCategory: cat }))}
-                                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${formData.issueCategory === cat
-                                                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-2 border-amber-500'
-                                                    : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-slate-600 hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-slate-700'
-                                                }`}
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">โซน <span className="text-red-500">*</span></label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        { value: 'junior_high', label: 'ม.ต้น', icon: '🏫' },
+                                        { value: 'senior_high', label: 'ม.ปลาย', icon: '🎓' },
+                                    ].map((option) => (
+                                        <label
+                                            key={option.value}
+                                            className={`
+                                                flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all
+                                                ${formData.zone === option.value
+                                                    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500 text-amber-700 dark:text-amber-300 shadow-sm'
+                                                    : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                }
+                                            `}
                                         >
-                                            {cat}
-                                        </button>
+                                            <input
+                                                type="radio"
+                                                name="zone"
+                                                value={option.value}
+                                                checked={formData.zone === option.value}
+                                                onChange={handleInputChange}
+                                                className="hidden"
+                                            />
+                                            <span className="text-lg">{option.icon}</span>
+                                            <span className="font-semibold text-sm">{option.label}</span>
+                                        </label>
                                     ))}
                                 </div>
                             </div>
-
-                            <div className="space-y-2 mt-4">
-                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                                    <FileText size={16} className="text-gray-400" />
-                                    รายละเอียดปัญหา/อาการเสีย <span className="text-red-500">*</span>
+                            <div>
+                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block flex items-center gap-1">
+                                    <Building2 size={12} />
+                                    ห้อง / สถานที่ <span className="text-red-500">*</span>
                                 </label>
-                                <textarea
-                                    name="description"
-                                    placeholder="อธิบายอาการเสียอย่างละเอียด เพื่อให้ช่างเตรียมเครื่องมือและอะไหล่ได้ถูกต้อง"
-                                    value={formData.description}
+                                <input
+                                    type="text"
+                                    name="room"
+                                    value={formData.room}
                                     onChange={handleInputChange}
-                                    rows={4}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all outline-none resize-none"
+                                    placeholder="เช่น ห้อง 101, ห้องประชุม ฯลฯ"
+                                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none placeholder:text-gray-400"
                                     required
                                 />
                             </div>
                         </div>
 
-                        <hr className="border-gray-100 dark:border-slate-700" />
-
-                        {/* Section 3: รูปภาพประกอบ */}
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                <ImageIcon size={18} className="text-amber-500" />
-                                3. รูปภาพประกอบ <span className="text-red-500 ml-1 text-sm">*</span>
-                            </h3>
-
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                {previews.map((preview, idx) => (
-                                    <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-slate-600 group">
-                                        <img
-                                            src={preview}
-                                            alt={`Preview ${idx + 1}`}
-                                            className="w-full h-full object-cover"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => removeImage(idx)}
-                                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-sm"
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    </div>
-                                ))}
-
-                                {images.length < 5 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="aspect-square flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 hover:border-amber-400 hover:text-amber-500 transition-all"
-                                    >
-                                        <Plus size={24} />
-                                        <span className="text-sm font-medium">เพิ่มรูปภาพ</span>
-                                        <span className="text-xs opacity-70">({images.length}/5)</span>
-                                    </button>
-                                )}
-                            </div>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={handleImageChange}
-                                className="hidden"
-                            />
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                                ควรถ่ายภาพให้เห็นจุดที่ชำรุด หรือบริเวณกว้างเพื่อให้ทราบตำแหน่งชัดเจน (รองรับสูงสุด 5 ภาพ)
-                            </p>
-                        </div>
-
-                        {/* Submit Button */}
-                        <div className="pt-4">
-                            <button
-                                type="submit"
-                                disabled={isSubmitting}
-                                className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl text-white font-medium shadow-sm transition-all ${isSubmitting
-                                        ? "bg-amber-400 cursor-not-allowed"
-                                        : "bg-amber-500 hover:bg-amber-600 hover:shadow-md active:scale-[0.98]"
-                                    }`}
-                            >
-                                {isSubmitting ? (
-                                    <>
-                                        <Loader2 className="animate-spin" size={20} />
-                                        กำลังบันทึกข้อมูล...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Send size={20} />
-                                        ยืนยันการแจ้งซ่อมอาคารสถานที่
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
-            </div>
+
+                {/* Images Section */}
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                            <ImageIcon size={14} className="text-gray-400" />
+                            รูปภาพประกอบ <span className="text-red-500">*</span>
+                        </div>
+                        <span className="text-xs text-gray-400 font-medium">{images.length}/5</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                        {previews.map((src, index) => (
+                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-600 group bg-gray-100 dark:bg-gray-700 shadow-sm">
+                                <img src={src} alt="Preview" className="w-full h-full object-cover" />
+                                <button
+                                    type="button"
+                                    onClick={() => removeImage(index)}
+                                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ))}
+
+                        {images.length < 5 && (
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center text-gray-400 hover:border-amber-400 hover:text-amber-500 dark:hover:border-amber-500 dark:hover:text-amber-400 transition-all bg-gray-50 dark:bg-gray-700/30"
+                            >
+                                <Plus size={24} />
+                                <span className="text-xs mt-1">เพิ่มรูป</span>
+                            </button>
+                        )}
+                    </div>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageChange}
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                    />
+                </div>
+
+                {/* Description Section */}
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                        <FileText size={14} className="text-gray-400" />
+                        รายละเอียดปัญหา <span className="text-red-500">*</span>
+                    </div>
+                    <textarea
+                        name="description"
+                        value={formData.description}
+                        onChange={handleInputChange}
+                        placeholder="ระบุปัญหาที่พบให้ละเอียด เพื่อความรวดเร็วในการวางแผนแก้ไข..."
+                        className="w-full min-h-[120px] px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none resize-none placeholder:text-gray-400"
+                        required
+                    />
+                </div>
+
+                {/* Submit Button */}
+                <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold hover:bg-gray-700 dark:hover:bg-gray-100 disabled:opacity-50 transition-all text-sm flex items-center justify-center gap-2"
+                >
+                    {isSubmitting ? (
+                        <>
+                            <Loader2 size={20} className="animate-spin" />
+                            กำลังบันทึกข้อมูล...
+                        </>
+                    ) : (
+                        <>
+                            <Send size={20} />
+                            ยืนยันการแจ้งซ่อม
+                        </>
+                    )}
+                </button>
+            </form>
         </div>
     );
 }

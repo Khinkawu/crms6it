@@ -83,7 +83,7 @@ export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepa
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [enabled, fetchInventory]);
 
     // Filter tickets
     const filteredTickets = tickets.filter(t => {

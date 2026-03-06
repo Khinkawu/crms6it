@@ -5,6 +5,12 @@ import { adminDb } from '@/lib/firebaseAdmin';
 
 export async function POST(request: NextRequest) {
     try {
+        const apiKey = request.headers.get('x-api-key');
+        const validApiKey = process.env.CRMS_API_SECRET_KEY;
+        if (!validApiKey || apiKey !== validApiKey) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
         const { token, userId, title, body: messageBody, data } = body;
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { collection, query, onSnapshot, getDocs, where, Timestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { View, Views } from "react-big-calendar";
-import { startOfDay, startOfMonth, endOfMonth, subMonths, addMonths, isSameDay } from "date-fns";
+import { startOfDay, startOfMonth, endOfMonth, subMonths, addMonths, addDays } from "date-fns";
 
 export interface BookingEvent {
     id: string;
@@ -163,7 +163,7 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
         });
 
         return () => unsubscribe();
-    }, [includePhotographyJobs, monthsRange, enabled, realtime]);
+    }, [includePhotographyJobs, monthsRange, enabled, realtime, date]);
 
     // Merge booking and photography events
     const events = useMemo(() => {
@@ -175,9 +175,8 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
     // Compute visible events based on current view and date
     const visibleEvents = useMemo(() => {
         if (view === Views.AGENDA) {
-            return events.filter(event =>
-                isSameDay(event.start, date)
-            );
+            const agendaEnd = addDays(date, 30);
+            return events.filter(event => event.start >= date && event.start <= agendaEnd);
         }
         return events;
     }, [events, view, date]);

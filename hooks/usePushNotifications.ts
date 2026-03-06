@@ -23,16 +23,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     const [isLoading, setIsLoading] = useState(true);
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission | "unsupported">("default");
 
-    // Sync isEnabled from localStorage for cross-component sync
-    const syncFromStorage = useCallback(() => {
-        if (typeof window !== 'undefined') {
-            const stored = localStorage.getItem(NOTIFICATION_STORAGE_KEY);
-            if (stored !== null) {
-                setIsEnabled(stored === 'true');
-            }
-        }
-    }, []);
-
     // Check FCM support on mount
     useEffect(() => {
         async function checkSupport() {
@@ -59,7 +49,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         checkSupport();
     }, []);
 
-    // Listen for storage changes (cross-tab/component sync)
+    // Listen for storage changes (cross-tab sync only — storage event doesn't fire within same tab)
     useEffect(() => {
         const handleStorage = (e: StorageEvent) => {
             if (e.key === NOTIFICATION_STORAGE_KEY) {
@@ -67,15 +57,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             }
         };
         window.addEventListener('storage', handleStorage);
-
-        // Also sync on any state changes from other components in same tab
-        const interval = setInterval(syncFromStorage, 1000);
-
-        return () => {
-            window.removeEventListener('storage', handleStorage);
-            clearInterval(interval);
-        };
-    }, [syncFromStorage]);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, []);
 
     // Setup foreground message listener
     useEffect(() => {

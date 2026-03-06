@@ -12,13 +12,12 @@ const ALLOWED_ORIGINS = [
     "http://tesaban6.ac.th"
 ];
 
-function getCorsOrigin(request: Request) {
+function getCorsOrigin(request: Request): string | null {
     const origin = request.headers.get("origin");
     if (origin && ALLOWED_ORIGINS.includes(origin)) {
         return origin;
     }
-    // Fallback if not matching or missing
-    return ALLOWED_ORIGINS[0];
+    return null;
 }
 
 export async function GET(request: Request) {
@@ -87,20 +86,15 @@ export async function GET(request: Request) {
         const result = activities.slice(0, 6);
 
         const corsOrigin = getCorsOrigin(request);
+        const corsHeaders: Record<string, string> = {
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Cache-Control": "s-maxage=60, stale-while-revalidate=300",
+            "Vary": "Origin"
+        };
+        if (corsOrigin) corsHeaders["Access-Control-Allow-Origin"] = corsOrigin;
 
-        // Add CORS headers to allow specific School Website origins to fetch
-        return NextResponse.json(
-            { success: true, data: result },
-            {
-                headers: {
-                    "Access-Control-Allow-Origin": corsOrigin,
-                    "Access-Control-Allow-Methods": "GET, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-                    "Cache-Control": "s-maxage=60, stale-while-revalidate=300",
-                    "Vary": "Origin"
-                },
-            }
-        );
+        return NextResponse.json({ success: true, data: result }, { headers: corsHeaders });
 
     } catch (error: any) {
         console.error("[API] External Activities Error:", error);
@@ -114,13 +108,11 @@ export async function GET(request: Request) {
 // Handle OPTIONS for CORS preflight
 export async function OPTIONS(request: Request) {
     const corsOrigin = getCorsOrigin(request);
-
-    return NextResponse.json({}, {
-        headers: {
-            "Access-Control-Allow-Origin": corsOrigin,
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Vary": "Origin"
-        },
-    });
+    const headers: Record<string, string> = {
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Vary": "Origin"
+    };
+    if (corsOrigin) headers["Access-Control-Allow-Origin"] = corsOrigin;
+    return NextResponse.json({}, { headers });
 }

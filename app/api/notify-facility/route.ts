@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
 
         const isValidApiKey = validApiKey && apiKey === validApiKey;
-        const isSameOrigin = origin.includes('crms6it') || origin.includes('localhost');
+        const isSameOrigin = origin.startsWith(appUrl) || origin.startsWith('http://localhost');
         const isInternalRequest = internalKey === 'true';
 
         if (!isValidApiKey && !isSameOrigin && !isInternalRequest) {
@@ -42,30 +42,43 @@ export async function POST(req: Request) {
 
         techsSnap.forEach(doc => {
             const data = doc.data();
+            const responsibility = data.responsibility || 'all';
             const lineId = data.lineUserId;
-            if (lineId) {
+
+            if (!lineId) return;
+
+            if (zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) {
+                targetUserIds.push(lineId);
+            } else if (zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all')) {
+                targetUserIds.push(lineId);
+            } else if (!zone || zone === 'all') { // Fallback if no zone specified
                 targetUserIds.push(lineId);
             }
         });
+
+        console.log(`[notify-facility] Found ${targetUserIds.length} facility technicians from DB.`);
 
         // Deduplicate
         targetUserIds = Array.from(new Set(targetUserIds));
 
         // Fallback to default technician if no facility techs exist with Line IDs
         if (targetUserIds.length === 0 && process.env.LINE_TECHNICIAN_ID) {
+            console.log(`[notify-facility] Using fallback LINE_TECHNICIAN_ID`);
             targetUserIds.push(process.env.LINE_TECHNICIAN_ID);
         }
 
         if (targetUserIds.length === 0) {
+            console.warn('[notify-facility] No target user IDs found. Skipping notification.');
             return NextResponse.json({ status: 'skipped', reason: 'No facility technicians found' });
         }
+
+        console.log(`[notify-facility] Final target users: ${targetUserIds.join(', ')}`);
 
         const deepLink = `${appUrl}/admin/facility?ticketId=${ticketId}`;
 
         const flexMessage = createFacilityNewFlexMessage({
             description,
             room,
-            issueCategory,
             requesterName,
             imageUrl: imageOneUrl,
             ticketId,
@@ -74,7 +87,7 @@ export async function POST(req: Request) {
         });
 
         // Use Multicast API
-        await fetch('https://api.line.me/v2/bot/message/multicast', {
+        const lineResponse = await fetch('https://api.line.me/v2/bot/message/multicast', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -86,6 +99,13 @@ export async function POST(req: Request) {
             }),
         });
 
+        if (!lineResponse.ok) {
+            const errorData = await lineResponse.text();
+            console.error('[notify-facility] LINE API Error:', lineResponse.status, errorData);
+            return NextResponse.json({ status: 'error', reason: 'LINE API error', details: errorData }, { status: 500 });
+        }
+
+        console.log(`[notify-facility] Successfully notified ${targetUserIds.length} users.`);
         return NextResponse.json({ status: 'ok', notifiedCount: targetUserIds.length });
 
     } catch (error) {

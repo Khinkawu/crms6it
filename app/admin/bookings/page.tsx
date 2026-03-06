@@ -11,8 +11,8 @@ import {
     Search, MapPin, User, Phone, FileText, Edit, ChevronRight, Users as UsersIcon, Camera
 } from "lucide-react";
 import { Booking } from "../../../types";
-import ConfirmationModal from "../../components/ConfirmationModal";
-import EditBookingModal from "../../components/EditBookingModal";
+import ConfirmationModal from "@/components/ConfirmationModal";
+import EditBookingModal from "@/components/EditBookingModal";
 
 // Local definition removed in favor of global type
 
@@ -188,7 +188,7 @@ export default function BookingManagement() {
     if (loading || isLoading) {
         return (
             <div className="p-8 flex items-center justify-center min-h-[50vh]">
-                <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                <div className="animate-spin w-8 h-8 border-4 border-gray-300 border-t-gray-900 dark:border-gray-700 dark:border-t-white rounded-full"></div>
             </div>
         );
     }
@@ -199,8 +199,8 @@ export default function BookingManagement() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="space-y-1">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/30">
-                            <Calendar size={24} />
+                        <div className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                            <Calendar size={20} />
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">จัดการการจอง</h1>
@@ -213,19 +213,16 @@ export default function BookingManagement() {
             {/* Status Tabs - Wrap on mobile */}
             <div className="flex flex-wrap gap-2">
                 {[
-                    { id: 'pending', label: 'รออนุมัติ', icon: <Clock size={16} />, count: counts.pending, color: 'from-amber-500 to-orange-500' },
-                    { id: 'approved', label: 'อนุมัติแล้ว', icon: <CheckCircle size={16} />, count: counts.approved, color: 'from-emerald-500 to-teal-500' },
-                    { id: 'rejected', label: 'ไม่อนุมัติ', icon: <XCircle size={16} />, count: counts.rejected, color: 'from-red-500 to-rose-500' },
+                    { id: 'pending', label: 'รออนุมัติ', icon: <Clock size={16} />, count: counts.pending },
+                    { id: 'approved', label: 'อนุมัติแล้ว', icon: <CheckCircle size={16} />, count: counts.approved },
+                    { id: 'rejected', label: 'ไม่อนุมัติ', icon: <XCircle size={16} />, count: counts.rejected },
                 ].map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setFilterStatus(tab.id as any)}
-                        className={`
-                            flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all tap-scale
-                            ${filterStatus === tab.id
-                                ? `bg-gradient-to-r ${tab.color} text-white shadow-lg`
-                                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}
-                        `}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all tap-scale ${filterStatus === tab.id
+                            ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                            : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                     >
                         {tab.icon}
                         {tab.label}
@@ -245,14 +242,14 @@ export default function BookingManagement() {
                     placeholder="ค้นหา (หัวข้อ, ผู้จอง, ห้อง)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 outline-none transition-all"
+                    className="w-full pl-10 p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder:text-gray-400 text-sm focus:ring-2 focus:ring-gray-400/30 outline-none transition-all"
                 />
             </div>
 
             {/* Booking List - Card Layout */}
             <div className="space-y-4">
                 {filteredBookings.length === 0 ? (
-                    <div className="text-center py-20 bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-gray-200/50 dark:border-gray-700/50">
+                    <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
                         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400">
                             <FileText size={32} />
                         </div>
@@ -263,15 +260,11 @@ export default function BookingManagement() {
                     filteredBookings.map(booking => (
                         <div
                             key={booking.id}
-                            className={`
-                                group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200/50 dark:border-gray-700/50
-                                hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-none transition-all duration-300
-                            `}
+                            className="group relative overflow-hidden bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200"
                         >
                             {/* Status accent bar */}
-                            <div className={`absolute top-0 left-0 right-0 h-1 ${booking.status === 'pending' ? 'bg-gradient-to-r from-amber-400 to-orange-400' :
-                                booking.status === 'approved' ? 'bg-gradient-to-r from-emerald-400 to-teal-400' :
-                                    'bg-gradient-to-r from-red-400 to-rose-400'
+                            <div className={`absolute top-0 left-0 right-0 h-0.5 ${booking.status === 'pending' ? 'bg-amber-400' :
+                                booking.status === 'approved' ? 'bg-emerald-400' : 'bg-red-400'
                                 }`}></div>
 
                             <div className="p-5 pt-6">
@@ -280,12 +273,12 @@ export default function BookingManagement() {
                                     {/* Left: Room & Time */}
                                     <div className="lg:w-56 space-y-3 flex-shrink-0">
                                         <div className="flex items-center gap-2">
-                                            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                                            <div className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                                                 <MapPin size={18} />
                                             </div>
                                             <span className="font-bold text-gray-900 dark:text-white">{booking.roomName}</span>
                                         </div>
-                                        <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-3 space-y-2 text-sm">
+                                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 space-y-2 text-sm">
                                             <div className="flex justify-between items-center">
                                                 <span className="text-gray-500 dark:text-gray-400">เริ่ม</span>
                                                 <span className="font-medium text-gray-900 dark:text-white">{formatDate(booking.startTime)}</span>
@@ -300,7 +293,7 @@ export default function BookingManagement() {
                                     {/* Center: Details */}
                                     <div className="flex-1 min-w-0 space-y-3">
                                         <div>
-                                            <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                            <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors truncate">
                                                 {booking.title}
                                             </h3>
                                             <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
@@ -330,7 +323,7 @@ export default function BookingManagement() {
                                                 </span>
                                             )}
                                             {booking.roomLayout && (
-                                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
                                                     🪑 {booking.roomLayout === 'u_shape' ? 'ตัว U' :
                                                         booking.roomLayout === 'classroom' ? 'แถวหน้ากระดาน' :
                                                             booking.roomLayout === 'empty' ? 'โล่ง' : 'อื่นๆ'}
@@ -364,12 +357,12 @@ export default function BookingManagement() {
                                     </div>
 
                                     {/* Right: Actions */}
-                                    <div className="lg:w-40 flex flex-row lg:flex-col flex-wrap gap-2 lg:justify-center pt-3 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-100 dark:border-gray-700/50 lg:pl-5">
+                                    <div className="lg:w-40 flex flex-row lg:flex-col flex-wrap gap-2 lg:justify-center pt-3 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-800 lg:pl-5">
                                         {booking.status === 'pending' && (
                                             <>
                                                 <button
                                                     onClick={() => handleUpdateStatus(booking.id, 'approved')}
-                                                    className="flex-1 lg:w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:scale-[1.02] transition-all tap-scale"
+                                                    className="flex-1 lg:w-full py-2 px-3 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-medium text-sm flex items-center justify-center gap-2 hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors tap-scale"
                                                 >
                                                     <CheckCircle size={16} /> อนุมัติ
                                                 </button>

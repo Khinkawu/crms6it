@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { collection, query, where, orderBy, getDocs, limit, doc, onSnapshot } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { db } from "@/lib/firebase";
 import { Loader2, Wrench, Calendar, MapPin, CheckCircle, Clock, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function RepairHistory() {

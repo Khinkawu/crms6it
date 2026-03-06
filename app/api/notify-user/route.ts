@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '../../../lib/firebaseAdmin';
+import { adminDb, adminAuth } from '../../../lib/firebaseAdmin';
 import { createRepairCompleteFlexMessage } from '@/utils/flexMessageTemplates';
 
 export async function POST(request: Request) {
     try {
+        // Require a valid Firebase ID token — any authenticated user (technician/admin)
+        const authHeader = request.headers.get('Authorization');
+        if (!authHeader?.startsWith('Bearer ')) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        try {
+            await adminAuth.verifyIdToken(authHeader.substring(7));
+        } catch {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { email, ticketId, room, problem, technicianNote, completionImage } = await request.json();
 
         if (!email) {

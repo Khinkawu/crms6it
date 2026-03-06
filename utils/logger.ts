@@ -11,11 +11,22 @@ interface LogActivityParams {
     zone?: string;
     status?: string;
     signatureUrl?: string;
+    targetCollection?: string;
 }
 
-export const logActivity = async ({ action, productName, userName, imageUrl, details, zone, status, signatureUrl }: LogActivityParams) => {
+export const logActivity = async ({
+    action,
+    productName,
+    userName,
+    imageUrl,
+    details,
+    zone,
+    status,
+    signatureUrl,
+    targetCollection = "activities"
+}: LogActivityParams) => {
     try {
-        await addDoc(collection(db, "activities"), {
+        await addDoc(collection(db, targetCollection), {
             action,
             productName,
             userName,

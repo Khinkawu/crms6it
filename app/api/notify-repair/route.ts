@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
 
         const isValidApiKey = validApiKey && apiKey === validApiKey;
-        const isSameOrigin = origin.includes('crms6it') || origin.includes('localhost');
+        const isSameOrigin = origin.startsWith(appUrl) || origin.startsWith('http://localhost');
         const isInternalRequest = internalKey === 'true';
 
         if (!isValidApiKey && !isSameOrigin && !isInternalRequest) {

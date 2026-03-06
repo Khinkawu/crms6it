@@ -1,11 +1,30 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '../../../../lib/firebaseAdmin';
+import { adminDb, adminAuth } from '../../../../lib/firebaseAdmin';
+
+async function verifyAdmin(request: Request): Promise<NextResponse | null> {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    try {
+        const decoded = await adminAuth.verifyIdToken(authHeader.substring(7));
+        const userDoc = await adminDb.collection('users').doc(decoded.uid).get();
+        if (!userDoc.exists || userDoc.data()?.role !== 'admin') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        return null;
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+}
 
 /**
  * GET /api/admin/repair-inventory
  * Diagnostic: show all transactions and activity logs for comparison
  */
-export async function GET() {
+export async function GET(request: Request) {
+    const authError = await verifyAdmin(request);
+    if (authError) return authError;
     try {
         const borrowSnap = await adminDb.collection('transactions')
             .where('type', '==', 'borrow').get();
@@ -112,6 +131,8 @@ export async function GET() {
  * Body: { deleteProducts: string[], updateProducts: {id, fields}[], fixTransactions: {id, fields}[] }
  */
 export async function PATCH(request: Request) {
+    const authError = await verifyAdmin(request);
+    if (authError) return authError;
     try {
         const body = await request.json();
         const results: any = { deleted: [], updated: [], fixedTransactions: [] };
@@ -151,6 +172,8 @@ export async function PATCH(request: Request) {
  * DRY RUN: Pass ?dryRun=true to preview without making changes
  */
 export async function POST(request: Request) {
+    const authError = await verifyAdmin(request);
+    if (authError) return authError;
     try {
         const { searchParams } = new URL(request.url);
         const dryRun = searchParams.get('dryRun') === 'true';

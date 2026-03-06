@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import { Download, Printer, FileSpreadsheet, Filter, X, Calendar } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { RepairTicket } from '../../types';
+import { useAuth } from '@/context/AuthContext';
+import { RepairTicket } from '@/types';
 import { generateStockReport } from '@/lib/generateReport';
-import { exportToExcel } from '../../utils/excelExport';
+import { exportToExcel } from '@/utils/excelExport';
 import toast from 'react-hot-toast';
 import { format, addYears } from 'date-fns';
 import { th } from 'date-fns/locale';
@@ -153,7 +153,7 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
     };
 
     return (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-sm mb-6 flex flex-col xl:flex-row gap-4 justify-between items-center transition-colors">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-xl mb-6 flex flex-col xl:flex-row gap-4 justify-between items-center transition-colors">
             {/* Left: Date Filters */}
             <div className="flex flex-col sm:flex-row gap-2 items-center w-full xl:w-auto">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -162,27 +162,27 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className={`px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px] ${!startDate ? 'text-transparent' : ''
+                            className={`px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm focus:border-gray-400 dark:focus:border-gray-500 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px] ${!startDate ? 'text-transparent' : ''
                                 }`}
                         />
                         {!startDate && (
-                            <div className="absolute inset-0 flex items-center px-3 pointer-events-none text-slate-400 dark:text-slate-500 text-sm gap-2">
+                            <div className="absolute inset-0 flex items-center px-3 pointer-events-none text-gray-400 dark:text-gray-500 text-sm gap-2">
                                 <Calendar size={16} />
                                 <span>Start Date</span>
                             </div>
                         )}
                     </div>
-                    <span className="text-slate-400 dark:text-slate-500">-</span>
+                    <span className="text-gray-400 dark:text-gray-500">-</span>
                     <div className="relative w-full sm:w-auto">
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className={`px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm focus:border-blue-500 dark:focus:border-blue-400 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px] ${!endDate ? 'text-transparent' : ''
+                            className={`px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm focus:border-gray-400 dark:focus:border-gray-500 outline-none w-full sm:w-40 transition-colors dark:[color-scheme:dark] appearance-none min-h-[38px] ${!endDate ? 'text-transparent' : ''
                                 }`}
                         />
                         {!endDate && (
-                            <div className="absolute inset-0 flex items-center px-3 pointer-events-none text-slate-400 dark:text-slate-500 text-sm gap-2">
+                            <div className="absolute inset-0 flex items-center px-3 pointer-events-none text-gray-400 dark:text-gray-500 text-sm gap-2">
                                 <Calendar size={16} />
                                 <span>End Date</span>
                             </div>
@@ -192,14 +192,14 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
                 <div className="flex gap-2 w-full sm:w-auto">
                     <button
                         onClick={handleFilter}
-                        className="flex-1 sm:flex-none px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                        className="flex-1 sm:flex-none px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                     >
                         <Filter size={16} /> Filter
                     </button>
                     {(startDate || endDate) && (
                         <button
                             onClick={handleReset}
-                            className="px-3 py-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                            className="px-3 py-2 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                         >
                             <X size={18} />
                         </button>
@@ -225,7 +225,7 @@ export default function RepairActionsBar({ data, onFilterChange }: RepairActions
                 </button>
                 <button
                     onClick={handlePrint}
-                    className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                     title="Print"
                 >
                     <Printer size={18} /> <span className="hidden sm:inline">Print</span><span className="sm:hidden">Print</span>

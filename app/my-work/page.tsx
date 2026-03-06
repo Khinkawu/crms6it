@@ -12,11 +12,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useMyRepairs } from "@/hooks/useMyRepairs";
 import { useMyPhotographyJobs } from "@/hooks/useMyPhotographyJobs";
 import { useDailyReports } from "@/hooks/useDailyReports";
-import { PageSkeleton } from "../components/ui/Skeleton";
-import StatsCard from "../components/shared/StatsCard";
-import CreateJobModal from "../components/CreateJobModal";
-import MyPhotographyJobsModal from "../components/MyPhotographyJobsModal";
-import DailyReportModal from "../components/DailyReportModal";
+import { PageSkeleton } from "@/components/ui/Skeleton";
+import StatsCard from "@/components/shared/StatsCard";
+import CreateJobModal from "@/components/CreateJobModal";
+import MyPhotographyJobsModal from "@/components/MyPhotographyJobsModal";
+import DailyReportModal from "@/components/DailyReportModal";
 import { RepairTicket, PhotographyJob, DailyReport } from "@/types";
 import { getThaiStatus, getStatusColor } from "@/hooks/useRepairAdmin";
 import { exportToExcel } from "@/utils/excelExport";
@@ -225,7 +225,7 @@ export default function MyWorkPage() {
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30">
+                        <div className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                             <ClipboardList size={24} />
                         </div>
                         <div>
@@ -239,21 +239,21 @@ export default function MyWorkPage() {
                         <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
                             <button
                                 onClick={() => setIsDailyReportModalOpen(true)}
-                                className="flex-1 sm:flex-none flex justify-center items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-amber-500/30 hover:shadow-xl transition-all tap-scale"
+                                className="flex-1 sm:flex-none flex justify-center items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs sm:text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-all tap-scale"
                             >
                                 <CalendarCheck size={16} />
                                 รายงานรายวัน
                             </button>
                             <button
                                 onClick={() => setIsCreateJobModalOpen(true)}
-                                className="flex-1 sm:flex-none flex justify-center items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-emerald-500/30 hover:shadow-xl transition-all tap-scale"
+                                className="flex-1 sm:flex-none flex justify-center items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs sm:text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-100 transition-all tap-scale"
                             >
                                 <Plus size={16} />
                                 สร้างงาน
                             </button>
                             <button
                                 onClick={() => setIsSubmitJobModalOpen(true)}
-                                className="flex-1 sm:flex-none flex justify-center items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs sm:text-sm font-medium shadow-lg shadow-blue-500/30 hover:shadow-xl transition-all tap-scale"
+                                className="flex-1 sm:flex-none flex justify-center items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-all tap-scale"
                             >
                                 <CheckCircle2 size={16} />
                                 ส่งงาน
@@ -405,21 +405,21 @@ export default function MyWorkPage() {
                             {/* Compact Stats Row */}
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-3 text-center">
-                                    <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center text-white mb-2">
+                                    <div className="w-10 h-10 mx-auto rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 mb-2">
                                         <ClipboardList size={20} />
                                     </div>
                                     <p className="text-2xl font-bold text-gray-900 dark:text-white">{photoStats.total}</p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">ทั้งหมด</p>
                                 </div>
                                 <div className="bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-3 text-center">
-                                    <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white mb-2">
+                                    <div className="w-10 h-10 mx-auto rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 mb-2">
                                         <Camera size={20} />
                                     </div>
                                     <p className="text-2xl font-bold text-gray-900 dark:text-white">{photoStats.assigned}</p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">รอส่งงาน</p>
                                 </div>
                                 <div className="bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl p-3 text-center">
-                                    <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white mb-2">
+                                    <div className="w-10 h-10 mx-auto rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 mb-2">
                                         <CheckCircle2 size={20} />
                                     </div>
                                     <p className="text-2xl font-bold text-gray-900 dark:text-white">{photoStats.completed}</p>

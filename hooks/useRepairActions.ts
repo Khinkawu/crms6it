@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { doc, updateDoc, serverTimestamp, arrayUnion } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../lib/firebase";
+import { db, storage, auth } from "../lib/firebase";
 import { RepairTicket, RepairStatus, Product } from "../types";
 import { logActivity } from "../utils/logger";
 import { compressImage } from "../utils/imageCompression";
@@ -89,9 +89,13 @@ export function useRepairActions({ userId, userName }: UseRepairActionsOptions):
 
             if (status === 'completed') {
                 try {
+                    const idToken = await auth.currentUser?.getIdToken();
                     await fetch('/api/notify-user', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+                        },
                         body: JSON.stringify({
                             email: ticket.requesterEmail,
                             ticketId: ticket.id,

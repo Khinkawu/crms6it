@@ -1,8 +1,17 @@
 
 import * as XLSX from 'xlsx';
-import { RepairTicket } from '../types';
 import { format, addYears } from 'date-fns';
 import { th } from 'date-fns/locale';
+
+// Minimal shape required for Excel export (shared by RepairTicket & FacilityTicket)
+interface ExcelExportable {
+    createdAt: any;
+    requesterName?: string;
+    description?: string;
+    zone?: string;
+    room?: string;
+    status: string;
+}
 
 // Helper: แปลง Zone เป็นภาษาไทย
 const getZoneThai = (zone: string) => {
@@ -28,7 +37,7 @@ const getThaiStatus = (s: string) => {
     }
 };
 
-export const exportToExcel = (data: RepairTicket[], fileName: string) => {
+export const exportToExcel = (data: ExcelExportable[], fileName: string) => {
     const formattedData = data.map((ticket, index) => {
         let dateObj: Date;
         if (ticket.createdAt && typeof (ticket.createdAt as any).toDate === 'function') {

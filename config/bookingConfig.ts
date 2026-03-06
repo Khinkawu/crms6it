@@ -41,15 +41,14 @@ export const ROOM_EQUIPMENT: Record<string, string[]> = {
     sh_admin_3: ["จอ Projector", "Projector", "ไมค์สาย", "Pointer"],
 };
 
-export const POSITIONS = ["ผู้บริหาร", "ครู", "ครู LS", "บุคลากร", "เลขานุการ"];
+export const POSITIONS = ["ผู้บริหาร", "ครู", "ครู LS", "โสตฯ", "นักการ", "แม่บ้าน", "แม่ครัว"];
 
 export const DEPARTMENTS = [
-    "ฝ่ายงานวิชาการ",
-    "ฝ่ายกิจการนักเรียน",
-    "ฝ่ายงานบุคลากร",
     "ฝ่ายบริหารงานทั่วไป",
+    "ฝ่ายวิชาการ",
+    "ฝ่ายบุคลากร",
+    "ฝ่ายกิจการนักเรียน",
     "ฝ่ายแผนงานและงบประมาณ",
-    "หน่วยงานภายนอก"
 ];
 
 export const ROOM_LAYOUTS = [

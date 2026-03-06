@@ -6,8 +6,8 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import { Product } from "../../../types";
 import { useAuth } from "../../../context/AuthContext";
-import BorrowModal from "../../components/BorrowModal";
-import RequisitionModal from "../../components/RequisitionModal";
+import BorrowModal from "@/components/BorrowModal";
+import RequisitionModal from "@/components/RequisitionModal";
 import QRCode from "react-qr-code";
 import { MapPin, Tag, Calendar, ShieldCheck, Box, Layers, ArrowLeft, Printer, Share2 } from "lucide-react";
 
@@ -297,14 +297,14 @@ const ProductDetailPage = () => {
                         <>
                             <button
                                 onClick={() => setIsBorrowModalOpen(true)}
-                                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-sm shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                className="flex-1 py-3.5 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold text-sm hover:bg-gray-700 dark:hover:bg-gray-100 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                             >
                                 <Box size={18} />
                                 ยืม (Borrow)
                             </button>
                             <button
                                 onClick={() => setIsRequisitionModalOpen(true)}
-                                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-sm shadow-lg shadow-pink-500/20 hover:shadow-pink-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                className="flex-1 py-3.5 rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-bold text-sm hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                             >
                                 <Share2 size={18} />
                                 เบิก (Requisition)

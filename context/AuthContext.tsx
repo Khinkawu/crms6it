@@ -142,8 +142,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
             // The onAuthStateChanged listener will handle the domain check and role fetching
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error signing in with Google", error);
+            // popup_closed_by_user is intentional — don't show error for that
+            if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
+                toast.error("เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+            }
         }
     };
 

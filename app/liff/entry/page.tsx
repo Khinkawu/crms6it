@@ -144,11 +144,11 @@ export default function LIFFEntryPage() {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-white p-8 text-center relative overflow-hidden">
                 {/* Background Decoration */}
-                <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-60"></div>
-                <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-60"></div>
+                <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-gray-100 rounded-full blur-3xl opacity-60"></div>
+                <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-gray-100 rounded-full blur-3xl opacity-60"></div>
 
                 <div className="relative z-10 max-w-sm w-full">
-                    <div className="w-20 h-20 mb-8 mx-auto bg-gradient-to-tr from-blue-50 to-indigo-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm transform -rotate-3">
+                    <div className="w-20 h-20 mb-8 mx-auto bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-2xl flex items-center justify-center shadow-sm transform -rotate-3">
                         <ShieldCheck size={40} />
                     </div>
 
@@ -164,7 +164,7 @@ export default function LIFFEntryPage() {
                         onClick={async () => {
                             liff.openWindow({ url: window.location.href, external: true });
                         }}
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                        className="w-full bg-gray-900 text-white font-bold py-4 px-6 rounded-xl hover:bg-gray-700 active:scale-[0.98] transition-all duration-200"
                     >
                         เปิดใน Google Chrome / Safari
                     </button>
@@ -181,7 +181,7 @@ export default function LIFFEntryPage() {
     return (
         <div className="min-h-screen bg-white flex flex-col relative overflow-hidden">
             {/* Background Decoration */}
-            <div className="absolute top-0 left-0 w-full h-[40vh] bg-gradient-to-b from-blue-50/50 to-white"></div>
+            <div className="absolute top-0 left-0 w-full h-[40vh] bg-gradient-to-b from-gray-50 to-white"></div>
 
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto w-full relative z-10 animate-fade-in">
                 <div className="w-32 h-32 mb-8 relative">
@@ -193,7 +193,7 @@ export default function LIFFEntryPage() {
                         เชื่อมต่อบัญชีโรงเรียน
                     </h1>
                     <p className="text-gray-500 font-light leading-relaxed">
-                        กรุณาลงชื่อเข้าใช้ด้วยบัญชี <span className="font-medium text-blue-600">@tesaban6.ac.th</span><br />
+                        กรุณาลงชื่อเข้าใช้ด้วยบัญชี <span className="font-medium text-gray-700">@tesaban6.ac.th</span><br />
                         เพื่อเริ่มใช้งานระบบแจ้งซ่อมและจองห้อง
                     </p>
                 </div>

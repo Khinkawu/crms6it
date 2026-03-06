@@ -13,7 +13,7 @@ import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
     ResponsiveContainer, Legend
 } from "recharts";
-import { useDashboardStats, canSee } from "@/hooks/useDashboardStats";
+import { useDashboardStats, canSee, DateRange } from "@/hooks/useDashboardStats";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { exportDashboardToExcel, printDashboardStats } from "@/utils/dashboardExport";
 import toast from "react-hot-toast";
@@ -73,6 +73,7 @@ function DonutChart({ data, centerLabel, centerValue }: {
                             boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
                         }}
                         formatter={(value: any) => [`${value} รายการ`, '']}
+                        position={{ y: -20 }} // Add offset to prevent overlapping with center text
                     />
                 </PieChart>
             </ResponsiveContainer>
@@ -148,7 +149,7 @@ function ProgressRing({ percent, label, color, size = 72 }: {
     return (
         <div className="flex flex-col items-center gap-1.5">
             <svg width={size} height={size} className="-rotate-90">
-                <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={6} className="text-gray-100 dark:text-slate-700" />
+                <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={6} className="text-gray-100 dark:text-gray-700" />
                 <circle
                     cx={size / 2} cy={size / 2} r={r} fill="none"
                     stroke={color} strokeWidth={6} strokeLinecap="round"
@@ -166,16 +167,16 @@ function ProgressRing({ percent, label, color, size = 72 }: {
 
 // ─── Stat Mini Card ─────────────────────────────────────────────────
 function MiniStat({ label, value, icon: Icon, iconBg, iconColor, href }: {
-    label: string; value: number; icon: React.ElementType;
+    label: string; value: number | string; icon: React.ElementType;
     iconBg: string; iconColor: string; href?: string;
 }) {
     const inner = (
-        <div className="flex items-center gap-3 p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
+        <div className="flex items-center gap-3 p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 transition-colors">
             <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
                 <Icon size={20} className={iconColor} />
             </div>
             <div className="min-w-0">
-                <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{value.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{typeof value === 'number' ? value.toLocaleString() : value}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</p>
             </div>
         </div>
@@ -197,7 +198,8 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 export default function AdminDashboard() {
     const { user, role, isPhotographer, loading, getDisplayName } = useAuth();
     const router = useRouter();
-    const { stats, personStats, loading: statsLoading } = useDashboardStats();
+    const [dateRange, setDateRange] = React.useState<DateRange>('all');
+    const { actionable, performance, personStats, loading: statsLoading } = useDashboardStats(dateRange);
     const { activities } = useActivityLogs({ limitCount: 50, filterRepairOnly: false });
 
     const hasAccess = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician' || isPhotographer;
@@ -209,7 +211,7 @@ export default function AdminDashboard() {
     if (loading || !user || !hasAccess) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <Loader2 size={24} className="animate-spin text-indigo-500" />
+                <Loader2 size={24} className="animate-spin text-gray-400" />
             </div>
         );
     }
@@ -227,38 +229,52 @@ export default function AdminDashboard() {
     });
 
     const handleExport = () => {
-        exportDashboardToExcel(stats, personStats, displayName);
+        exportDashboardToExcel(actionable, performance, personStats, displayName);
         toast.success("ส่งออก Excel สำเร็จ");
     };
 
     // Repair donut data
     const repairDonut = [
-        { name: 'รอดำเนินการ', value: stats.repairs.pending, color: COLORS.pending },
-        { name: 'กำลังดำเนินการ', value: stats.repairs.in_progress, color: COLORS.in_progress },
-        { name: 'รออะไหล่', value: stats.repairs.waiting_parts, color: COLORS.waiting_parts },
-        { name: 'เสร็จสิ้น', value: stats.repairs.completed, color: COLORS.completed },
+        { name: 'รอดำเนินการ', value: performance.repairs.new, color: COLORS.pending },
+        { name: 'กำลังดำเนินการ', value: performance.repairs.in_progress, color: COLORS.in_progress },
+        { name: 'รออะไหล่', value: performance.repairs.waiting_parts, color: COLORS.waiting_parts },
+        { name: 'เสร็จสิ้น', value: performance.repairs.completed, color: COLORS.completed },
     ];
 
     // Booking donut data
     const bookingDonut = [
-        { name: 'รออนุมัติ', value: stats.bookings.pending, color: COLORS.pending },
-        { name: 'อนุมัติ', value: stats.bookings.approved, color: COLORS.approved },
-        { name: 'ไม่อนุมัติ', value: stats.bookings.rejected, color: COLORS.rejected },
+        { name: 'รออนุมัติ', value: performance.bookings.pending, color: COLORS.pending },
+        { name: 'อนุมัติ', value: performance.bookings.approved, color: COLORS.approved },
+        { name: 'ไม่อนุมัติ', value: performance.bookings.rejected, color: COLORS.rejected },
     ];
 
     // Facility Repair donut
     const facilityRepairDonut = [
-        { name: 'รอดำเนินการ', value: stats.facilityRepairs.pending, color: COLORS.pending },
-        { name: 'กำลังดำเนินการ', value: stats.facilityRepairs.in_progress, color: COLORS.in_progress },
-        { name: 'เสร็จสิ้น', value: stats.facilityRepairs.completed, color: COLORS.completed },
+        { name: 'รอดำเนินการ', value: performance.facilityRepairs.new, color: COLORS.pending },
+        { name: 'กำลังดำเนินการ', value: performance.facilityRepairs.in_progress, color: COLORS.in_progress },
+        { name: 'เสร็จสิ้น', value: performance.facilityRepairs.completed, color: COLORS.completed },
     ];
 
     // Completion rate
-    const repairTotal = stats.repairs.pending + stats.repairs.in_progress + stats.repairs.waiting_parts + stats.repairs.completed;
-    const repairCompletionRate = repairTotal > 0 ? Math.round((stats.repairs.completed / repairTotal) * 100) : 0;
+    const repairTotal = performance.repairs.new + performance.repairs.in_progress + performance.repairs.waiting_parts + performance.repairs.completed;
+    const repairCompletionRate = repairTotal > 0 ? Math.round((performance.repairs.completed / repairTotal) * 100) : 0;
 
-    const facilityTotal = stats.facilityRepairs.pending + stats.facilityRepairs.in_progress + stats.facilityRepairs.completed;
-    const facilityCompletionRate = facilityTotal > 0 ? Math.round((stats.facilityRepairs.completed / facilityTotal) * 100) : 0;
+    const facilityTotal = performance.facilityRepairs.new + performance.facilityRepairs.in_progress + performance.facilityRepairs.completed;
+    const facilityCompletionRate = facilityTotal > 0 ? Math.round((performance.facilityRepairs.completed / facilityTotal) * 100) : 0;
+
+    const overallTotal =
+        (showRepairs ? repairTotal : 0) +
+        (showFacilityRepairs ? facilityTotal : 0) +
+        (showBookings ? performance.bookings.total : 0) +
+        (showPhotography ? performance.photography.total : 0);
+
+    const overallCompleted =
+        (showRepairs ? performance.repairs.completed : 0) +
+        (showFacilityRepairs ? performance.facilityRepairs.completed : 0) +
+        (showBookings ? performance.bookings.approved : 0) +
+        (showPhotography ? performance.photography.completed : 0);
+
+    const overallCompletionRate = overallTotal > 0 ? Math.round((overallCompleted / overallTotal) * 100) : 0;
 
     const timeAgo = (ts: any) => {
         if (!ts) return '';
@@ -286,7 +302,7 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto space-y-6 pb-24 animate-fade-in">
 
             {/* ────── Header ────── */}
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                         ภาพรวมระบบ
@@ -295,16 +311,33 @@ export default function AdminDashboard() {
                         <Clock size={13} /> {today}
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                        <select
+                            value={dateRange}
+                            onChange={(e) => setDateRange(e.target.value as DateRange)}
+                            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-sm rounded-xl px-4 py-2 text-gray-700 dark:text-gray-200 outline-none focus:ring-2 focus:ring-gray-400 transition-shadow appearance-none cursor-pointer pr-8 min-w-[140px]"
+                        >
+                            <option value="all">ระยะเวลาทั้งหมด</option>
+                            <option value="today">เฉพาะวันนี้</option>
+                            <option value="week">สัปดาห์นี้</option>
+                            <option value="month">เดือนนี้</option>
+                        </select>
+                        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </div>
+                    </div>
                     <button
                         onClick={handleExport}
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:border-indigo-300 transition-colors shadow-sm"
+                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:border-gray-400 transition-colors"
                     >
                         <FileSpreadsheet size={16} /> Export
                     </button>
                     <button
-                        onClick={() => printDashboardStats(stats, personStats, displayName)}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-xl text-sm text-white transition-colors shadow-sm"
+                        onClick={() => printDashboardStats(actionable, performance, personStats, displayName)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white hover:bg-gray-700 dark:hover:bg-gray-100 rounded-xl text-sm text-white dark:text-gray-900 transition-colors"
                     >
                         <Printer size={16} /> Print
                     </button>
@@ -313,17 +346,17 @@ export default function AdminDashboard() {
 
             {/* ────── Top Stats Row ────── */}
             {statsLoading ? (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                    {[...Array(6)].map((_, i) => <div key={i} className="h-20 bg-white dark:bg-slate-800 rounded-2xl animate-pulse" />)}
+                <div className="grid grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    {[...Array(6)].map((_, i) => <div key={i} className="h-20 bg-white dark:bg-gray-900 rounded-2xl animate-pulse" />)}
                 </div>
             ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-                    {showRepairs && <MiniStat label="งานซ่อม (IT) รอ" value={stats.repairs.pending} icon={Wrench} iconBg="bg-rose-50 dark:bg-rose-900/20" iconColor="text-rose-500" href="/admin/repairs" />}
-                    {showFacilityRepairs && <MiniStat label="ซ่อมอาคารรอ" value={stats.facilityRepairs.pending} icon={Building2} iconBg="bg-amber-50 dark:bg-amber-900/20" iconColor="text-amber-500" href="/admin/facility" />}
-                    {showBookings && <MiniStat label="การจองรออนุมัติ" value={stats.bookings.pending} icon={Calendar} iconBg="bg-orange-50 dark:bg-orange-900/20" iconColor="text-orange-500" href="/admin/bookings" />}
-                    {showInventory && <MiniStat label="อุปกรณ์ใกล้หมด" value={stats.inventory.lowStock} icon={Package} iconBg="bg-blue-50 dark:bg-blue-900/20" iconColor="text-blue-500" href="/admin/inventory" />}
-                    {showUsers && <MiniStat label="ผู้ใช้งานรวม" value={stats.users.total} icon={Users} iconBg="bg-indigo-50 dark:bg-indigo-900/20" iconColor="text-indigo-500" href="/admin/users" />}
-                    {showPhotography && <MiniStat label="ถ่ายภาพมอบหมาย" value={stats.photography.assigned} icon={Camera} iconBg="bg-purple-50 dark:bg-purple-900/20" iconColor="text-purple-500" href="/admin/photography" />}
+                <div className="grid grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    {showRepairs && <MiniStat label="งานซ่อม (โสตฯ) รอ" value={actionable.repairsPending} icon={Wrench} iconBg="bg-rose-50 dark:bg-rose-900/20" iconColor="text-rose-500" href="/admin/repairs" />}
+                    {showFacilityRepairs && <MiniStat label="ซ่อมอาคารรอ" value={actionable.facilityPending} icon={Building2} iconBg="bg-amber-50 dark:bg-amber-900/20" iconColor="text-amber-500" href="/admin/repairs?tab=facility" />}
+                    {showBookings && <MiniStat label="การจองรออนุมัติ" value={actionable.bookingsPending} icon={Calendar} iconBg="bg-orange-50 dark:bg-orange-900/20" iconColor="text-orange-500" href="/admin/bookings" />}
+                    {showInventory && <MiniStat label="อุปกรณ์ใกล้หมด" value={actionable.inventoryLowStock} icon={Package} iconBg="bg-blue-50 dark:bg-blue-900/20" iconColor="text-blue-500" href="/admin/inventory" />}
+                    {showUsers && <MiniStat label="ผู้ใช้งานรวม" value={performance.users.total} icon={Users} iconBg="bg-indigo-50 dark:bg-indigo-900/20" iconColor="text-indigo-500" href="/admin/users" />}
+                    {showPhotography && <MiniStat label="ถ่ายภาพ (เสร็จ/รวม)" value={`${performance.photography.completed}/${performance.photography.total}`} icon={Camera} iconBg="bg-purple-50 dark:bg-purple-900/20" iconColor="text-purple-500" href="/admin/photography" />}
                 </div>
             )}
 
@@ -332,12 +365,12 @@ export default function AdminDashboard() {
 
                 {/* Repair Donut Chart */}
                 {showRepairs && (
-                    <div className="lg:col-span-4 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="lg:col-span-4 bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800">
                         <div className="flex items-center justify-between mb-2">
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Wrench size={16} className="text-rose-500" /> สัดส่วนงานซ่อม
+                                <Wrench size={16} className="text-gray-400" /> สัดส่วนงานซ่อม
                             </h2>
-                            <Link href="/admin/repairs" className="text-xs text-indigo-500 hover:text-indigo-600 font-medium">ดูทั้งหมด →</Link>
+                            <Link href="/admin/repairs" className="text-xs text-gray-400 hover:text-gray-600 font-medium">ดูทั้งหมด →</Link>
                         </div>
                         <DonutChart data={repairDonut} centerLabel="ทั้งหมด" centerValue={repairTotal} />
                         <div className="flex flex-wrap gap-3 justify-center mt-2">
@@ -351,12 +384,12 @@ export default function AdminDashboard() {
 
                 {/* Facility Repair Donut Chart */}
                 {showFacilityRepairs && (
-                    <div className="lg:col-span-4 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="lg:col-span-4 bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800">
                         <div className="flex items-center justify-between mb-2">
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Building2 size={16} className="text-amber-500" /> สัดส่วนซ่อมอาคาร
+                                <Building2 size={16} className="text-gray-400" /> สัดส่วนซ่อมอาคาร
                             </h2>
-                            <Link href="/admin/facility" className="text-xs text-indigo-500 hover:text-indigo-600 font-medium">ดูทั้งหมด →</Link>
+                            <Link href="/admin/repairs?tab=facility" className="text-xs text-gray-400 hover:text-gray-600 font-medium">ดูทั้งหมด →</Link>
                         </div>
                         <DonutChart data={facilityRepairDonut} centerLabel="ทั้งหมด" centerValue={facilityTotal} />
                         <div className="flex flex-wrap gap-3 justify-center mt-2">
@@ -368,34 +401,50 @@ export default function AdminDashboard() {
                 )}
 
                 {/* Completion Progress */}
-                {(showRepairs || showFacilityRepairs) && (
-                    <div className={`${showRepairs && showFacilityRepairs ? 'lg:col-span-4' : 'lg:col-span-3'} bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700`}>
+                {(showRepairs || showFacilityRepairs || showBookings || showPhotography) && (
+                    <div className={`${showRepairs && showFacilityRepairs ? 'lg:col-span-4' : 'lg:col-span-3'} bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800`}>
                         <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-                            <TrendingUp size={16} className="text-emerald-500" /> อัตราการทำงาน
+                            <TrendingUp size={16} className="text-gray-400" /> อัตราการทำงาน
                         </h2>
                         <div className="flex flex-col items-center gap-5 py-2">
                             <div className="relative">
                                 <ProgressRing
-                                    percent={showRepairs ? repairCompletionRate : facilityCompletionRate}
-                                    label={showRepairs ? "IT ซ่อมสำเร็จ" : "อาคารซ่อมสำเร็จ"}
+                                    percent={overallCompletionRate}
+                                    label="ภาพรวมสำเร็จ"
                                     color="#10B981"
                                     size={100}
                                 />
                             </div>
 
                             <div className="w-full space-y-3">
-                                {showFacilityRepairs && showRepairs && (
+                                {showRepairs && (
+                                    <div>
+                                        <div className="flex items-center justify-between text-xs mb-1">
+                                            <span className="text-gray-500 dark:text-gray-400">ซ่อมโสตฯ</span>
+                                            <span className="font-medium text-gray-900 dark:text-white tabular-nums">
+                                                {performance.repairs.completed}/{repairTotal}
+                                            </span>
+                                        </div>
+                                        <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
+                                            <div
+                                                className="h-2 bg-rose-500 rounded-full transition-all"
+                                                style={{ width: `${repairTotal > 0 ? (performance.repairs.completed / repairTotal * 100) : 0}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                {showFacilityRepairs && (
                                     <div>
                                         <div className="flex items-center justify-between text-xs mb-1">
                                             <span className="text-gray-500 dark:text-gray-400">ซ่อมอาคาร</span>
                                             <span className="font-medium text-gray-900 dark:text-white tabular-nums">
-                                                {stats.facilityRepairs.completed}/{facilityTotal}
+                                                {performance.facilityRepairs.completed}/{facilityTotal}
                                             </span>
                                         </div>
-                                        <div className="w-full h-2 bg-gray-100 dark:bg-slate-700 rounded-full">
+                                        <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
                                             <div
                                                 className="h-2 bg-amber-500 rounded-full transition-all"
-                                                style={{ width: `${facilityTotal > 0 ? (stats.facilityRepairs.completed / facilityTotal * 100) : 0}%` }}
+                                                style={{ width: `${facilityTotal > 0 ? (performance.facilityRepairs.completed / facilityTotal * 100) : 0}%` }}
                                             />
                                         </div>
                                     </div>
@@ -405,13 +454,13 @@ export default function AdminDashboard() {
                                         <div className="flex items-center justify-between text-xs mb-1">
                                             <span className="text-gray-500 dark:text-gray-400">การจอง</span>
                                             <span className="font-medium text-gray-900 dark:text-white tabular-nums">
-                                                {stats.bookings.approved}/{stats.bookings.total}
+                                                {performance.bookings.approved}/{performance.bookings.total}
                                             </span>
                                         </div>
-                                        <div className="w-full h-2 bg-gray-100 dark:bg-slate-700 rounded-full">
+                                        <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
                                             <div
-                                                className="h-2 bg-amber-500 rounded-full transition-all"
-                                                style={{ width: `${stats.bookings.total > 0 ? (stats.bookings.approved / stats.bookings.total * 100) : 0}%` }}
+                                                className="h-2 bg-blue-500 rounded-full transition-all"
+                                                style={{ width: `${performance.bookings.total > 0 ? (performance.bookings.approved / performance.bookings.total * 100) : 0}%` }}
                                             />
                                         </div>
                                     </div>
@@ -421,13 +470,13 @@ export default function AdminDashboard() {
                                         <div className="flex items-center justify-between text-xs mb-1">
                                             <span className="text-gray-500 dark:text-gray-400">ถ่ายภาพ</span>
                                             <span className="font-medium text-gray-900 dark:text-white tabular-nums">
-                                                {stats.photography.completed}/{stats.photography.total}
+                                                {performance.photography.completed}/{performance.photography.total}
                                             </span>
                                         </div>
-                                        <div className="w-full h-2 bg-gray-100 dark:bg-slate-700 rounded-full">
+                                        <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full">
                                             <div
                                                 className="h-2 bg-purple-500 rounded-full transition-all"
-                                                style={{ width: `${stats.photography.total > 0 ? (stats.photography.completed / stats.photography.total * 100) : 0}%` }}
+                                                style={{ width: `${performance.photography.total > 0 ? (performance.photography.completed / performance.photography.total * 100) : 0}%` }}
                                             />
                                         </div>
                                     </div>
@@ -438,10 +487,10 @@ export default function AdminDashboard() {
                 )}
 
                 {/* Activity Bar Chart */}
-                <div className="lg:col-span-12 bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-700">
+                <div className="lg:col-span-12 bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-200 dark:border-gray-800">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <Activity size={16} className="text-indigo-500" /> กิจกรรมย้อนหลัง 7 วัน
+                            <Activity size={16} className="text-gray-400" /> กิจกรรมย้อนหลัง 7 วัน
                         </h2>
                         <div className="flex gap-3">
                             <LegendDot color="#EF4444" label="ซ่อม" />
@@ -458,16 +507,16 @@ export default function AdminDashboard() {
 
                 {/* Technician Leaderboard */}
                 {personStats.length > 0 && (
-                    <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
+                    <div className="lg:col-span-7 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Users size={16} className="text-indigo-500" /> สถิติรายช่าง
+                                <Users size={16} className="text-gray-400" /> สถิติรายช่าง
                             </h2>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-slate-700">
+                                    <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
                                         <th className="text-left py-3 px-5 font-medium">ชื่อ</th>
                                         <th className="text-center py-3 px-3 font-medium">รอ</th>
                                         <th className="text-center py-3 px-3 font-medium">กำลังทำ</th>
@@ -479,12 +528,11 @@ export default function AdminDashboard() {
                                 <tbody>
                                     {personStats.map((p, i) => {
                                         const rate = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
-                                        const avatarColors = ['bg-indigo-100 text-indigo-600', 'bg-emerald-100 text-emerald-600', 'bg-amber-100 text-amber-600', 'bg-rose-100 text-rose-600', 'bg-cyan-100 text-cyan-600'];
                                         return (
-                                            <tr key={p.id} className="border-b border-gray-50 dark:border-slate-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
+                                            <tr key={p.id} className="border-b border-gray-100 dark:border-gray-800/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                                 <td className="py-3 px-5">
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 rounded-full ${avatarColors[i % avatarColors.length]} flex items-center justify-center text-xs font-bold shrink-0`}>
+                                                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center text-xs font-bold shrink-0">
                                                             {p.name.slice(0, 2)}
                                                         </div>
                                                         <span className="font-medium text-gray-900 dark:text-white truncate">{p.name}</span>
@@ -496,7 +544,7 @@ export default function AdminDashboard() {
                                                 <td className="py-3 px-3 text-center tabular-nums font-bold text-gray-900 dark:text-white">{p.total}</td>
                                                 <td className="py-3 px-5 text-center">
                                                     <div className="flex items-center gap-2 justify-center">
-                                                        <div className="w-16 h-1.5 bg-gray-100 dark:bg-slate-700 rounded-full">
+                                                        <div className="w-16 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full">
                                                             <div className="h-1.5 rounded-full transition-all" style={{ width: `${rate}%`, backgroundColor: rate >= 80 ? '#10B981' : rate >= 50 ? '#F59E0B' : '#EF4444' }} />
                                                         </div>
                                                         <span className="text-xs font-medium tabular-nums text-gray-600 dark:text-gray-400">{rate}%</span>
@@ -512,18 +560,18 @@ export default function AdminDashboard() {
                 )}
 
                 {/* Activity Feed */}
-                <div className={`${personStats.length > 0 ? 'lg:col-span-5' : 'lg:col-span-12'} bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden`}>
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
+                <div className={`${personStats.length > 0 ? 'lg:col-span-5' : 'lg:col-span-12'} bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden`}>
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
                         <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <Clock size={16} className="text-indigo-500" /> กิจกรรมล่าสุด
+                            <Clock size={16} className="text-gray-400" /> กิจกรรมล่าสุด
                         </h2>
                     </div>
                     {activities.length === 0 ? (
                         <div className="py-12 text-center text-gray-400 text-sm">ยังไม่มีกิจกรรม</div>
                     ) : (
-                        <div className="divide-y divide-gray-50 dark:divide-slate-700/50 max-h-[380px] overflow-y-auto custom-scrollbar">
+                        <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[380px] overflow-y-auto custom-scrollbar">
                             {activities.slice(0, 15).map((a, i) => (
-                                <div key={a.id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
+                                <div key={a.id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                     <div className={`w-2 h-2 rounded-full shrink-0 ${actionColors[a.action] || 'bg-gray-400'}`} />
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-gray-900 dark:text-white">

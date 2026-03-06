@@ -1,10 +1,11 @@
-import { DashboardStats, PersonStat } from "@/hooks/useDashboardStats";
+import { ActionableStats, PerformanceStats, PersonStat } from "@/hooks/useDashboardStats";
 
 /**
  * Export dashboard stats to Excel-compatible CSV (no external library needed)
  */
 export function exportDashboardToExcel(
-    stats: DashboardStats,
+    actionable: ActionableStats,
+    performance: PerformanceStats,
     personStats: PersonStat[],
     exporterName: string
 ) {
@@ -19,16 +20,17 @@ export function exportDashboardToExcel(
     // Summary
     csv += `--- สรุปภาพรวม ---\n`;
     csv += `หัวข้อ,จำนวน\n`;
-    csv += `งานซ่อม - รอดำเนินการ,${stats.repairs.pending}\n`;
-    csv += `งานซ่อม - กำลังดำเนินการ,${stats.repairs.in_progress}\n`;
-    csv += `งานซ่อม - รออะไหล่,${stats.repairs.waiting_parts}\n`;
-    csv += `งานซ่อม - เสร็จสิ้น,${stats.repairs.completed}\n`;
-    csv += `งานซ่อม - ทั้งหมด,${stats.repairs.total}\n`;
-    csv += `การจอง - รออนุมัติ,${stats.bookings.pending}\n`;
-    csv += `การจอง - อนุมัติแล้ว,${stats.bookings.approved}\n`;
-    csv += `การจอง - ทั้งหมด,${stats.bookings.total}\n`;
-    csv += `อุปกรณ์ - ใกล้หมด,${stats.inventory.lowStock}\n`;
-    csv += `ผู้ใช้งาน - ทั้งหมด,${stats.users.total}\n\n`;
+    csv += `งานซ่อม - รอดำเนินการ,${actionable.repairsPending}\n`;
+    csv += `งานซ่อม - หมวด Performance (ใหม่),${performance.repairs.new}\n`;
+    csv += `งานซ่อม - กำลังดำเนินการ,${performance.repairs.in_progress}\n`;
+    csv += `งานซ่อม - รออะไหล่,${performance.repairs.waiting_parts}\n`;
+    csv += `งานซ่อม - เสร็จสิ้น,${performance.repairs.completed}\n`;
+    csv += `งานซ่อม - ทั้งหมดช่วงนี้,${performance.repairs.total}\n`;
+    csv += `การจอง - รออนุมัติ (ปัจจุบัน),${actionable.bookingsPending}\n`;
+    csv += `การจอง - อนุมัติแล้ว,${performance.bookings.approved}\n`;
+    csv += `การจอง - ทั้งหมดช่วงนี้,${performance.bookings.total}\n`;
+    csv += `อุปกรณ์ - ใกล้หมด,${actionable.inventoryLowStock}\n`;
+    csv += `ผู้ใช้งาน - ทั้งหมด,${performance.users.total}\n\n`;
 
     // Per-person
     if (personStats.length > 0) {
@@ -51,7 +53,8 @@ export function exportDashboardToExcel(
  * Print dashboard stats as PDF using browser print
  */
 export function printDashboardStats(
-    stats: DashboardStats,
+    actionable: ActionableStats,
+    performance: PerformanceStats,
     personStats: PersonStat[],
     printerName: string
 ) {
@@ -103,15 +106,15 @@ export function printDashboardStats(
     <div class="section-title">📋 สรุปงานซ่อม</div>
     <div class="stats-grid">
         <div class="stat-box">
-            <div class="value pending">${stats.repairs.pending}</div>
+            <div class="value pending">${actionable.repairsPending}</div>
             <div class="label">รอดำเนินการ</div>
         </div>
         <div class="stat-box">
-            <div class="value progress">${stats.repairs.in_progress}</div>
+            <div class="value progress">${performance.repairs.in_progress}</div>
             <div class="label">กำลังดำเนินการ</div>
         </div>
         <div class="stat-box">
-            <div class="value completed">${stats.repairs.completed}</div>
+            <div class="value completed">${performance.repairs.completed}</div>
             <div class="label">เสร็จสิ้น</div>
         </div>
     </div>
@@ -119,9 +122,9 @@ export function printDashboardStats(
     <div class="section-title">📅 การจอง</div>
     <table>
         <tr><th>สถานะ</th><th>จำนวน</th></tr>
-        <tr><td>รออนุมัติ</td><td>${stats.bookings.pending}</td></tr>
-        <tr><td>อนุมัติแล้ว</td><td>${stats.bookings.approved}</td></tr>
-        <tr><td>ทั้งหมด</td><td>${stats.bookings.total}</td></tr>
+        <tr><td>รออนุมัติ (ตอนนี้)</td><td>${actionable.bookingsPending}</td></tr>
+        <tr><td>อนุมัติแล้ว</td><td>${performance.bookings.approved}</td></tr>
+        <tr><td>ทั้งหมดช่วงนี้</td><td>${performance.bookings.total}</td></tr>
     </table>
 
     ${personStats.length > 0 ? `

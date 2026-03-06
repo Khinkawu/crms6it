@@ -77,9 +77,12 @@ service cloud.firestore {
     }
 
     // line_bindings — ดูเฉพาะของตัวเอง (uid match), admin ดูทั้งหมด
+    // เขียน: user สร้าง/แก้ binding ของตัวเองได้ (uid ต้องตรงกับ auth.uid), admin ลบได้
     match /line_bindings/{lineUserId} {
       allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
-      allow write: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow delete: if isAdmin();
     }
 
     // ai_conversations — ดูเฉพาะของตัวเอง (lookup line_bindings), เขียนจาก server เท่านั้น
@@ -153,8 +156,15 @@ service cloud.firestore {
     // Facilities Maintenance Module
     // ====================================================================
 
-    // facility_items — คลังวัสดุช่างอาคาร
+    // facility_items — คลังวัสดุช่างอาคาร (legacy collection name)
     match /facility_items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isFacilityTechnician();
+    }
+
+    // facility_inventory — คลังวัสดุช่างอาคาร (current collection name used by hooks)
+    match /facility_inventory/{itemId} {
       allow read: if isAuthenticated();
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || isFacilityTechnician();
