@@ -437,6 +437,18 @@ export async function createRepairFromAI(
 
         const docRef = await adminDb.collection('repair_tickets').add(repairData);
 
+        // Log to activities feed so it appears in Overview
+        await adminDb.collection('activities').add({
+            action: 'repair',
+            productName: room,
+            userName: `${finalRequesterName} (LINE)`,
+            details: description,
+            imageUrl: images[0] || '',
+            zone: normalizedSide,
+            status: 'pending',
+            timestamp: FieldValue.serverTimestamp(),
+        });
+
         await notifyTechniciansDirectly({
             ticketId: docRef.id,
             requesterName: finalRequesterName,
@@ -550,6 +562,18 @@ export async function createFacilityRepairFromAI(
         };
 
         const docRef = await adminDb.collection('facility_tickets').add(ticketData);
+
+        // Log to activities feed so it appears in Overview
+        await adminDb.collection('activities').add({
+            action: 'repair',
+            productName: room,
+            userName: `${finalRequesterName} (LINE)`,
+            details: `[${category}] ${description}`,
+            imageUrl: images[0] || '',
+            zone: normalizedSide,
+            status: 'pending',
+            timestamp: FieldValue.serverTimestamp(),
+        });
 
         await notifyFacilityTechnicianDirectly({
             ticketId: docRef.id,
