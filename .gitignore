@@ -19,3 +19,6 @@ SYSTEM_DOCUMENTATION.md
 
 # local dev tools
 .mcp.json
+.agent/
+.gemini/
+*.backup
