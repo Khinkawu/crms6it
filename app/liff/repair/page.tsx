@@ -8,6 +8,7 @@ import { signInWithCustomToken } from "firebase/auth";
 import { db, auth } from "../../../lib/firebase";
 import RepairForm from "../../../components/repair/RepairForm";
 import RepairHistory from "../../../components/repair/RepairHistory";
+import FacilityForm from "../../../components/facility/FacilityForm";
 import { LiffSkeleton, LiffError, triggerHaptic } from "@/components/liff/LiffComponents";
 
 export default function RepairLiffPage() {
@@ -73,7 +74,7 @@ export default function RepairLiffPage() {
     // State for Tabs
     const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const initialTab = searchParams?.get('mode') === 'history' ? 'history' : 'new';
-    const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
+    const [activeTab, setActiveTab] = useState<'new' | 'history' | 'facility'>('new');
 
     // Sync tab with initial load
     useEffect(() => {
@@ -83,7 +84,7 @@ export default function RepairLiffPage() {
     }, [initialTab]);
 
     // Handle tab change with haptic feedback
-    const handleTabChange = (tab: 'new' | 'history') => {
+    const handleTabChange = (tab: 'new' | 'history' | 'facility') => {
         triggerHaptic('light');
         setActiveTab(tab);
     };
@@ -99,33 +100,39 @@ export default function RepairLiffPage() {
     }
 
     if (isReady) {
+        const tabs: { key: 'new' | 'history' | 'facility'; label: string; accent: string }[] = [
+            { key: 'new', label: 'แจ้งซ่อม IT', accent: 'bg-blue-600' },
+            { key: 'facility', label: 'ซ่อมอาคาร', accent: 'bg-amber-500' },
+            { key: 'history', label: 'ประวัติ', accent: 'bg-gray-700' },
+        ];
+
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col">
                 {/* Tab Navigation */}
-                <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-gray-100 flex">
-                    <button
-                        onClick={() => handleTabChange('new')}
-                        className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${activeTab === 'new' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
-                    >
-                        แจ้งซ่อม
-                        {activeTab === 'new' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-900 dark:bg-white rounded-t-full" />}
-                    </button>
-                    <button
-                        onClick={() => handleTabChange('history')}
-                        className={`flex-1 py-3 text-sm font-semibold text-center transition-colors relative ${activeTab === 'history' ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}
-                    >
-                        ประวัติ
-                        {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-900 dark:bg-white rounded-t-full" />}
-                    </button>
+                <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-gray-100">
+                    <div className="flex">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.key}
+                                onClick={() => handleTabChange(tab.key)}
+                                className={`flex-1 py-3 text-xs font-semibold text-center transition-colors relative ${
+                                    activeTab === tab.key ? 'text-gray-900' : 'text-gray-400'
+                                }`}
+                            >
+                                {tab.label}
+                                {activeTab === tab.key && (
+                                    <div className={`absolute bottom-0 left-0 w-full h-0.5 ${tab.accent} rounded-t-full`} />
+                                )}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Content Area */}
                 <div className="flex-1 overflow-y-auto">
-                    {activeTab === 'new' ? (
-                        <RepairForm />
-                    ) : (
-                        <RepairHistory />
-                    )}
+                    {activeTab === 'new' && <RepairForm />}
+                    {activeTab === 'facility' && <FacilityForm />}
+                    {activeTab === 'history' && <RepairHistory />}
                 </div>
             </div>
         );
