@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { doc, getDoc, collection, query, where, getCountFromServer, getDocs, Timestamp, limit } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, where, getCountFromServer, getDocs, Timestamp, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { UserRole } from "@/types";
@@ -149,23 +149,52 @@ export function useDashboardStats(dateRange: DateRange = 'all') {
                     // Fast path: use cached 'stats' documents for 'All Time'
                     if (canSee(role, isPhotographer, 'repairs')) {
                         const snap = await getDoc(doc(db, "stats", "repairs"));
-                        if (snap.exists()) {
-                            const d = snap.data();
+                        const d = snap.exists() ? snap.data() : null;
+                        const cachedTotal = d?.total || 0;
+
+                        if (cachedTotal > 0) {
+                            // Cache hit — single read, cheap
                             newPerf.repairs = {
-                                new: d.pending || 0,
-                                in_progress: d.in_progress || 0,
-                                waiting_parts: d.waiting_parts || 0,
-                                completed: d.completed || 0,
-                                total: d.total || 0,
+                                new: d!.pending || 0,
+                                in_progress: d!.in_progress || 0,
+                                waiting_parts: d!.waiting_parts || 0,
+                                completed: d!.completed || 0,
+                                total: cachedTotal,
                             };
-                            if (d.perTechnician) {
-                                Object.entries(d.perTechnician).forEach(([id, data]: [string, any]) => {
+                            if (d!.perTechnician) {
+                                Object.entries(d!.perTechnician).forEach(([id, data]: [string, any]) => {
                                     persons.push({
                                         id, name: data.name || id,
                                         pending: data.pending || 0, in_progress: data.in_progress || 0,
                                         completed: data.completed || 0, total: data.total || 0
                                     });
                                 });
+                            }
+                        } else {
+                            // Cache miss / empty — rebuild from source (parallel count queries)
+                            const [cPending, cInProgress, cWaiting, cCompleted] = await Promise.all([
+                                getCountFromServer(query(collection(db, "repair_tickets"), where("status", "==", "pending"))),
+                                getCountFromServer(query(collection(db, "repair_tickets"), where("status", "==", "in_progress"))),
+                                getCountFromServer(query(collection(db, "repair_tickets"), where("status", "==", "waiting_parts"))),
+                                getCountFromServer(query(collection(db, "repair_tickets"), where("status", "==", "completed"))),
+                            ]);
+                            const counts = {
+                                pending: cPending.data().count,
+                                in_progress: cInProgress.data().count,
+                                waiting_parts: cWaiting.data().count,
+                                completed: cCompleted.data().count,
+                            };
+                            const total = counts.pending + counts.in_progress + counts.waiting_parts + counts.completed;
+                            newPerf.repairs = {
+                                new: counts.pending,
+                                in_progress: counts.in_progress,
+                                waiting_parts: counts.waiting_parts,
+                                completed: counts.completed,
+                                total,
+                            };
+                            // Write back to cache so next load is fast (fire-and-forget)
+                            if (total > 0) {
+                                setDoc(doc(db, "stats", "repairs"), { ...counts, total, updatedAt: new Date() }, { merge: true }).catch(() => { });
                             }
                         }
                     }
