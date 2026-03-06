@@ -7,13 +7,14 @@ import { UserProfile, RepairTicket } from '@/types';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { startAIChat, geminiVisionModel, imageToGenerativePart, rankVideosWithAI, rankPhotosWithAI, findAnswerWithAI, checkConfirmationWithAI } from './gemini';
-import { FlexMessage } from '@line/bot-sdk';
+import { FlexMessage, TextMessage } from '@line/bot-sdk';
 import {
     checkRoomAvailability,
     createBookingFromAI,
     getRepairsByEmail,
     getRepairByTicketId,
     createRepairFromAI,
+    createFacilityRepairFromAI,
     getBookingsByEmail,
     getPhotoJobsByPhotographer,
     searchGallery,
@@ -40,6 +41,8 @@ interface ConversationContext {
         intent: string;
         params: Record<string, any>;
         repairStep?:
+        | 'awaiting_repair_type'
+        | 'awaiting_category'
         | 'awaiting_symptom'
         | 'awaiting_image'
         | 'awaiting_intent_confirm'
@@ -788,7 +791,23 @@ Focus on identifying the IT/AV equipment and any visible defects.
 // Main Process Function
 // ============================================
 
-export async function processAIMessage(lineUserId: string, userMessage: string, imageBuffer?: Buffer, imageMimeType?: string): Promise<string | FlexMessage> {
+function makeQuickReply(text: string, items: { label: string; text: string }[]): TextMessage {
+    return {
+        type: 'text',
+        text,
+        quickReply: {
+            items: items.map(item => ({
+                type: 'action' as const,
+                action: { type: 'message' as const, label: item.label, text: item.text },
+            })),
+        },
+    };
+}
+
+const FACILITY_KEYWORDS = ['แอร์', 'ไฟฟ้า', 'ไฟดับ', 'ไฟไม่ติด', 'ประปา', 'น้ำ', 'รั่ว', 'ท่อ', 'ก๊อก', 'เพดาน', 'ฝ้า', 'ประตู', 'หน้าต่าง', 'กระเบื้อง', 'โครงสร้าง', 'ผนัง', 'สวิตช์ไฟ'];
+const IT_KEYWORDS = ['คอม', 'คอมพิวเตอร์', 'projector', 'โปรเจค', 'เน็ต', 'wifi', 'อินเทอร์เน็ต', 'ปริ้น', 'เครื่องพิมพ์', 'ไมค์', 'ลำโพง', 'จอ', 'สาย lan', 'usb', 'โปรแกรม'];
+
+export async function processAIMessage(lineUserId: string, userMessage: string, imageBuffer?: Buffer, imageMimeType?: string): Promise<string | FlexMessage | TextMessage> {
     const userProfile = await getUserProfileFromLineBinding(lineUserId);
     let context = await getConversationContext(lineUserId);
     if (!context) { context = { messages: [], lastActivity: new Date() }; }
@@ -949,6 +968,67 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                 return `⚠️ ไม่พบข้อมูลบัญชีของท่าน\n\nกรุณาผูกบัญชีก่อนทำรายการค่ะ\nพิมพ์ email @tesaban6.ac.th ของท่านเพื่อเริ่มต้นผูกบัญชี\nตัวอย่าง: kawin@tesaban6.ac.th`;
             }
 
+            if (repairStep === 'awaiting_repair_type') {
+                const msgLower = msg.toLowerCase();
+                if (IT_KEYWORDS.some(k => msgLower.includes(k)) || msg.includes('โสต') || msg.includes('IT') || msg.includes('it')) {
+                    context.pendingAction!.params.repair_type = 'it';
+                    context.pendingAction!.repairStep = 'awaiting_symptom';
+                    await saveConversationContext(lineUserId, context);
+                    return 'รับทราบค่ะ แจ้งซ่อมอุปกรณ์โสตฯ/IT\n\nช่วยบอกอาการหรือปัญหาที่พบด้วยนะคะ (เช่น คอมเปิดไม่ติด, projector ไม่แสดงภาพ)';
+                }
+                if (FACILITY_KEYWORDS.some(k => msgLower.includes(k)) || msg.includes('อาคาร') || msg.includes('สถานที่')) {
+                    context.pendingAction!.params.repair_type = 'facility';
+                    context.pendingAction!.repairStep = 'awaiting_category';
+                    await saveConversationContext(lineUserId, context);
+                    return makeQuickReply(
+                        'รับทราบค่ะ แจ้งซ่อมอาคารสถานที่\n\nปัญหาเกี่ยวกับเรื่องอะไรคะ?',
+                        [
+                            { label: '❄️ แอร์', text: 'แอร์' },
+                            { label: '💡 ไฟฟ้า', text: 'ไฟฟ้า' },
+                            { label: '🚿 ประปา', text: 'ประปา' },
+                            { label: '🏗️ โครงสร้าง', text: 'โครงสร้าง' },
+                            { label: '📦 อื่นๆ', text: 'อื่นๆ' },
+                        ]
+                    );
+                }
+                // ยังระบุไม่ได้ — ถามซ้ำด้วย quick reply
+                await saveConversationContext(lineUserId, context);
+                return makeQuickReply(
+                    'ขอทราบประเภทการแจ้งซ่อมด้วยนะคะ',
+                    [
+                        { label: '🔧 โสตทัศนศึกษา/IT', text: 'โสตทัศนศึกษา' },
+                        { label: '🏠 อาคารสถานที่', text: 'อาคารสถานที่' },
+                    ]
+                );
+            }
+
+            if (repairStep === 'awaiting_category') {
+                const validCategories: Record<string, string> = {
+                    'แอร์': 'แอร์', 'ไฟฟ้า': 'ไฟฟ้า', 'ไฟ': 'ไฟฟ้า',
+                    'ประปา': 'ประปา', 'น้ำ': 'ประปา',
+                    'โครงสร้าง': 'โครงสร้าง', 'เพดาน': 'โครงสร้าง', 'ประตู': 'โครงสร้าง',
+                    'อื่นๆ': 'เบ็ดเตล็ด', 'อื่น': 'เบ็ดเตล็ด', 'เบ็ดเตล็ด': 'เบ็ดเตล็ด',
+                };
+                const matched = Object.entries(validCategories).find(([k]) => msg.includes(k));
+                if (!matched) {
+                    await saveConversationContext(lineUserId, context);
+                    return makeQuickReply(
+                        'ขอทราบประเภทปัญหาด้วยนะคะ',
+                        [
+                            { label: '❄️ แอร์', text: 'แอร์' },
+                            { label: '💡 ไฟฟ้า', text: 'ไฟฟ้า' },
+                            { label: '🚿 ประปา', text: 'ประปา' },
+                            { label: '🏗️ โครงสร้าง', text: 'โครงสร้าง' },
+                            { label: '📦 อื่นๆ', text: 'อื่นๆ' },
+                        ]
+                    );
+                }
+                context.pendingAction!.params.issue_category = matched[1];
+                context.pendingAction!.repairStep = 'awaiting_symptom';
+                await saveConversationContext(lineUserId, context);
+                return `รับทราบค่ะ ปัญหา${matched[1]}\n\nช่วยอธิบายอาการให้ละเอียดขึ้นได้เลยนะคะ (เช่น แอร์ไม่เย็น น้ำหยด รีโมทไม่ทำงาน)`;
+            }
+
             if (repairStep === 'awaiting_symptom') {
                 context.pendingAction.params.description = msg;
                 context.pendingAction.repairStep = 'awaiting_image';
@@ -1020,12 +1100,35 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                 context.pendingAction.params.room = msg;
                 context.pendingAction.repairStep = 'awaiting_side';
                 await saveConversationContext(lineUserId, context);
-                return 'อยู่ฝั่ง ม.ต้น หรือ ม.ปลาย คะ?';
+                return makeQuickReply('อยู่ฝั่งไหนคะ?', [
+                    { label: '🏫 ม.ต้น', text: 'ม.ต้น' },
+                    { label: '🎓 ม.ปลาย', text: 'ม.ปลาย' },
+                ]);
             }
             if (repairStep === 'awaiting_side') {
-                context.pendingAction.params.side = msg;
+                const isFacility = params.repair_type === 'facility';
 
-                // Pass aiDiagnosis to helper
+                if (isFacility) {
+                    const res = await createFacilityRepairFromAI(
+                        params.room,
+                        params.description,
+                        msg,
+                        params.imageUrl || '',
+                        userProfile.displayName || 'ผู้ใช้ LINE',
+                        userProfile.email,
+                        params.issue_category || 'เบ็ดเตล็ด',
+                    );
+                    context.messages = [];
+                    context.pendingAction = undefined;
+                    await saveConversationContext(lineUserId, context);
+                    if (res.success) {
+                        const zoneLabel = res.data?.zone === 'senior_high' ? 'ม.ปลาย' : 'ม.ต้น';
+                        return `✅ รับแจ้งซ่อมอาคารเรียบร้อยค่ะ\nคุณ ${res.data?.requesterName || 'ผู้แจ้ง'}\n🏢 ประเภท: ${params.issue_category || 'เบ็ดเตล็ด'}\n📍 สถานที่: ${params.room} (${zoneLabel})\n📅 วันที่แจ้ง: ${res.data?.createdAt}\n\nช่างซ่อมอาคารจะเข้าไปตรวจสอบโดยเร็วที่สุดค่ะ`;
+                    }
+                    return `❌ เกิดข้อผิดพลาด: ${res.error}`;
+                }
+
+                // IT repair
                 const res = await createRepairFromAI(
                     params.room,
                     params.description,
@@ -1033,11 +1136,10 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     params.imageUrl || '',
                     userProfile.displayName || 'ผู้ใช้ LINE',
                     userProfile.email,
-                    params.aiDiagnosis // New field
+                    params.aiDiagnosis,
                 );
 
                 if (res.success) {
-                    // Bug 1 Fix: Clear entire context to prevent stale data in consecutive repairs
                     context.messages = [];
                     context.pendingAction = undefined;
                     await saveConversationContext(lineUserId, context);
@@ -1170,24 +1272,66 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     reply = await handleDailySummary(userProfile); break;
 
                 case 'CREATE_REPAIR':
+                case 'CREATE_FACILITY_REPAIR': {
                     if (!userProfile) {
                         context.pendingAction = { intent: 'LINK_ACCOUNT', params: {}, repairStep: 'awaiting_link_email' };
                         reply = `⚠️ ไม่พบข้อมูลบัญชีของท่าน\n\nกรุณาผูกบัญชีก่อนแจ้งซ่อมค่ะ\nพิมพ์ email @tesaban6.ac.th ของท่านเพื่อเริ่มต้นผูกบัญชี\nตัวอย่าง: kawin@tesaban6.ac.th`;
                         break;
                     }
 
-                    const params = aiRes.params as any; // Cast for now, logic below checks fields
-                    context.pendingAction = { intent: 'CREATE_REPAIR', repairStep: 'awaiting_symptom', params: params || {} };
+                    const repairParams = (aiRes.params || {}) as any;
+                    const msgLower = userMessage.toLowerCase();
 
-                    if (params?.description) {
-                        context.pendingAction.params.description = params.description;
-                        context.pendingAction.repairStep = 'awaiting_image';
-                        reply = `รับแจ้งซ่อม "${params.description}" ค่ะ\n\n📸 มีรูปถ่ายอาการไหมคะ? (ส่งรูปมาได้เลย หรือตอบ "ไม่มี")`;
-                    } else {
-                        reply = 'ขอทราบอาการเสีย หรืออุปกรณ์ที่มีปัญหาด้วยค่ะ?';
+                    // Auto-detect repair type from keywords
+                    let detectedType: 'it' | 'facility' | null = null;
+                    if (aiRes.intent === 'CREATE_FACILITY_REPAIR' || FACILITY_KEYWORDS.some(k => msgLower.includes(k))) {
+                        detectedType = 'facility';
+                    } else if (IT_KEYWORDS.some(k => msgLower.includes(k)) || repairParams.description) {
+                        detectedType = 'it';
                     }
+
+                    context.pendingAction = { intent: 'CREATE_REPAIR', repairStep: 'awaiting_symptom', params: repairParams };
+
+                    if (detectedType === 'facility') {
+                        context.pendingAction.params.repair_type = 'facility';
+                        context.pendingAction.repairStep = 'awaiting_category';
+                        await saveConversationContext(lineUserId, context);
+                        return makeQuickReply(
+                            'รับทราบค่ะ จะแจ้งซ่อมอาคารสถานที่\n\nปัญหาเกี่ยวกับเรื่องอะไรคะ?',
+                            [
+                                { label: '❄️ แอร์', text: 'แอร์' },
+                                { label: '💡 ไฟฟ้า', text: 'ไฟฟ้า' },
+                                { label: '🚿 ประปา', text: 'ประปา' },
+                                { label: '🏗️ โครงสร้าง', text: 'โครงสร้าง' },
+                                { label: '📦 อื่นๆ', text: 'อื่นๆ' },
+                            ]
+                        );
+                    }
+
+                    if (detectedType === 'it') {
+                        context.pendingAction.params.repair_type = 'it';
+                        if (repairParams.description) {
+                            context.pendingAction.repairStep = 'awaiting_image';
+                            reply = `รับแจ้งซ่อม "${repairParams.description}" ค่ะ\n\n📸 มีรูปถ่ายอาการไหมคะ? (ส่งรูปมาได้เลย หรือตอบ "ไม่มี")`;
+                        } else {
+                            reply = 'ขอทราบอาการเสีย หรืออุปกรณ์ที่มีปัญหาด้วยค่ะ?';
+                        }
+                    } else {
+                        // ไม่แน่ใจประเภท — ถามด้วย quick reply
+                        context.pendingAction.repairStep = 'awaiting_repair_type';
+                        await saveConversationContext(lineUserId, context);
+                        return makeQuickReply(
+                            'จะแจ้งซ่อมประเภทไหนคะ?',
+                            [
+                                { label: '🔧 โสตทัศนศึกษา/IT', text: 'โสตทัศนศึกษา' },
+                                { label: '🏠 อาคารสถานที่', text: 'อาคารสถานที่' },
+                            ]
+                        );
+                    }
+
                     await saveConversationContext(lineUserId, context);
                     break;
+                }
 
                 default:
                     reply = aiRes.message || 'ขออภัยค่ะ ไม่เข้าใจคำสั่ง';

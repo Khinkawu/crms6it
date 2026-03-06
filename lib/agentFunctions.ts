@@ -7,7 +7,7 @@
 import { adminDb } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { RepairTicket } from '@/types';
-import { createRepairNewFlexMessage } from '@/utils/flexMessageTemplates';
+import { createRepairNewFlexMessage, createFacilityNewFlexMessage } from '@/utils/flexMessageTemplates';
 import { logger } from './logger';
 
 // ============================================================================
@@ -457,6 +457,119 @@ export async function createRepairFromAI(
         };
     } catch (error) {
         logger.error('Create Repair AI', 'Error creating repair', error);
+        return { success: false, error: 'เกิดข้อผิดพลาด' };
+    }
+}
+
+async function notifyFacilityTechnicianDirectly(data: {
+    ticketId: string;
+    requesterName: string;
+    room: string;
+    description: string;
+    imageOneUrl: string;
+    zone: 'junior_high' | 'senior_high';
+}): Promise<void> {
+    try {
+        const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+        if (!token) return;
+
+        const techsSnapshot = await adminDb.collection('users').where('role', '==', 'facility_technician').get();
+        const targetUserIds: string[] = [];
+        techsSnapshot.forEach(doc => {
+            const lineId = doc.data().lineUserId;
+            if (lineId) targetUserIds.push(lineId);
+        });
+
+        if (targetUserIds.length === 0) {
+            logger.warn('Notify Facility', 'No facility_technician found');
+            return;
+        }
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
+        const deepLink = `${appUrl}/admin/repairs?ticketId=${data.ticketId}`;
+        const validImageUrl = data.imageOneUrl?.startsWith('https://') ? data.imageOneUrl : undefined;
+
+        const flexMessage = createFacilityNewFlexMessage({
+            description: data.description,
+            room: data.room,
+            requesterName: data.requesterName,
+            imageUrl: validImageUrl,
+            ticketId: data.ticketId,
+            deepLink,
+            zone: data.zone,
+        });
+
+        await fetch('https://api.line.me/v2/bot/message/multicast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ to: targetUserIds, messages: [flexMessage] }),
+        });
+    } catch (error) {
+        logger.error('Notify Facility', 'Error', error);
+    }
+}
+
+export async function createFacilityRepairFromAI(
+    room: string,
+    description: string,
+    side: string,
+    imageUrl: string,
+    requesterName: string,
+    requesterEmail: string,
+    issueCategory: string,
+): Promise<CreateRepairResult> {
+    try {
+        if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
+
+        let finalRequesterName = requesterName || 'ผู้แจ้งผ่าน LINE';
+        if (requesterEmail) {
+            const userSnap = await adminDb.collection('users').where('email', '==', requesterEmail).limit(1).get();
+            if (!userSnap.empty && userSnap.docs[0].data().displayName) {
+                finalRequesterName = userSnap.docs[0].data().displayName;
+            }
+        }
+
+        const trimmedSide = side.trim().toLowerCase();
+        const normalizedSide = SIDE_MAPPING[trimmedSide] || SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
+
+        const validCategories = ['แอร์', 'ไฟฟ้า', 'ประปา', 'โครงสร้าง', 'เบ็ดเตล็ด'];
+        const category = validCategories.includes(issueCategory) ? issueCategory : 'เบ็ดเตล็ด';
+
+        const images: string[] = imageUrl && imageUrl !== '' ? [imageUrl] : [];
+
+        const ticketData = {
+            room, description,
+            zone: normalizedSide as 'junior_high' | 'senior_high',
+            issueCategory: category,
+            images,
+            requesterName: finalRequesterName,
+            requesterEmail: requesterEmail || '',
+            position: 'แจ้งผ่าน LINE', phone: '-',
+            status: 'pending' as const, priority: 'normal' as const,
+            createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), source: 'line_ai',
+        };
+
+        const docRef = await adminDb.collection('facility_tickets').add(ticketData);
+
+        await notifyFacilityTechnicianDirectly({
+            ticketId: docRef.id,
+            requesterName: finalRequesterName,
+            room,
+            description,
+            imageOneUrl: images[0] || '',
+            zone: normalizedSide as 'junior_high' | 'senior_high',
+        });
+
+        return {
+            success: true,
+            ticketId: docRef.id,
+            data: {
+                ...ticketData,
+                createdAt: formatToThaiTime(new Date()),
+            },
+        };
+    } catch (error) {
+        logger.error('Create Facility Repair AI', 'Error', error);
         return { success: false, error: 'เกิดข้อผิดพลาด' };
     }
 }

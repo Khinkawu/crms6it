@@ -91,14 +91,10 @@ async function handleMessageEvent(event: any) {
 
         if (typeof aiReply === 'string') {
             console.log('[AI Agent] Reply:', aiReply.substring(0, 100));
-            // Reply to user
-            await client.replyMessage(replyToken, {
-                type: 'text',
-                text: aiReply,
-            });
+            await client.replyMessage(replyToken, { type: 'text', text: aiReply });
         } else {
-            console.log('[AI Agent] Reply: [FlexMessage]');
-            await client.replyMessage(replyToken, aiReply);
+            console.log('[AI Agent] Reply: [Message Object]');
+            await client.replyMessage(replyToken, aiReply as any);
         }
     } catch (error: any) {
         console.error('=== AI Agent Error ===');

@@ -75,6 +75,7 @@ export const AIResponseSchema = z.object({
         'CHECK_AVAILABILITY',
         'MY_WORK',
         'CREATE_REPAIR',
+        'CREATE_FACILITY_REPAIR',
         'CHECK_REPAIR',
         'GALLERY_SEARCH',
         'VIDEO_GALLERY_SEARCH',
