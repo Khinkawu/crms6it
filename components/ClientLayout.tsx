@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import ErrorBoundary from "./ErrorBoundary";
 import BottomNavigation from "./navigation/BottomNavigation";
 import Sidebar from "./navigation/Sidebar";
@@ -37,11 +37,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return (
         <ErrorBoundary>
             {/* Desktop: Sidebar */}
-            <Sidebar
-                onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-                collapsed={sidebarCollapsed}
-                onToggle={() => setSidebarCollapsed(prev => !prev)}
-            />
+            <Suspense fallback={null}>
+                <Sidebar
+                    onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+                    collapsed={sidebarCollapsed}
+                    onToggle={() => setSidebarCollapsed(prev => !prev)}
+                />
+            </Suspense>
 
             {/* Desktop: Top Header (right of sidebar) */}
             <div className={`hidden md:block fixed top-0 right-0 ${sidebarW} h-16 z-30 transition-all duration-300`}>
@@ -56,7 +58,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             </main>
 
             {/* Mobile: Bottom Navigation */}
-            <BottomNavigation />
+            <Suspense fallback={null}>
+                <BottomNavigation />
+            </Suspense>
 
             {/* Command Palette (Global) */}
             <CommandPalette

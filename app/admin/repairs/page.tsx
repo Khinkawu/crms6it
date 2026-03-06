@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageSkeleton } from "@/components/ui/Skeleton";
@@ -8,7 +8,7 @@ import { Wrench, Building2 } from "lucide-react";
 import ITRepairsView from "./ITRepairsView";
 import FacilityRepairsView from "./FacilityRepairsView";
 
-export default function CombinedRepairDashboard() {
+function CombinedRepairDashboardContent() {
     const { user, role, loading: authLoading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -89,5 +89,13 @@ export default function CombinedRepairDashboard() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function CombinedRepairDashboard() {
+    return (
+        <Suspense fallback={<PageSkeleton />}>
+            <CombinedRepairDashboardContent />
+        </Suspense>
     );
 }
