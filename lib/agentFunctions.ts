@@ -4,11 +4,41 @@
  * ใช้ Firebase Admin SDK สำหรับ server-side operations
  */
 
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb, adminStorage } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { RepairTicket } from '@/types';
 import { createRepairNewFlexMessage, createFacilityNewFlexMessage } from '@/utils/flexMessageTemplates';
 import { logger } from './logger';
+
+// ============================================================================
+// 0. STORAGE HELPERS
+// ============================================================================
+
+/**
+ * Upload a base64 data URL to Firebase Storage and return the public HTTPS URL.
+ * Used when LINE users send images — keeps Firestore docs small and makes URLs
+ * accessible to LINE Flex Message image fields.
+ */
+async function uploadLineImageToStorage(dataUrl: string): Promise<string> {
+    try {
+        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (!match) return '';
+        const mimeType = match[1];
+        const base64Data = match[2];
+        const ext = mimeType.split('/')[1] || 'jpg';
+        const filename = `line_repairs/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+        const bucket = adminStorage.bucket();
+        const file = bucket.file(filename);
+        const buffer = Buffer.from(base64Data, 'base64');
+        await file.save(buffer, { contentType: mimeType, public: true });
+
+        return `https://storage.googleapis.com/${bucket.name}/${filename}`;
+    } catch (err) {
+        logger.error('uploadLineImageToStorage', `Failed: ${err}`);
+        return '';
+    }
+}
 
 // ============================================================================
 // 1. MAPPINGS & HELPERS
@@ -422,7 +452,13 @@ export async function createRepairFromAI(
         const normalizedSide = SIDE_MAPPING[trimmedSide] || SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
         logger.info('Create Repair AI', `side input: "${side}" -> normalized: "${normalizedSide}"`);
 
-        const images: string[] = imageUrl && imageUrl !== 'pending_upload' && imageUrl !== '' ? [imageUrl] : [];
+        // Upload base64 image to Storage so LINE Flex Messages can display it
+        let resolvedImageUrl = imageUrl;
+        if (imageUrl && imageUrl.startsWith('data:')) {
+            resolvedImageUrl = await uploadLineImageToStorage(imageUrl);
+        }
+
+        const images: string[] = resolvedImageUrl && resolvedImageUrl !== 'pending_upload' && resolvedImageUrl !== '' ? [resolvedImageUrl] : [];
 
         const repairData = {
             room, description,
@@ -547,7 +583,13 @@ export async function createFacilityRepairFromAI(
         const validCategories = ['แอร์', 'ไฟฟ้า', 'ประปา', 'โครงสร้าง', 'เบ็ดเตล็ด'];
         const category = validCategories.includes(issueCategory) ? issueCategory : 'เบ็ดเตล็ด';
 
-        const images: string[] = imageUrl && imageUrl !== '' ? [imageUrl] : [];
+        // Upload base64 image to Storage so LINE Flex Messages can display it
+        let resolvedImageUrl = imageUrl;
+        if (imageUrl && imageUrl.startsWith('data:')) {
+            resolvedImageUrl = await uploadLineImageToStorage(imageUrl);
+        }
+
+        const images: string[] = resolvedImageUrl && resolvedImageUrl !== '' ? [resolvedImageUrl] : [];
 
         const ticketData = {
             room, description,
