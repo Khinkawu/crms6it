@@ -307,7 +307,7 @@ export default function AddFacilityInventoryPage() {
                                 </button>
                             </div>
                             <p className="text-xs text-gray-500 mt-3 text-center">
-                                * หากมีจำนวนมากกว่า 1 ชิ้น ระบบจะตั้งเป็น "วัสดุสิ้นเปลือง" (Bulk) อัตโนมัติ
+                                * หากมีจำนวนมากกว่า 1 ชิ้น ระบบจะตั้งเป็น &ldquo;วัสดุสิ้นเปลือง&rdquo; (Bulk) อัตโนมัติ
                             </p>
                         </div>
                     </div>

@@ -140,7 +140,7 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                                         {data.description || data.details}
                                     </p>
                                     <p className="mt-2 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                                        <span aria-label="lightbulb">💡</span> AI จะนำ "รายละเอียดเพิ่มเติม" ส่วนนี้ไปช่วยเขียนโพสต์ลง Facebook (หากมีการขอช่างภาพ)
+                                        <span aria-label="lightbulb">💡</span> AI จะนำ &ldquo;รายละเอียดเพิ่มเติม&rdquo; ส่วนนี้ไปช่วยเขียนโพสต์ลง Facebook (หากมีการขอช่างภาพ)
                                     </p>
                                 </div>
                             )}

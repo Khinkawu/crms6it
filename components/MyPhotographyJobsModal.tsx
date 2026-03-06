@@ -610,7 +610,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                                                                         placeholder="เขียนข้อความสำหรับโพส..."
                                                                     />
                                                                     <p className="mt-1.5 text-[11px] text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                                                                        <span aria-label="lightbulb">💡</span> AI จะถูกลอกกำหนดการและรายชื่อจาก "ข้อมูลจองห้อง" มาเขียนแคปชั่นให้อัตโนมัติ (หากมี)
+                                                                        <span aria-label="lightbulb">💡</span> AI จะถูกลอกกำหนดการและรายชื่อจาก &ldquo;ข้อมูลจองห้อง&rdquo; มาเขียนแคปชั่นให้อัตโนมัติ (หากมี)
                                                                     </p>
                                                                 </div>
 
