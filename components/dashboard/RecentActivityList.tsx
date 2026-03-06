@@ -74,6 +74,10 @@ export default function RecentActivityList({ activities }: RecentActivityListPro
                     minute: '2-digit'
                 });
 
+                const rawUserName = activity.userName || 'ไม่ระบุ';
+                const isFromLine = rawUserName.includes('(LINE)');
+                const displayUserName = rawUserName.replace(' (LINE)', '').replace('(LINE)', '').trim();
+
                 return (
                     <motion.div
                         key={activity.id}
@@ -113,17 +117,22 @@ export default function RecentActivityList({ activities }: RecentActivityListPro
                             </p>
 
                             {/* Row 3: Meta */}
-                            <div className="flex items-center gap-3 text-[11px] text-gray-400 dark:text-gray-500">
+                            <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
                                 <span className="flex items-center gap-1 min-w-0">
-                                    <User size={10} />
-                                    <span className="truncate max-w-[80px]">{activity.userName || 'ไม่ระบุ'}</span>
+                                    <User size={10} className="shrink-0" />
+                                    <span className="truncate max-w-[140px]">{displayUserName}</span>
                                 </span>
-                                <span className="flex items-center gap-1">
+                                {isFromLine && (
+                                    <span className="shrink-0 text-[9px] font-bold px-1 py-0.5 rounded bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800">
+                                        LINE
+                                    </span>
+                                )}
+                                <span className="flex items-center gap-1 shrink-0">
                                     <MapPin size={10} />
                                     {zoneThai}
                                 </span>
                                 {timeStr && (
-                                    <span className="flex items-center gap-1 ml-auto">
+                                    <span className="flex items-center gap-1 ml-auto shrink-0">
                                         <Clock size={10} />
                                         {timeStr}
                                     </span>
