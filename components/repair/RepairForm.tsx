@@ -8,6 +8,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import { Toaster, toast } from 'react-hot-toast';
 import { logActivity } from "@/utils/logger";
+import { incrementRepairStats } from "@/utils/aggregation";
 import { compressImage } from "@/utils/imageCompression";
 import {
     User, MapPin, Image as ImageIcon, FileText,
@@ -133,6 +134,8 @@ export default function RepairForm() {
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
             });
+
+            incrementRepairStats('pending').catch(() => { });
 
             fetch('/api/notify-repair', {
                 method: 'POST',

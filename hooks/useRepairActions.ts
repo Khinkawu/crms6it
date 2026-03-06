@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage, auth } from "../lib/firebase";
 import { RepairTicket, RepairStatus, Product } from "../types";
 import { logActivity } from "../utils/logger";
+import { updateRepairStatsOnStatusChange } from "../utils/aggregation";
 import { compressImage } from "../utils/imageCompression";
 import toast from "react-hot-toast";
 
@@ -76,6 +77,8 @@ export function useRepairActions({ userId, userName }: UseRepairActionsOptions):
                 completionImage: completionImageUrl || null,
                 updatedAt: serverTimestamp()
             });
+
+            updateRepairStatsOnStatusChange(ticket.status, status, userId, userName).catch(() => { });
 
             await logActivity({
                 action: 'repair_update',

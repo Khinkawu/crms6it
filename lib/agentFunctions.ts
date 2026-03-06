@@ -473,6 +473,12 @@ export async function createRepairFromAI(
 
         const docRef = await adminDb.collection('repair_tickets').add(repairData);
 
+        // Update stats/repairs cache doc
+        adminDb.collection('stats').doc('repairs').set(
+            { pending: FieldValue.increment(1), total: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp() },
+            { merge: true }
+        ).catch(() => { });
+
         // Log to activities feed so it appears in Overview
         await adminDb.collection('activities').add({
             action: 'repair',
