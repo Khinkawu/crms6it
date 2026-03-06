@@ -8,6 +8,7 @@ import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { updateProfile } from "firebase/auth";
 import { auth, db, storage } from "@/lib/firebase";
+import { compressImage } from "@/utils/imageCompression";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import UserHistoryModal from "@/components/UserHistoryModal";
 import toast from "react-hot-toast";
@@ -226,16 +227,16 @@ function ProfileContent() {
         const file = e.target.files?.[0];
         if (!file || !user) return;
 
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        if (file.size > maxSize) {
-            toast.error("ไฟล์ต้องมีขนาดไม่เกิน 5MB");
-            return;
-        }
-
         setIsUploadingPhoto(true);
         try {
+            const compressed = await compressImage(file, {
+                maxWidth: 512,
+                maxHeight: 512,
+                quality: 0.85,
+                maxSizeMB: 0.2,
+            });
             const storageRef = ref(storage, `profile-photos/${user.uid}`);
-            await uploadBytes(storageRef, file);
+            await uploadBytes(storageRef, compressed);
             const downloadURL = await getDownloadURL(storageRef);
 
             if (auth.currentUser) {
