@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
+import admin from 'firebase-admin';
 
 /**
  * POST /api/notify-booking
@@ -54,6 +55,24 @@ export async function POST(request: Request) {
         }
 
         await batch.commit();
+
+        // FCM push to all recipients who have registered tokens
+        const fcmTokens: string[] = [];
+        await Promise.all(Array.from(recipientIds).map(async (uid) => {
+            const userDoc = await adminDb.collection('users').doc(uid).get();
+            const tokens: string[] = userDoc.data()?.fcmTokens || [];
+            fcmTokens.push(...tokens);
+        }));
+        if (fcmTokens.length > 0) {
+            await admin.messaging().sendEachForMulticast({
+                tokens: fcmTokens,
+                notification: {
+                    title: `คำขอจอง: ${title}`,
+                    body: `${roomName} — ${requesterName} · ${startTime}`,
+                },
+                webpush: { fcmOptions: { link: '/admin/bookings' } },
+            }).catch(() => {});
+        }
 
         return NextResponse.json({ success: true, notified: recipientIds.size });
     } catch (error) {

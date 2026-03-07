@@ -7,11 +7,26 @@ import BottomNavigation from "./navigation/BottomNavigation";
 import Sidebar from "./navigation/Sidebar";
 import TopHeader from "./navigation/TopHeader";
 import CommandPalette from "./navigation/CommandPalette";
+import { useAuth } from "@/context/AuthContext";
+import { isFCMSupported, setupPushNotifications } from "@/lib/fcm";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const { user } = useAuth();
+
+    // Auto-register FCM token after login — request permission once, then silently refresh
+    useEffect(() => {
+        if (!user) return;
+        async function autoRegister() {
+            const supported = await isFCMSupported();
+            if (!supported || typeof Notification === 'undefined') return;
+            if (Notification.permission === 'denied') return;
+            setupPushNotifications(user!.uid).catch(() => {});
+        }
+        autoRegister();
+    }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "k") {

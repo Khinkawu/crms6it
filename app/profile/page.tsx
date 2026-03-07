@@ -18,7 +18,7 @@ import {
     Clock, Camera, Pencil, Check, X, Loader2, Phone
 } from "lucide-react";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
-import NotificationToggle from "@/components/NotificationToggle";
+
 
 type HistoryType = "repair" | "booking" | "borrow" | "requisition";
 
@@ -456,26 +456,7 @@ function ProfileContent() {
                     </div>
                 </div>
 
-                {/* ── Settings ── */}
-                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-                        <h2 className="text-sm font-semibold text-gray-900 dark:text-white">การตั้งค่า</h2>
-                    </div>
-                    <div className="p-4">
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-500">
-                                    <Bell size={16} />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900 dark:text-white">Push Notifications</p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">รับแจ้งเตือนเมื่อมีงานใหม่</p>
-                                </div>
-                            </div>
-                            <NotificationToggle showLabel={false} />
-                        </div>
-                    </div>
-                </div>
+
 
                 {/* ── Activity History ── */}
                 <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">

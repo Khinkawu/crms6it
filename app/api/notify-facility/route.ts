@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { createFacilityNewFlexMessage } from '@/utils/flexMessageTemplates';
+import admin from 'firebase-admin';
 
 export async function POST(req: Request) {
     try {
@@ -129,6 +130,30 @@ export async function POST(req: Request) {
             });
         });
         facilityBatch.commit().catch(() => {});
+
+        // FCM push to relevant facility technicians
+        const fcmTokens: string[] = [];
+        techsSnap.forEach(doc => {
+            const data = doc.data();
+            const responsibility = data.responsibility || 'all';
+            const isRelevant =
+                (zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) ||
+                (zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all')) ||
+                (!zone || zone === 'all');
+            if (!isRelevant) return;
+            const tokens: string[] = data.fcmTokens || [];
+            fcmTokens.push(...tokens);
+        });
+        if (fcmTokens.length > 0) {
+            admin.messaging().sendEachForMulticast({
+                tokens: fcmTokens,
+                notification: {
+                    title: `ซ่อมอาคารใหม่: ${room}`,
+                    body: `${requesterName} — ${description.slice(0, 80)}`,
+                },
+                webpush: { fcmOptions: { link: `${appUrl}/my-work` } },
+            }).catch(() => {});
+        }
 
         console.log(`[notify-facility] Successfully notified ${targetUserIds.length} users.`);
         return NextResponse.json({ status: 'ok', notifiedCount: targetUserIds.length });

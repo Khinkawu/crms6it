@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { createRepairNewFlexMessage } from '@/utils/flexMessageTemplates';
+import admin from 'firebase-admin';
 
 export async function POST(req: Request) {
     try {
@@ -109,6 +110,26 @@ export async function POST(req: Request) {
                 });
             });
             await batch.commit();
+        }
+
+        // FCM push to all relevant staff who have registered tokens
+        if (inAppTargetUids.length > 0) {
+            const fcmTokens: string[] = [];
+            await Promise.all(Array.from(new Set(inAppTargetUids)).map(async (uid) => {
+                const userDoc = await adminDb.collection('users').doc(uid).get();
+                const tokens: string[] = userDoc.data()?.fcmTokens || [];
+                fcmTokens.push(...tokens);
+            }));
+            if (fcmTokens.length > 0) {
+                await admin.messaging().sendEachForMulticast({
+                    tokens: fcmTokens,
+                    notification: {
+                        title: `งานซ่อมใหม่: ห้อง ${room}`,
+                        body: `${requesterName} — ${description.slice(0, 80)}`,
+                    },
+                    webpush: { fcmOptions: { link: `${appUrl}/my-work` } },
+                }).catch(() => {});
+            }
         }
 
         return NextResponse.json({ status: 'ok', notifiedCount: lineTargetIds.length });
