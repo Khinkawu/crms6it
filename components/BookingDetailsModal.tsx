@@ -79,7 +79,7 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                         </div>
 
                         <div>
-                            <p className="text-white/70 text-sm font-medium uppercase tracking-wider mb-1">ผู้จอง</p>
+                            <p className="text-white/70 text-sm font-medium uppercase tracking-wider mb-1">{data.isPhotographyJob ? 'ช่างภาพ' : 'ผู้จอง'}</p>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                                     <User size={20} />

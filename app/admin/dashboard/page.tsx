@@ -198,7 +198,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 export default function AdminDashboard() {
     const { user, role, isPhotographer, loading, getDisplayName } = useAuth();
     const router = useRouter();
-    const [dateRange, setDateRange] = React.useState<DateRange>('all');
+    const [dateRange, setDateRange] = React.useState<DateRange>('today');
     const { actionable, performance, personStats, loading: statsLoading } = useDashboardStats(dateRange);
     const { activities } = useActivityLogs({ limitCount: 50, filterRepairOnly: false });
 
@@ -276,27 +276,6 @@ export default function AdminDashboard() {
 
     const overallCompletionRate = overallTotal > 0 ? Math.round((overallCompleted / overallTotal) * 100) : 0;
 
-    const timeAgo = (ts: any) => {
-        if (!ts) return '';
-        const d = ts.toDate ? ts.toDate() : new Date(ts);
-        const m = Math.floor((Date.now() - d.getTime()) / 60000);
-        if (m < 1) return 'เมื่อกี้';
-        if (m < 60) return `${m} นาที`;
-        if (m < 1440) return `${Math.floor(m / 60)} ชม.`;
-        return `${Math.floor(m / 1440)} วัน`;
-    };
-
-    const actionLabels: Record<string, string> = {
-        repair: 'แจ้งซ่อม', repair_update: 'อัปเดตซ่อม',
-        borrow: 'ยืมอุปกรณ์', return: 'คืนอุปกรณ์',
-        requisition: 'เบิกอุปกรณ์', add: 'เพิ่มอุปกรณ์',
-    };
-
-    const actionColors: Record<string, string> = {
-        repair: 'bg-rose-500', repair_update: 'bg-orange-500',
-        borrow: 'bg-blue-500', return: 'bg-emerald-500',
-        requisition: 'bg-purple-500', add: 'bg-cyan-500',
-    };
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 pb-24 animate-fade-in">
@@ -319,7 +298,7 @@ export default function AdminDashboard() {
                             className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-sm rounded-xl px-4 py-2 text-gray-700 dark:text-gray-200 outline-none focus:ring-2 focus:ring-gray-400 transition-shadow appearance-none cursor-pointer pr-8 min-w-[140px]"
                         >
                             <option value="all">ระยะเวลาทั้งหมด</option>
-                            <option value="today">เฉพาะวันนี้</option>
+                            <option value="today">วันนี้</option>
                             <option value="week">สัปดาห์นี้</option>
                             <option value="month">เดือนนี้</option>
                         </select>
@@ -502,12 +481,9 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* ────── Bottom: Technicians + Activity Feed ────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-                {/* Technician Leaderboard */}
-                {personStats.length > 0 && (
-                    <div className="lg:col-span-7 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+            {/* ────── Bottom: Technicians ────── */}
+            {personStats.length > 0 && (
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                                 <Users size={16} className="text-gray-400" /> สถิติรายช่าง
@@ -557,39 +533,7 @@ export default function AdminDashboard() {
                             </table>
                         </div>
                     </div>
-                )}
-
-                {/* Activity Feed */}
-                <div className={`${personStats.length > 0 ? 'lg:col-span-5' : 'lg:col-span-12'} bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden`}>
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
-                        <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <Clock size={16} className="text-gray-400" /> กิจกรรมล่าสุด
-                        </h2>
-                    </div>
-                    {activities.length === 0 ? (
-                        <div className="py-12 text-center text-gray-400 text-sm">ยังไม่มีกิจกรรม</div>
-                    ) : (
-                        <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[380px] overflow-y-auto custom-scrollbar">
-                            {activities.slice(0, 15).map((a, i) => (
-                                <div key={a.id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                    <div className={`w-2 h-2 rounded-full shrink-0 ${actionColors[a.action] || 'bg-gray-400'}`} />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-gray-900 dark:text-white">
-                                            <span className="font-medium">{a.userName}</span>
-                                            {' '}
-                                            <span className="text-gray-500 dark:text-gray-400">{actionLabels[a.action] || a.action}</span>
-                                        </p>
-                                        {(a.productName || a.details) && (
-                                            <p className="text-xs text-gray-400 truncate mt-0.5">{a.productName || a.details}</p>
-                                        )}
-                                    </div>
-                                    <span className="text-[11px] text-gray-400 tabular-nums shrink-0">{timeAgo(a.timestamp)}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
+            )}
         </div >
     );
 }

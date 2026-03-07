@@ -285,7 +285,15 @@ export function useDashboardStats(dateRange: DateRange = 'all') {
                     }
 
                     if (canSee(role, isPhotographer, 'photography')) {
-                        const snap = await getDocs(query(collection(db, "photography_jobs"), where("startTime", ">=", startTimestamp), limit(200)));
+                        const endOfToday = new Date();
+                        endOfToday.setHours(23, 59, 59, 999);
+                        const endTimestamp = Timestamp.fromDate(endOfToday);
+                        const snap = await getDocs(query(
+                            collection(db, "photography_jobs"),
+                            where("startTime", ">=", startTimestamp),
+                            where("startTime", "<=", endTimestamp),
+                            limit(200)
+                        ));
                         snap.forEach(doc => {
                             const d = doc.data();
                             newPerf.photography.total++;
