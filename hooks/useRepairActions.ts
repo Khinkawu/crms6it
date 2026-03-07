@@ -101,7 +101,9 @@ export function useRepairActions({ userId, userName }: UseRepairActionsOptions):
                     body: `ห้อง ${ticket.room} — ${ticket.description.slice(0, 80)}`,
                     linkTo: '/repair',
                     metadata: { ticketId: ticket.id! },
-                }).catch(() => {});
+                }).catch((err) => { console.error('[Notification] createNotification failed:', err); });
+            } else {
+                console.warn('[Notification] skipped — ticket.requesterId is empty. ticketId:', ticket.id);
             }
 
             if (['in_progress', 'waiting_parts', 'completed'].includes(status)) {
