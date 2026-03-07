@@ -34,87 +34,84 @@ export async function POST(req: Request) {
             return NextResponse.json({ status: 'skipped', reason: 'Missing config' });
         }
 
-        // 1. Find relevant technicians using Admin SDK
-        const techsSnap = await adminDb.collection('users')
-            .where('role', '==', 'technician')
-            .get();
+        // 1. Find relevant staff: technicians + moderators using Admin SDK
+        const [techsSnap, modsSnap] = await Promise.all([
+            adminDb.collection('users').where('role', '==', 'technician').get(),
+            adminDb.collection('users').where('role', '==', 'moderator').get(),
+        ]);
 
-        let targetUserIds: string[] = [];
+        const isRelevantByZone = (responsibility: string) =>
+            !zone ||
+            responsibility === 'all' ||
+            responsibility === zone;
+
+        let lineTargetIds: string[] = [];
+        const inAppTargetUids: string[] = [];
 
         techsSnap.forEach(doc => {
             const data = doc.data();
-            const responsibility = data.responsibility || 'all';
-            const lineId = data.lineUserId;
-
-            if (!lineId) return;
-
-            if (zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) {
-                targetUserIds.push(lineId);
-            } else if (zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all')) {
-                targetUserIds.push(lineId);
-            }
+            if (!isRelevantByZone(data.responsibility || 'all')) return;
+            inAppTargetUids.push(doc.id);
+            if (data.lineUserId) lineTargetIds.push(data.lineUserId);
         });
 
-        // Deduplicate
-        targetUserIds = Array.from(new Set(targetUserIds));
+        // Moderators always get in-app noti (they oversee all zones)
+        modsSnap.forEach(doc => {
+            const data = doc.data();
+            inAppTargetUids.push(doc.id);
+            if (data.lineUserId) lineTargetIds.push(data.lineUserId);
+        });
 
-        // Fallback to default technician
-        if (targetUserIds.length === 0 && process.env.LINE_TECHNICIAN_ID) {
-            targetUserIds.push(process.env.LINE_TECHNICIAN_ID);
-        }
+        lineTargetIds = Array.from(new Set(lineTargetIds));
 
-        if (targetUserIds.length === 0) {
-            return NextResponse.json({ status: 'skipped', reason: 'No technicians found' });
+        // Fallback to default technician LINE ID
+        if (lineTargetIds.length === 0 && process.env.LINE_TECHNICIAN_ID) {
+            lineTargetIds.push(process.env.LINE_TECHNICIAN_ID);
         }
 
         const deepLink = `${appUrl}/admin/repairs?ticketId=${ticketId}`;
 
-        const flexMessage = createRepairNewFlexMessage({
-            description,
-            room,
-            requesterName,
-            imageUrl: imageOneUrl,
-            ticketId,
-            deepLink
-        });
-
-        // Use Multicast API
-        await fetch('https://api.line.me/v2/bot/message/multicast', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-                to: targetUserIds,
-                messages: [flexMessage],
-            }),
-        });
-
-        // Write in-app notifications for relevant technicians (by UID)
-        const techBatch = adminDb.batch();
-        const notifRef = adminDb.collection('notifications');
-        techsSnap.forEach(doc => {
-            const data = doc.data();
-            const responsibility = data.responsibility || 'all';
-            const isRelevant =
-                (zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) ||
-                (zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all'));
-            if (!isRelevant) return;
-            techBatch.set(notifRef.doc(), {
-                userId: doc.id,
-                type: 'repair_new',
-                title: `งานซ่อมใหม่: ห้อง ${room}`,
-                body: `${requesterName} — ${description.slice(0, 80)}`,
-                linkTo: `/admin/repairs?ticketId=${ticketId}`,
-                read: false,
-                createdAt: FieldValue.serverTimestamp(),
-                metadata: { ticketId: ticketId ?? '' },
+        // LINE multicast (best-effort)
+        if (lineTargetIds.length > 0) {
+            const flexMessage = createRepairNewFlexMessage({
+                description,
+                room,
+                requesterName,
+                imageUrl: imageOneUrl,
+                ticketId,
+                deepLink
             });
-        });
-        techBatch.commit().catch(() => {});
+            await fetch('https://api.line.me/v2/bot/message/multicast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ to: lineTargetIds, messages: [flexMessage] }),
+            });
+        }
 
-        return NextResponse.json({ status: 'ok', notifiedCount: targetUserIds.length });
+        // In-app notifications for all relevant staff
+        if (inAppTargetUids.length > 0) {
+            const notifRef = adminDb.collection('notifications');
+            const batch = adminDb.batch();
+            const uniqueUids = Array.from(new Set(inAppTargetUids));
+            uniqueUids.forEach(uid => {
+                batch.set(notifRef.doc(), {
+                    userId: uid,
+                    type: 'repair_new',
+                    title: `งานซ่อมใหม่: ห้อง ${room}`,
+                    body: `${requesterName} — ${description.slice(0, 80)}`,
+                    linkTo: `/admin/repairs?ticketId=${ticketId}`,
+                    read: false,
+                    createdAt: FieldValue.serverTimestamp(),
+                    metadata: { ticketId: ticketId ?? '' },
+                });
+            });
+            await batch.commit();
+        }
+
+        return NextResponse.json({ status: 'ok', notifiedCount: lineTargetIds.length });
 
     } catch (error) {
         console.error('Error sending LINE notification:', error);

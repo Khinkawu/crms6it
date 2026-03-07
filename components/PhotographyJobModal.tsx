@@ -7,6 +7,7 @@ import { collection, addDoc, serverTimestamp, getDocs, getDoc, doc, query, where
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import { UserProfile } from "@/types";
+import { createNotification } from "@/lib/notifications";
 import { useBookings } from "@/hooks/useBookings";
 import { format, isAfter, startOfDay } from "date-fns";
 import { createPhotographyFlexMessage } from "@/utils/flexMessageTemplates";
@@ -283,6 +284,19 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                 } catch (e) {
                     console.error("FCM Error for user", photographerId, e);
                 }
+            }
+
+            // In-app notifications for assigned photographers
+            const formattedDate = new Date(date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+            for (const photographerId of assigneeIds) {
+                createNotification({
+                    userId: photographerId,
+                    type: 'photo_assigned',
+                    title: `📸 งานถ่ายภาพใหม่`,
+                    body: `${title} — ${location} (${formattedDate})`,
+                    linkTo: '/my-work',
+                    metadata: {},
+                }).catch(() => {});
             }
 
             toast.success(`มอบหมายงานให้ ${assigneeNames.length} คนเรียบร้อยแล้ว`);

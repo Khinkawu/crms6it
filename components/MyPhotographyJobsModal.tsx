@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, Calendar, MapPin, ExternalLink, Save, CheckCircle2, UploadCloud, Image as ImageIcon, Facebook, XCircle, Eye, Wand2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
-import { db, storage } from "@/lib/firebase";
+import { db, storage, auth } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import toast from "react-hot-toast";
 import { PhotographyJob } from "@/types";
@@ -189,6 +189,19 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                     updatedAt: serverTimestamp(),
                     facebookCaption: fb.facebookCaption[jobId] || null
                 });
+
+                // Notify admin/mod that photographer submitted work
+                auth.currentUser?.getIdToken().then(idToken => {
+                    fetch('/api/notify-photo-submitted', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({
+                            jobId,
+                            title: job.title,
+                            photographerName: auth.currentUser?.displayName || 'ช่างภาพ',
+                        }),
+                    }).catch(() => {});
+                }).catch(() => {});
 
                 // Clear ALL State using hook cleanup
                 upload.clearJobState(jobId);

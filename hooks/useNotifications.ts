@@ -13,10 +13,10 @@ import { db } from '../lib/firebase';
 import { AppNotification } from '../types';
 import {
     markNotificationRead,
-    markAllNotificationsRead,
     deleteNotification,
     deleteAllNotifications,
 } from '../lib/notifications';
+import { writeBatch, doc as fsDoc } from 'firebase/firestore';
 
 interface UseNotificationsReturn {
     notifications: AppNotification[];
@@ -64,9 +64,12 @@ export function useNotifications(userId: string | undefined): UseNotificationsRe
     }, []);
 
     const markAllRead = useCallback(async () => {
-        if (!userId) return;
-        await markAllNotificationsRead(userId);
-    }, [userId]);
+        const unread = notifications.filter(n => !n.read && n.id);
+        if (unread.length === 0) return;
+        const batch = writeBatch(db);
+        unread.forEach(n => batch.update(fsDoc(db, 'notifications', n.id!), { read: true }));
+        await batch.commit();
+    }, [notifications]);
 
     const remove = useCallback(async (id: string) => {
         await deleteNotification(id);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { createRepairReminderFlexMessage } from '@/utils/flexMessageTemplates';
 
 /**
@@ -77,18 +77,24 @@ export async function GET(request: NextRequest) {
             senior_high: [],
             all: []
         };
+        // uid lists for in-app notifications
+        const techUidsByZone: Record<string, string[]> = {
+            junior_high: [],
+            senior_high: [],
+            all: []
+        };
 
         techsSnapshot.forEach(doc => {
             const data = doc.data();
             const lineId = data.lineUserId;
             const responsibility = data.responsibility || 'all';
 
-            if (lineId) {
-                if (responsibility === 'all') {
-                    techniciansByZone.all.push(lineId);
-                } else if (techniciansByZone[responsibility]) {
-                    techniciansByZone[responsibility].push(lineId);
-                }
+            if (responsibility === 'all') {
+                techUidsByZone.all.push(doc.id);
+                if (lineId) techniciansByZone.all.push(lineId);
+            } else if (techniciansByZone[responsibility]) {
+                techUidsByZone[responsibility].push(doc.id);
+                if (lineId) techniciansByZone[responsibility].push(lineId);
             }
         });
 
@@ -109,39 +115,56 @@ export async function GET(request: NextRequest) {
             // Deduplicate
             const uniqueLineIds = Array.from(new Set(targetLineIds));
 
-            if (uniqueLineIds.length === 0) {
-                console.log(`[Cron] No technicians for zone: ${zone}`);
-                continue;
-            }
-
             const zoneLabel = zone === 'junior_high' ? 'ม.ต้น' : 'ม.ปลาย';
             const deepLink = `${appUrl}/admin/repairs?zone=${zone}`;
 
-            const flexMessage = createRepairReminderFlexMessage({
-                tickets,
-                zone: zoneLabel,
-                deepLink
-            });
-
-            // Send via LINE Multicast
-            const response = await fetch('https://api.line.me/v2/bot/message/multicast', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
-                },
-                body: JSON.stringify({
-                    to: uniqueLineIds,
-                    messages: [flexMessage]
-                })
-            });
-
-            if (response.ok) {
-                console.log(`[Cron] Sent reminder to ${uniqueLineIds.length} technicians for ${zone}`);
-                totalNotified += uniqueLineIds.length;
+            // LINE Multicast (best-effort)
+            if (uniqueLineIds.length > 0) {
+                const flexMessage = createRepairReminderFlexMessage({
+                    tickets,
+                    zone: zoneLabel,
+                    deepLink
+                });
+                const response = await fetch('https://api.line.me/v2/bot/message/multicast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
+                    },
+                    body: JSON.stringify({ to: uniqueLineIds, messages: [flexMessage] })
+                });
+                if (response.ok) {
+                    console.log(`[Cron] Sent LINE reminder to ${uniqueLineIds.length} technicians for ${zone}`);
+                    totalNotified += uniqueLineIds.length;
+                } else {
+                    const error = await response.text();
+                    console.error(`[Cron] LINE API error for ${zone}:`, error);
+                }
             } else {
-                const error = await response.text();
-                console.error(`[Cron] LINE API error for ${zone}:`, error);
+                console.log(`[Cron] No LINE technicians for zone: ${zone}`);
+            }
+
+            // In-app notifications (always runs, regardless of LINE)
+            const targetUids = Array.from(new Set([
+                ...techUidsByZone[zone],
+                ...techUidsByZone.all,
+            ]));
+            if (targetUids.length > 0) {
+                const inAppBatch = adminDb.batch();
+                const notifRef = adminDb.collection('notifications');
+                for (const uid of targetUids) {
+                    inAppBatch.set(notifRef.doc(), {
+                        userId: uid,
+                        type: 'repair_new',
+                        title: `งานซ่อมค้าง ${tickets.length} รายการ (${zoneLabel})`,
+                        body: `มีงานซ่อมที่ยังไม่อัปเดตเกิน 2 วัน กรุณาตรวจสอบ`,
+                        linkTo: deepLink,
+                        read: false,
+                        createdAt: FieldValue.serverTimestamp(),
+                        metadata: {},
+                    });
+                }
+                await inAppBatch.commit();
             }
         }
 

@@ -864,7 +864,13 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                 imageUrl
             };
             await saveConversationContext(lineUserId, context);
-            return `${fullAnalysisText}\n---\n${analysis.question || 'ยืนยันการแจ้งซ่อมไหมคะ?'}`;
+            return makeQuickReply(
+                `${fullAnalysisText}\n---\n${analysis.question || 'ยืนยันการแจ้งซ่อมไหมคะ?'}`,
+                [
+                    { label: '🔧 ต้องการซ่อม', text: 'ต้องการซ่อม' },
+                    { label: '❌ ยกเลิก', text: 'ยกเลิก' },
+                ]
+            );
         }
 
         // Start new repair flow
@@ -881,7 +887,13 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
             repairStep: 'awaiting_intent_confirm'
         };
         await saveConversationContext(lineUserId, context);
-        return `${fullAnalysisText}\n---\n${analysis.question || 'ต้องการแจ้งซ่อมไหมคะ?'}`;
+        return makeQuickReply(
+            `${fullAnalysisText}\n---\n${analysis.question || 'ต้องการแจ้งซ่อมไหมคะ?'}`,
+            [
+                { label: '🔧 ต้องการซ่อม', text: 'ต้องการซ่อม' },
+                { label: '❌ ยกเลิก', text: 'ยกเลิก' },
+            ]
+        );
     }
 
     // 4. Pending Actions

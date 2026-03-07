@@ -235,7 +235,9 @@ export type NotificationType =
     | 'facility_status'  // User: facility ticket status changed
     | 'booking_pending'  // Admin/Mod: new booking awaiting approval
     | 'booking_result'   // User: booking approved/rejected
-    | 'photo_assigned';  // Photographer: assigned to a job
+    | 'photo_assigned'   // Photographer: assigned to a job
+    | 'photo_submitted'  // Admin/Mod: photographer submitted work
+    | 'photo_late';      // Photographer: overdue job reminder (cron)
 
 export interface AppNotification {
     id?: string;
