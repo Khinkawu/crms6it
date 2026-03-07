@@ -30,7 +30,10 @@ export async function POST(request: Request) {
         const recipientIds = new Set<string>();
         [...adminSnap.docs, ...modSnap.docs].forEach(d => recipientIds.add(d.id));
 
+        console.log(`[notify-booking] admins=${adminSnap.size} mods=${modSnap.size} total=${recipientIds.size} bookingId=${bookingId}`);
+
         if (recipientIds.size === 0) {
+            console.warn('[notify-booking] No admin/mod recipients found — check users collection roles');
             return NextResponse.json({ success: true, notified: 0 });
         }
 
