@@ -29,6 +29,8 @@ const TYPE_META: Record<NotificationType, { icon: React.ElementType; color: stri
     booking_pending: { icon: CalendarDays, color: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-50 dark:bg-amber-900/30' },
     booking_result:  { icon: CalendarDays, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
     photo_assigned:  { icon: Camera,       color: 'text-pink-600 dark:text-pink-400',      bg: 'bg-pink-50 dark:bg-pink-900/30' },
+    photo_submitted: { icon: Camera,       color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
+    photo_late:      { icon: Camera,       color: 'text-red-600 dark:text-red-400',         bg: 'bg-red-50 dark:bg-red-900/30' },
 };
 
 function timeAgo(ts: any): string {
