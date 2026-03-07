@@ -122,6 +122,7 @@ export default function FacilityForm() {
             const docRef = await addDoc(collection(db, "facility_tickets"), {
                 requesterName: user.displayName || "Unknown",
                 requesterEmail: user.email || "Unknown",
+                requesterId: user.uid,
                 position: formData.position,
                 department: formData.department,
                 phone: formData.phone,

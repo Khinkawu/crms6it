@@ -7,6 +7,7 @@ import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { PhotographyJob, UserProfile } from "@/types";
+import { createNotification } from "@/lib/notifications";
 import toast from "react-hot-toast";
 import { compressImage } from "@/utils/imageCompression";
 
@@ -135,6 +136,23 @@ export default function EditPhotographyJobModal({ isOpen, onClose, job, photogra
                 coverImage: coverImageUrl,
                 showInAgenda: formData.showInAgenda
             });
+
+            // Notify newly assigned photographers
+            const prevIds = new Set(job.assigneeIds ?? []);
+            const newlyAssigned = formData.assigneeIds.filter(id => !prevIds.has(id));
+            const startLabel = new Date(formData.startTime).toLocaleDateString('th-TH', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
+            for (const uid of newlyAssigned) {
+                createNotification({
+                    userId: uid,
+                    type: 'photo_assigned',
+                    title: `ได้รับมอบหมายงานถ่ายภาพ`,
+                    body: `${formData.title} — ${formData.location} · ${startLabel}`,
+                    linkTo: '/my-work',
+                    metadata: { jobId: job.id! },
+                }).catch(() => {});
+            }
 
             toast.success("บันทึกสำเร็จ");
             onClose();

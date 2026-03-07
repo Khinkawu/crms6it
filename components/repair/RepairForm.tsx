@@ -123,6 +123,7 @@ export default function RepairForm() {
             const docRef = await addDoc(collection(db, "repair_tickets"), {
                 requesterName: user.displayName || "Unknown",
                 requesterEmail: user.email || "Unknown",
+                requesterId: user.uid,
                 position: formData.position,
                 department: formData.department,
                 phone: formData.phone,

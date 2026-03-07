@@ -144,6 +144,15 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // notifications — เจ้าของอ่าน/อัปเดต read flag/ลบได้, client create สำหรับ single-user notifs
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
     // feedbacks — ทุกคน create ได้, admin อ่านทั้งหมด, user อ่านของตัวเอง
     match /feedbacks/{feedbackId} {
       allow read: if isAdmin() ||

@@ -7,6 +7,8 @@ import { db, storage } from "../lib/firebase";
 import { FacilityTicket, RepairStatus, Product } from "../types";
 import { logActivity } from "../utils/logger";
 import { compressImage } from "../utils/imageCompression";
+import { createNotification } from "../lib/notifications";
+import { getThaiStatus } from "../utils/repairHelpers";
 import toast from "react-hot-toast";
 
 interface UseFacilityActionsOptions {
@@ -87,14 +89,16 @@ export function useFacilityActions({ userId, userName }: UseFacilityActionsOptio
                 zone: ticket.zone
             });
 
-            if (status === 'completed') {
-                try {
-                    // Similar notification could be sent if needed, using the existing endpoint or a new one
-                    // Currently, facilities don't have requesterEmail enforced, only phone. So skipping email notify for now.
-                    // Instead, in a real app, we might send SMS or LINE direct message back.
-                } catch (notifyError) {
-                    console.error("Failed to send notification:", notifyError);
-                }
+            // In-app notification for the ticket requester
+            if (ticket.requesterId) {
+                createNotification({
+                    userId: ticket.requesterId,
+                    type: 'facility_status',
+                    title: `ซ่อมอาคาร: ${getThaiStatus(status as any)}`,
+                    body: `${ticket.room} — ${ticket.description.slice(0, 80)}`,
+                    linkTo: '/facility',
+                    metadata: { ticketId: ticket.id! },
+                }).catch(() => {});
             }
 
             toast.success("บันทึกสำเร็จ");

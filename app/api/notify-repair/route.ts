@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { createRepairNewFlexMessage } from '@/utils/flexMessageTemplates';
 
 export async function POST(req: Request) {
@@ -89,6 +90,29 @@ export async function POST(req: Request) {
                 messages: [flexMessage],
             }),
         });
+
+        // Write in-app notifications for relevant technicians (by UID)
+        const techBatch = adminDb.batch();
+        const notifRef = adminDb.collection('notifications');
+        techsSnap.forEach(doc => {
+            const data = doc.data();
+            const responsibility = data.responsibility || 'all';
+            const isRelevant =
+                (zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) ||
+                (zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all'));
+            if (!isRelevant) return;
+            techBatch.set(notifRef.doc(), {
+                userId: doc.id,
+                type: 'repair_new',
+                title: `งานซ่อมใหม่: ห้อง ${room}`,
+                body: `${requesterName} — ${description.slice(0, 80)}`,
+                linkTo: `/admin/repairs?ticketId=${ticketId}`,
+                read: false,
+                createdAt: FieldValue.serverTimestamp(),
+                metadata: { ticketId: ticketId ?? '' },
+            });
+        });
+        techBatch.commit().catch(() => {});
 
         return NextResponse.json({ status: 'ok', notifiedCount: targetUserIds.length });
 

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { collection, addDoc, query, where, getDocs, Timestamp, serverTimestamp, getDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Camera } from "lucide-react";
 import { getTodayBangkok, getBangkokDateString } from "@/lib/dateUtils";
@@ -212,7 +212,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                 const room = getRoomById(formData.roomId);
                 const roomName = room?.name || formData.roomId;
 
-                await addDoc(collection(db, "bookings"), {
+                const bookingRef = await addDoc(collection(db, "bookings"), {
                     roomId: formData.roomId,
                     roomName: roomName,
                     requesterName: user?.displayName || user?.email || "Unknown",
@@ -236,6 +236,22 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                     status: 'pending',
                     createdAt: serverTimestamp(),
                 });
+
+                // Notify admin/mod in-app
+                const startLabel = startDateTime.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                auth.currentUser?.getIdToken().then(idToken => {
+                    fetch('/api/notify-booking', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({
+                            bookingId: bookingRef.id,
+                            title: formData.title,
+                            roomName,
+                            requesterName: user?.displayName || user?.email || 'Unknown',
+                            startTime: startLabel,
+                        }),
+                    });
+                }).catch(() => {});
 
                 toast.success("จองห้องประชุมสำเร็จ!", { id: toastId });
             } else {

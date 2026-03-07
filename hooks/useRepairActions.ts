@@ -8,6 +8,8 @@ import { RepairTicket, RepairStatus, Product } from "../types";
 import { logActivity } from "../utils/logger";
 import { updateRepairStatsOnStatusChange } from "../utils/aggregation";
 import { compressImage } from "../utils/imageCompression";
+import { createNotification } from "../lib/notifications";
+import { getThaiStatus } from "../utils/repairHelpers";
 import toast from "react-hot-toast";
 
 interface UseRepairActionsOptions {
@@ -89,6 +91,18 @@ export function useRepairActions({ userId, userName }: UseRepairActionsOptions):
                 imageUrl: completionImageUrl || ticket.images?.[0],
                 zone: ticket.zone
             });
+
+            // In-app notification for the ticket requester
+            if (ticket.requesterId) {
+                createNotification({
+                    userId: ticket.requesterId,
+                    type: 'repair_status',
+                    title: `งานซ่อม: ${getThaiStatus(status)}`,
+                    body: `ห้อง ${ticket.room} — ${ticket.description.slice(0, 80)}`,
+                    linkTo: '/repair',
+                    metadata: { ticketId: ticket.id! },
+                }).catch(() => {});
+            }
 
             if (['in_progress', 'waiting_parts', 'completed'].includes(status)) {
                 try {

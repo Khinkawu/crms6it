@@ -5,6 +5,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { collection, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc, getDocs, where, Timestamp, getCountFromServer, limit } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
+import { createNotification } from "@/lib/notifications";
 import { toast } from "react-hot-toast";
 import {
     Calendar, CheckCircle, XCircle, Clock, Trash2,
@@ -147,9 +148,22 @@ export default function BookingManagement() {
                         }
                     }
                 }
+                const targetBooking = bookings.find(b => b.id === confirmAction.id);
                 await updateDoc(doc(db, "bookings", confirmAction.id), {
                     status: confirmAction.payload
                 });
+                // Notify booking requester
+                if (targetBooking?.requesterId) {
+                    const isApproved = confirmAction.payload === 'approved';
+                    createNotification({
+                        userId: targetBooking.requesterId,
+                        type: 'booking_result',
+                        title: isApproved ? `การจองได้รับอนุมัติ` : `การจองถูกปฏิเสธ`,
+                        body: `${targetBooking.title} — ${targetBooking.roomName}`,
+                        linkTo: '/booking',
+                        metadata: { bookingId: confirmAction.id },
+                    }).catch(() => {});
+                }
                 toast.success(`อัปเดตสถานะเรียบร้อย`);
             } else if (confirmAction.type === 'delete') {
                 await deleteDoc(doc(db, "bookings", confirmAction.id));

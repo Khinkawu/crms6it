@@ -64,6 +64,7 @@ export interface RepairTicket {
     id?: string;
     requesterName: string;
     requesterEmail: string;
+    requesterId?: string; // UID of the user who submitted
     position: string;
     phone: string;
     room: string;
@@ -156,6 +157,7 @@ export interface Booking {
     roomLayout?: string; // Alias for layout to catch legacy usage
     attendees?: number | string; // Could be string in form input
     description?: string;
+    requesterId?: string; // UID of the user who submitted
     status: 'pending' | 'approved' | 'rejected' | 'cancelled'; // Added cancelled
     createdAt: Timestamp;
     phoneNumber?: string;
@@ -222,12 +224,38 @@ export interface FacilityItem {
     updatedAt: Timestamp;
 }
 
+// ====================================================================
+// Notification System
+// ====================================================================
+
+export type NotificationType =
+    | 'repair_new'       // Technician: new repair ticket in their zone
+    | 'repair_status'    // User: repair ticket status changed
+    | 'facility_new'     // Facility tech: new facility ticket
+    | 'facility_status'  // User: facility ticket status changed
+    | 'booking_pending'  // Admin/Mod: new booking awaiting approval
+    | 'booking_result'   // User: booking approved/rejected
+    | 'photo_assigned';  // Photographer: assigned to a job
+
+export interface AppNotification {
+    id?: string;
+    userId: string;
+    type: NotificationType;
+    title: string;
+    body: string;
+    linkTo: string;
+    read: boolean;
+    createdAt: Timestamp;
+    metadata?: Record<string, string>;
+}
+
 export type FacilityTicketStatus = 'pending' | 'in_progress' | 'waiting_parts' | 'completed' | 'cancelled';
 
 export interface FacilityTicket {
     id?: string;
     requesterName: string;
     requesterEmail: string;
+    requesterId?: string; // UID of the user who submitted
     position: string;
     phone: string;
     room: string;             // ใช้ Location Master Data เดิม

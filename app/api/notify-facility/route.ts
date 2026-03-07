@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { createFacilityNewFlexMessage } from '@/utils/flexMessageTemplates';
 
 export async function POST(req: Request) {
@@ -104,6 +105,30 @@ export async function POST(req: Request) {
             console.error('[notify-facility] LINE API Error:', lineResponse.status, errorData);
             return NextResponse.json({ status: 'error', reason: 'LINE API error', details: errorData }, { status: 500 });
         }
+
+        // Write in-app notifications for relevant facility technicians
+        const facilityBatch = adminDb.batch();
+        const notifRef = adminDb.collection('notifications');
+        techsSnap.forEach(doc => {
+            const data = doc.data();
+            const responsibility = data.responsibility || 'all';
+            const isRelevant =
+                (zone === 'junior_high' && (responsibility === 'junior_high' || responsibility === 'all')) ||
+                (zone === 'senior_high' && (responsibility === 'senior_high' || responsibility === 'all')) ||
+                (!zone || zone === 'all');
+            if (!isRelevant) return;
+            facilityBatch.set(notifRef.doc(), {
+                userId: doc.id,
+                type: 'facility_new',
+                title: `ซ่อมอาคารใหม่: ${room}`,
+                body: `${requesterName} — ${description.slice(0, 80)}`,
+                linkTo: `/admin/facility?ticketId=${ticketId}`,
+                read: false,
+                createdAt: FieldValue.serverTimestamp(),
+                metadata: { ticketId: ticketId ?? '' },
+            });
+        });
+        facilityBatch.commit().catch(() => {});
 
         console.log(`[notify-facility] Successfully notified ${targetUserIds.length} users.`);
         return NextResponse.json({ status: 'ok', notifiedCount: targetUserIds.length });
