@@ -7,6 +7,7 @@ import BottomNavigation from "./navigation/BottomNavigation";
 import Sidebar from "./navigation/Sidebar";
 import TopHeader from "./navigation/TopHeader";
 import CommandPalette from "./navigation/CommandPalette";
+import { NotificationInbox } from "./NotificationInbox";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
