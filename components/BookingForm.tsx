@@ -239,7 +239,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
 
                 // Notify admin/mod in-app
                 const startLabel = startDateTime.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-                auth.currentUser?.getIdToken().then(idToken => {
+                user?.getIdToken().then(idToken => {
                     fetch('/api/notify-booking', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
@@ -250,7 +250,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                             requesterName: user?.displayName || user?.email || 'Unknown',
                             startTime: startLabel,
                         }),
-                    });
+                    }).catch(() => {});
                 }).catch(() => {});
 
                 toast.success("จองห้องประชุมสำเร็จ!", { id: toastId });

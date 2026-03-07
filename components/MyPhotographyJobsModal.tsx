@@ -191,17 +191,20 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                 });
 
                 // Notify admin/mod that photographer submitted work
-                auth.currentUser?.getIdToken().then(idToken => {
-                    fetch('/api/notify-photo-submitted', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                        body: JSON.stringify({
-                            jobId,
-                            title: job.title,
-                            photographerName: auth.currentUser?.displayName || 'ช่างภาพ',
-                        }),
+                const currentUser = auth.currentUser;
+                if (currentUser) {
+                    currentUser.getIdToken().then(idToken => {
+                        fetch('/api/notify-photo-submitted', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                            body: JSON.stringify({
+                                jobId,
+                                title: job.title,
+                                photographerName: currentUser.displayName || 'ช่างภาพ',
+                            }),
+                        }).catch(() => {});
                     }).catch(() => {});
-                }).catch(() => {});
+                }
 
                 // Clear ALL State using hook cleanup
                 upload.clearJobState(jobId);
