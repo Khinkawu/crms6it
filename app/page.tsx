@@ -18,6 +18,7 @@ import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { useRepairTickets } from "@/hooks/useRepairTickets";
 import { PageSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { Views } from "react-big-calendar";
+import { startOfDay } from "date-fns";
 
 import RecentActivityList from "@/components/dashboard/RecentActivityList";
 import CalendarSection from "@/components/dashboard/CalendarSection";
@@ -191,7 +192,7 @@ export default function Dashboard() {
 
     const handleTodayClick = () => {
         setView(Views.AGENDA);
-        setDate(new Date());
+        setDate(startOfDay(new Date()));
         document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth' });
     };
 
