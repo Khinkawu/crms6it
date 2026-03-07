@@ -175,8 +175,10 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
     // Compute visible events based on current view and date
     const visibleEvents = useMemo(() => {
         if (view === Views.AGENDA) {
-            const agendaEnd = addDays(date, 30);
-            return events.filter(event => event.start >= date && event.start <= agendaEnd);
+            // Exclusive end: only events that START within [date, date+1 day)
+            // Prevents next-day events from appearing in today's agenda slot
+            const dayEnd = addDays(date, 1);
+            return events.filter(event => event.start >= date && event.start < dayEnd);
         }
         return events;
     }, [events, view, date]);

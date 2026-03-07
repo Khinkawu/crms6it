@@ -392,7 +392,7 @@ export default function CalendarSection({
                     event: "กิจกรรม",
                     noEventsInRange: "ไม่มีการจองในช่วงเวลานี้"
                 }}
-                length={1}
+                length={0}
             />
         </div>
     );
