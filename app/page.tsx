@@ -228,17 +228,17 @@ export default function Dashboard() {
             {/* ── Welcome Banner ── */}
             <div className="relative overflow-hidden rounded-2xl bg-gray-900 dark:bg-gray-800 p-6 text-white">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-600/30 via-transparent to-transparent" />
-                <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="relative flex flex-row items-center justify-between gap-4">
                     <div>
-                        <p className="text-sm text-white/60 mb-1">{getThaiDate()}</p>
-                        <h2 className="text-xl font-bold">
+                        <p className="text-xs text-white/60 mb-0.5">{getThaiDate()}</p>
+                        <h2 className="text-lg sm:text-xl font-bold">
                             {getGreeting()}, {getDisplayName().split(' ')[0] || 'User'} 👋
                         </h2>
-                        <p className="text-white/60 text-sm mt-1">พร้อมทำงานแล้ววันนี้!</p>
+                        <p className="text-white/60 text-xs sm:text-sm mt-0.5">พร้อมทำงานแล้ววันนี้!</p>
                     </div>
-                    <div className="text-right">
-                        <p className="text-4xl font-bold tracking-tight">{now}</p>
-                        <p className="text-white/50 text-xs mt-1">โรงเรียนเทศบาล 6 นครเชียงราย</p>
+                    <div className="text-right shrink-0">
+                        <p className="text-3xl sm:text-4xl font-bold tracking-tight">{now}</p>
+                        <p className="text-white/50 text-xs mt-0.5">โรงเรียนเทศบาล 6 นครเชียงราย</p>
                     </div>
                 </div>
             </div>

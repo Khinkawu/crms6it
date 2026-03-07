@@ -53,6 +53,7 @@ function ProfileContent() {
     const [isEditingName, setIsEditingName] = useState(false);
     const [editNameValue, setEditNameValue] = useState("");
     const [isSavingName, setIsSavingName] = useState(false);
+    const [isUpdatingHistory, setIsUpdatingHistory] = useState(false);
 
     // Photo upload state
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -190,6 +191,7 @@ function ProfileContent() {
             return;
         }
         setIsSavingName(true);
+        const oldName = displayName;
         try {
             const trimmed = editNameValue.trim();
             if (auth.currentUser) {
@@ -199,6 +201,26 @@ function ProfileContent() {
             setDisplayName(trimmed);
             setIsEditingName(false);
             toast.success("อัปเดตชื่อเรียบร้อย");
+
+            // Backfill historical records
+            if (oldName && oldName !== trimmed) {
+                setIsUpdatingHistory(true);
+                try {
+                    const idToken = await auth.currentUser?.getIdToken();
+                    if (idToken) {
+                        await fetch('/api/update-username', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                            body: JSON.stringify({ oldName, newName: trimmed }),
+                        });
+                        toast.success("อัปเดตข้อมูลย้อนหลังเรียบร้อย ✓");
+                    }
+                } catch {
+                    // Non-critical
+                } finally {
+                    setIsUpdatingHistory(false);
+                }
+            }
         } catch (err) {
             console.error(err);
             toast.error("ไม่สามารถอัปเดตชื่อได้");
@@ -302,6 +324,19 @@ function ProfileContent() {
 
     return (
         <div className="animate-fade-in py-6 px-4 pb-24">
+
+            {/* History update loading overlay */}
+            {isUpdatingHistory && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 flex flex-col items-center gap-4 shadow-2xl max-w-xs w-full mx-4">
+                        <div className="w-12 h-12 rounded-full border-4 border-gray-200 border-t-gray-900 dark:border-gray-700 dark:border-t-white animate-spin" />
+                        <div className="text-center">
+                            <p className="font-semibold text-gray-900 dark:text-white">กำลังอัปเดตข้อมูลย้อนหลัง</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">กรุณารอสักครู่...</p>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="w-full max-w-2xl mx-auto space-y-4">
 
                 {/* ── Profile Card ── */}
