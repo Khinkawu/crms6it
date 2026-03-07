@@ -31,7 +31,21 @@ export async function POST(request: Request) {
         }
 
         const userDoc = querySnapshot.docs[0].data();
-        const lineUserId = userDoc.lineUserId;
+        const userUID = querySnapshot.docs[0].id;
+        let lineUserId = userDoc.lineUserId;
+
+        // Fallback: check line_bindings collection (users who linked via LiffGuard)
+        if (!lineUserId) {
+            const bindingSnap = await adminDb.collection('line_bindings')
+                .where('uid', '==', userUID)
+                .limit(1)
+                .get();
+            if (!bindingSnap.empty) {
+                lineUserId = bindingSnap.docs[0].id; // doc ID = LINE userId
+                // Backfill users collection so future calls are faster
+                adminDb.collection('users').doc(userUID).update({ lineUserId }).catch(() => {});
+            }
+        }
 
         if (!lineUserId) {
             return NextResponse.json({ message: 'User not linked to LINE, notification skipped' });

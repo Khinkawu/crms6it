@@ -74,7 +74,7 @@ export default function LiffGuard({ liffId, children }: LiffGuardProps) {
                 return;
             }
 
-            // Create Binding
+            // Create Binding in line_bindings
             await setDoc(doc(db, "line_bindings", lineUserId), {
                 uid: user.uid,
                 email: user.email,
@@ -82,6 +82,11 @@ export default function LiffGuard({ liffId, children }: LiffGuardProps) {
                 photoURL: user.photoURL,
                 linkedAt: serverTimestamp()
             });
+
+            // Also persist lineUserId in users collection so notify-user route can find it
+            await setDoc(doc(db, "users", user.uid), {
+                lineUserId: lineUserId
+            }, { merge: true });
 
             toast.success("Account linked successfully!");
             setIsBound(true);

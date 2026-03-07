@@ -431,6 +431,7 @@ export async function createRepairFromAI(
 ): Promise<CreateRepairResult> {
     try {
         let finalRequesterName = requesterName || 'ผู้แจ้งผ่าน LINE';
+        let requesterId: string | undefined;
 
         if (requesterEmail) {
             const userSnap = await adminDb.collection('users')
@@ -443,6 +444,7 @@ export async function createRepairFromAI(
                 if (userData.displayName) {
                     finalRequesterName = userData.displayName;
                 }
+                requesterId = userSnap.docs[0].id;
             }
         }
 
@@ -460,13 +462,14 @@ export async function createRepairFromAI(
 
         const images: string[] = resolvedImageUrl && resolvedImageUrl !== 'pending_upload' && resolvedImageUrl !== '' ? [resolvedImageUrl] : [];
 
-        const repairData = {
+        const repairData: Record<string, any> = {
             room, description,
             zone: normalizedSide as 'junior_high' | 'senior_high',
             images,
             aiDiagnosis: aiDiagnosis || '',
             requesterName: finalRequesterName,
             requesterEmail: requesterEmail || '',
+            ...(requesterId ? { requesterId } : {}),
             position: 'แจ้งผ่าน LINE', phone: '-', status: 'pending' as const,
             createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), source: 'line_ai',
         };
@@ -576,10 +579,13 @@ export async function createFacilityRepairFromAI(
         if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
 
         let finalRequesterName = requesterName || 'ผู้แจ้งผ่าน LINE';
+        let facilityRequesterId: string | undefined;
         if (requesterEmail) {
             const userSnap = await adminDb.collection('users').where('email', '==', requesterEmail).limit(1).get();
-            if (!userSnap.empty && userSnap.docs[0].data().displayName) {
-                finalRequesterName = userSnap.docs[0].data().displayName;
+            if (!userSnap.empty) {
+                const userData = userSnap.docs[0].data();
+                if (userData.displayName) finalRequesterName = userData.displayName;
+                facilityRequesterId = userSnap.docs[0].id;
             }
         }
 
@@ -597,13 +603,14 @@ export async function createFacilityRepairFromAI(
 
         const images: string[] = resolvedImageUrl && resolvedImageUrl !== '' ? [resolvedImageUrl] : [];
 
-        const ticketData = {
+        const ticketData: Record<string, any> = {
             room, description,
             zone: normalizedSide as 'junior_high' | 'senior_high',
             issueCategory: category,
             images,
             requesterName: finalRequesterName,
             requesterEmail: requesterEmail || '',
+            ...(facilityRequesterId ? { requesterId: facilityRequesterId } : {}),
             position: 'แจ้งผ่าน LINE', phone: '-',
             status: 'pending' as const, priority: 'normal' as const,
             createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), source: 'line_ai',
