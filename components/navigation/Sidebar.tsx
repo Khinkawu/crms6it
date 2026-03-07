@@ -177,7 +177,7 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
                 </button>
 
                 {/* User */}
-                <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${collapsed ? "justify-center" : ""}`}>
+                <Link href="/profile" className={`flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${collapsed ? "justify-center" : ""}`}>
                     <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200 dark:bg-gray-700">
                         {user.photoURL ? (
                             <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
@@ -193,7 +193,7 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
                             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${badge.color}`}>{badge.label}</span>
                         </div>
                     )}
-                </div>
+                </Link>
 
                 {/* Logout */}
                 <button

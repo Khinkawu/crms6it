@@ -214,7 +214,9 @@ export default function Dashboard() {
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">ภาพรวมระบบสารสนเทศงานโสตทัศนศึกษา</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <NotificationInbox />
+                    <div className="md:hidden">
+                        <NotificationInbox />
+                    </div>
                     <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                         <CalendarIcon size={14} />
                         <span>{getThaiDate()}</span>
@@ -261,13 +263,15 @@ export default function Dashboard() {
                     icon={Clock}
                     loading={statsLoading}
                 />
-                <StatCard
-                    label="กิจกรรมวันนี้"
-                    value={todayActivities}
-                    icon={CalendarIcon}
-                    loading={eventsLoading}
-                    trend={todayActivities > 0 ? { value: `${todayActivities} รายการ`, up: true } : undefined}
-                />
+                <button onClick={handleTodayClick} className="text-left cursor-pointer">
+                    <StatCard
+                        label="กิจกรรมวันนี้"
+                        value={todayActivities}
+                        icon={CalendarIcon}
+                        loading={eventsLoading}
+                        trend={todayActivities > 0 ? { value: `${todayActivities} รายการ`, up: true } : undefined}
+                    />
+                </button>
             </div>
 
             {/* ── Quick Actions + Recent Activity ── */}
