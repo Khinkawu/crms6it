@@ -12,6 +12,7 @@ import { collection, query, where, orderBy, limit, getDocs } from "firebase/fire
 import { db } from "@/lib/firebase";
 import { PhotographyJob } from "@/types";
 
+import { NotificationInbox } from "@/components/NotificationInbox";
 import { useBookings, BookingEvent } from "@/hooks/useBookings";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { useRepairTickets } from "@/hooks/useRepairTickets";
@@ -212,9 +213,12 @@ export default function Dashboard() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Overview</h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">ภาพรวมระบบสารสนเทศงานโสตทัศนศึกษา</p>
                 </div>
-                <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                    <CalendarIcon size={14} />
-                    <span>{getThaiDate()}</span>
+                <div className="flex items-center gap-2">
+                    <NotificationInbox />
+                    <div className="hidden sm:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <CalendarIcon size={14} />
+                        <span>{getThaiDate()}</span>
+                    </div>
                 </div>
             </div>
 

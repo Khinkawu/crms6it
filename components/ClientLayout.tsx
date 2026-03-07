@@ -7,7 +7,6 @@ import BottomNavigation from "./navigation/BottomNavigation";
 import Sidebar from "./navigation/Sidebar";
 import TopHeader from "./navigation/TopHeader";
 import CommandPalette from "./navigation/CommandPalette";
-import { NotificationInbox } from "./NotificationInbox";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -51,14 +50,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 <TopHeader onOpenCommandPalette={() => setCommandPaletteOpen(true)} />
             </div>
 
-            {/* Mobile: Top Bar */}
-            <div className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center justify-end px-4 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
-                <NotificationInbox />
-            </div>
-
             {/* Main Content */}
             <main className="min-h-screen transition-all duration-300">
-                <div className={`px-4 pt-16 pb-24 ${contentML} md:pt-20 md:pb-8 md:px-8 transition-all duration-300`}>
+                <div className={`px-4 pt-4 pb-24 ${contentML} md:pt-20 md:pb-8 md:px-8 transition-all duration-300`}>
                     {children}
                 </div>
             </main>
