@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/hooks/useNotifications';
+import { setupPushNotifications } from '@/lib/fcm';
 import { AppNotification, NotificationType } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { th } from 'date-fns/locale';
@@ -145,6 +146,15 @@ export function NotificationInbox() {
         return () => document.removeEventListener('mousedown', handler);
     }, [open]);
 
+    const handleBellClick = async () => {
+        // iOS requires permission request from user gesture — trigger on first bell tap
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile && user && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+            await setupPushNotifications(user.uid).catch(() => {});
+        }
+        setOpen(prev => !prev);
+    };
+
     const handleNavigate = async (notif: AppNotification) => {
         if (!notif.read) await markAsRead(notif.id!);
         setOpen(false);
@@ -164,7 +174,7 @@ export function NotificationInbox() {
             {/* Bell button */}
             <button
                 ref={buttonRef}
-                onClick={() => setOpen(prev => !prev)}
+                onClick={handleBellClick}
                 className={`relative p-2.5 rounded-xl transition-colors ${
                     open
                         ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
