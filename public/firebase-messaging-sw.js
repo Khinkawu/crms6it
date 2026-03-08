@@ -18,21 +18,24 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 // Handle background messages
+// NOTE: Only handle data-only messages here.
+// If payload has a `notification` field, FCM SDK already shows the notification automatically —
+// calling showNotification() here would cause a duplicate.
 messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
-    const notificationTitle = payload.notification?.title || 'CRMS6 IT';
+    // Skip — FCM SDK handles notification display automatically when notification field is present
+    if (payload.notification) return;
+
+    // Data-only message: show notification manually
+    const notificationTitle = payload.data?.title || 'CRMS6 IT';
     const notificationOptions = {
-        body: payload.notification?.body || 'มีการแจ้งเตือนใหม่',
+        body: payload.data?.body || 'มีการแจ้งเตือนใหม่',
         icon: '/icon.png',
         badge: '/icon.png',
         tag: payload.data?.tag || 'default',
         data: payload.data,
         vibrate: [100, 50, 100],
-        actions: [
-            { action: 'open', title: 'เปิดดู' },
-            { action: 'close', title: 'ปิด' }
-        ]
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);
