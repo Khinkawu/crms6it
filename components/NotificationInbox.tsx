@@ -149,7 +149,7 @@ export function NotificationInbox() {
     const handleBellClick = async () => {
         // iOS requires permission request from user gesture — trigger on first bell tap
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (isMobile && user && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        if (isMobile && user && typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
             await setupPushNotifications(user.uid).catch(() => {});
         }
         setOpen(prev => !prev);
