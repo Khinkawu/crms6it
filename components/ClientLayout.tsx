@@ -8,7 +8,6 @@ import Sidebar from "./navigation/Sidebar";
 import TopHeader from "./navigation/TopHeader";
 import CommandPalette from "./navigation/CommandPalette";
 import { useAuth } from "@/context/AuthContext";
-import { isFCMSupported, setupPushNotifications } from "@/lib/fcm";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -16,19 +15,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const { user } = useAuth();
 
-    // Auto-register FCM token after login — mobile only (push to desktop = noise, bell is enough)
-    useEffect(() => {
-        if (!user) return;
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (!isMobile) return;
-        async function autoRegister() {
-            const supported = await isFCMSupported();
-            if (!supported || typeof Notification === 'undefined') return;
-            if (Notification.permission === 'denied') return;
-            setupPushNotifications(user!.uid).catch(() => {});
-        }
-        autoRegister();
-    }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+    // FCM registration handled by bell button tap (iOS requires user gesture)
+    // No auto-register here to prevent duplicate tokens
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "k") {
