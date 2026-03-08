@@ -103,15 +103,13 @@ async function saveTokenToUser(userId: string, token: string): Promise<void> {
             const data = userDoc.data();
             let tokens: string[] = data.fcmTokens || [];
 
-            // Check if token already exists
-            if (!tokens.includes(token)) {
-                // Add new token
-                tokens.push(token);
+            // Check if token already exists — skip write if nothing changed
+            if (tokens.includes(token)) return;
 
-                // Keep only last 3 tokens (oldest get removed)
-                if (tokens.length > 3) {
-                    tokens = tokens.slice(-3);
-                }
+            tokens.push(token);
+            // Keep only last 3 tokens (oldest get removed)
+            if (tokens.length > 3) {
+                tokens = tokens.slice(-3);
             }
 
             await updateDoc(userRef, {

@@ -112,22 +112,36 @@ export async function POST(req: Request) {
             await batch.commit();
         }
 
-        // FCM push to all relevant staff who have registered tokens
+        // FCM push — technician → /my-work, moderator → /admin/repairs
         if (inAppTargetUids.length > 0) {
-            const fcmTokens: string[] = [];
+            const techTokens: string[] = [];
+            const modTokens: string[] = [];
             await Promise.all(Array.from(new Set(inAppTargetUids)).map(async (uid) => {
                 const userDoc = await adminDb.collection('users').doc(uid).get();
-                const tokens: string[] = userDoc.data()?.fcmTokens || [];
-                fcmTokens.push(...tokens);
+                const data = userDoc.data();
+                const tokens: string[] = data?.fcmTokens || [];
+                if (data?.role === 'moderator') {
+                    modTokens.push(...tokens);
+                } else {
+                    techTokens.push(...tokens);
+                }
             }));
-            if (fcmTokens.length > 0) {
+            const fcmNotification = {
+                title: `งานซ่อมใหม่: ห้อง ${room}`,
+                body: `${requesterName} — ${description.slice(0, 80)}`,
+            };
+            if (techTokens.length > 0) {
                 await admin.messaging().sendEachForMulticast({
-                    tokens: fcmTokens,
-                    notification: {
-                        title: `งานซ่อมใหม่: ห้อง ${room}`,
-                        body: `${requesterName} — ${description.slice(0, 80)}`,
-                    },
+                    tokens: techTokens,
+                    notification: fcmNotification,
                     webpush: { fcmOptions: { link: `${appUrl}/my-work` } },
+                }).catch(() => {});
+            }
+            if (modTokens.length > 0) {
+                await admin.messaging().sendEachForMulticast({
+                    tokens: modTokens,
+                    notification: fcmNotification,
+                    webpush: { fcmOptions: { link: `${appUrl}/admin/repairs` } },
                 }).catch(() => {});
             }
         }

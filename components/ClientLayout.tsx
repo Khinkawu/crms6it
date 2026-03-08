@@ -16,9 +16,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const { user } = useAuth();
 
-    // Auto-register FCM token after login — request permission once, then silently refresh
+    // Auto-register FCM token after login — mobile only (push to desktop = noise, bell is enough)
     useEffect(() => {
         if (!user) return;
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (!isMobile) return;
         async function autoRegister() {
             const supported = await isFCMSupported();
             if (!supported || typeof Notification === 'undefined') return;

@@ -5,6 +5,7 @@ import {
     getDocs,
     query,
     serverTimestamp,
+    setDoc,
     updateDoc,
     where,
     writeBatch,
@@ -22,11 +23,22 @@ interface CreateNotificationData {
 }
 
 export async function createNotification(data: CreateNotificationData): Promise<void> {
-    await addDoc(collection(db, 'notifications'), {
-        ...data,
-        read: false,
-        createdAt: serverTimestamp(),
-    });
+    const ticketId = data.metadata?.ticketId;
+    if (ticketId) {
+        // Deterministic ID: upsert so same ticket never creates duplicate notifications
+        const docId = `${data.userId}_${data.type}_${ticketId}`;
+        await setDoc(doc(db, 'notifications', docId), {
+            ...data,
+            read: false,
+            createdAt: serverTimestamp(),
+        });
+    } else {
+        await addDoc(collection(db, 'notifications'), {
+            ...data,
+            read: false,
+            createdAt: serverTimestamp(),
+        });
+    }
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
