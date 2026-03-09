@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '../../../lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { createRepairCompleteFlexMessage, createStatusBubble } from '@/utils/flexMessageTemplates';
 import { getThaiStatus, getStatusHexColor } from '@/utils/repairHelpers';
+import admin from 'firebase-admin';
 
 export async function POST(request: Request) {
     try {
@@ -41,24 +43,49 @@ export async function POST(request: Request) {
                 .limit(1)
                 .get();
             if (!bindingSnap.empty) {
-                lineUserId = bindingSnap.docs[0].id; // doc ID = LINE userId
-                // Backfill users collection so future calls are faster
+                lineUserId = bindingSnap.docs[0].id;
                 adminDb.collection('users').doc(userUID).update({ lineUserId }).catch(() => {});
             }
         }
 
-        if (!lineUserId) {
-            return NextResponse.json({ message: 'User not linked to LINE, notification skipped' });
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
+        const thaiStatus = getThaiStatus(status);
+        const notifTitle = status === 'completed' ? `งานซ่อมเสร็จแล้ว` : `อัปเดตงานซ่อม: ${thaiStatus}`;
+        const notifBody = `ห้อง ${room} — ${problem?.slice(0, 80)}`;
+
+        // 2. In-app notification for requester
+        await adminDb.collection('notifications').add({
+            userId: userUID,
+            type: 'repair_status',
+            title: notifTitle,
+            body: notifBody,
+            linkTo: '/repair-history',
+            read: false,
+            createdAt: FieldValue.serverTimestamp(),
+            metadata: { ticketId: ticketId ?? '' },
+        });
+
+        // 3. FCM push to requester
+        const fcmTokens: string[] = userDoc.fcmTokens || [];
+        if (fcmTokens.length > 0) {
+            await admin.messaging().sendEachForMulticast({
+                tokens: fcmTokens,
+                notification: { title: notifTitle, body: notifBody },
+                webpush: { fcmOptions: { link: `${appUrl}/repair-history` } },
+            }).catch(() => {});
         }
 
-        // 2. Send LINE Push Message
+        // 4. LINE push (only if linked)
+        if (!lineUserId) {
+            return NextResponse.json({ success: true, line: 'skipped' });
+        }
+
         const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
         if (!channelAccessToken) {
             console.error('LINE_CHANNEL_ACCESS_TOKEN is missing');
-            return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+            return NextResponse.json({ success: true, line: 'skipped' });
         }
 
-        // Choose message template based on status
         const historyLink = `https://liff.line.me/${process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR}?mode=history`;
         let flexMessage;
 
@@ -71,17 +98,16 @@ export async function POST(request: Request) {
                 historyLink
             });
         } else {
-            // in_progress, waiting_parts, etc.
             flexMessage = {
                 type: 'flex',
-                altText: `แจ้งซ่อม: ${getThaiStatus(status)} — ห้อง ${room}`,
+                altText: `แจ้งซ่อม: ${thaiStatus} — ห้อง ${room}`,
                 contents: createStatusBubble({
                     id: ticketId,
                     description: problem,
                     room,
                     status,
                     statusColor: getStatusHexColor(status),
-                    statusText: getThaiStatus(status),
+                    statusText: thaiStatus,
                     createdAt: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }),
                     technicianNote: technicianNote || undefined,
                     historyLink
@@ -89,27 +115,22 @@ export async function POST(request: Request) {
             };
         }
 
-        const message = {
-            to: lineUserId,
-            messages: [flexMessage]
-        };
-
-        const response = await fetch('https://api.line.me/v2/bot/message/push', {
+        const lineResponse = await fetch('https://api.line.me/v2/bot/message/push', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${channelAccessToken}`
             },
-            body: JSON.stringify(message)
+            body: JSON.stringify({ to: lineUserId, messages: [flexMessage] })
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
+        if (!lineResponse.ok) {
+            const errorData = await lineResponse.json();
             console.error('LINE API Error:', errorData);
-            return NextResponse.json({ error: 'Failed to send LINE message' }, { status: 500 });
+            return NextResponse.json({ success: true, line: 'failed' });
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, line: 'sent' });
 
     } catch (error) {
         console.error('Notification Error:', error);
