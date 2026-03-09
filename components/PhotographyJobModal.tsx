@@ -4,10 +4,9 @@ import React, { useState, useEffect } from "react";
 import { X, Calendar, Clock, MapPin, User, Save, Check, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, addDoc, serverTimestamp, getDocs, getDoc, doc, query, where, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import { UserProfile } from "@/types";
-import { createNotification } from "@/lib/notifications";
 import { useBookings } from "@/hooks/useBookings";
 import { format, isAfter, startOfDay } from "date-fns";
 import { createPhotographyFlexMessage } from "@/utils/flexMessageTemplates";
@@ -255,47 +254,16 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                 }
             }
 
-            // Send FCM Push Notifications to all assigned photographers
-            for (const photographerId of assigneeIds) {
-                try {
-                    // Get user's FCM tokens from Firestore
-                    const userDoc = await getDoc(doc(db, "users", photographerId));
-                    if (userDoc.exists()) {
-                        const fcmTokens = userDoc.data().fcmTokens || [];
-                        const formattedDate = new Date(date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-
-                        // Send to each registered device
-                        for (const token of fcmTokens) {
-                            await fetch('/api/fcm/send', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    token,
-                                    title: '📸 งานถ่ายภาพใหม่',
-                                    body: `${title} - ${location} (${formattedDate})`,
-                                    data: {
-                                        url: '/my-work',
-                                        tag: 'photography-job'
-                                    }
-                                })
-                            }).catch(e => console.error("FCM Send Error", e));
-                        }
-                    }
-                } catch (e) {
-                    console.error("FCM Error for user", photographerId, e);
-                }
-            }
-
-            // In-app notifications for assigned photographers
+            // In-app + FCM push to all assigned photographers
             const formattedDate = new Date(date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-            for (const photographerId of assigneeIds) {
-                createNotification({
-                    userId: photographerId,
-                    type: 'photo_assigned',
-                    title: `📸 งานถ่ายภาพใหม่`,
-                    body: `${title} — ${location} (${formattedDate})`,
-                    linkTo: '/my-work',
-                    metadata: {},
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+                currentUser.getIdToken().then(idToken => {
+                    fetch('/api/notify-photo-assigned', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({ assigneeIds, title, location, formattedDate }),
+                    }).catch(() => {});
                 }).catch(() => {});
             }
 
