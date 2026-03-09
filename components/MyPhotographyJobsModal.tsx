@@ -201,6 +201,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                                 jobId,
                                 title: job.title,
                                 photographerName: currentUser.displayName || 'ช่างภาพ',
+                                photographerUid: currentUser.uid,
                             }),
                         }).catch(() => {});
                     }).catch(() => {});
