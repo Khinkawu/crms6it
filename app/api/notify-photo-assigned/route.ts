@@ -55,7 +55,20 @@ export async function POST(request: Request) {
             const data = userDoc.data();
             const tokens: string[] = data?.fcmTokens || [];
             allTokens.push(...tokens);
-            if (data?.lineUserId) lineUserIds.push(data.lineUserId);
+
+            let lineUserId: string | undefined = data?.lineUserId;
+            // Fallback: check line_bindings if lineUserId not in user doc
+            if (!lineUserId) {
+                const bindingSnap = await adminDb.collection('line_bindings')
+                    .where('uid', '==', uid)
+                    .limit(1)
+                    .get();
+                if (!bindingSnap.empty) {
+                    lineUserId = bindingSnap.docs[0].id;
+                    adminDb.collection('users').doc(uid).update({ lineUserId }).catch(() => {});
+                }
+            }
+            if (lineUserId) lineUserIds.push(lineUserId);
         }));
 
         await batch.commit();
@@ -70,7 +83,12 @@ export async function POST(request: Request) {
         }
 
         // LINE flex push to each photographer individually
-        if (lineToken && lineUserIds.length > 0 && date && startTime && endTime) {
+        let lineStatus = 'skipped';
+        if (!lineToken) {
+            lineStatus = 'no_token';
+        } else if (lineUserIds.length === 0) {
+            lineStatus = 'no_line_ids';
+        } else if (date && startTime && endTime) {
             const flexMessage = createPhotographyFlexMessage({
                 title,
                 location,
@@ -81,19 +99,29 @@ export async function POST(request: Request) {
                 description,
                 appUrl,
             });
-            await Promise.all(lineUserIds.map(lineUserId =>
-                fetch('https://api.line.me/v2/bot/message/push', {
+            const results = await Promise.all(lineUserIds.map(async (lineUserId) => {
+                const res = await fetch('https://api.line.me/v2/bot/message/push', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${lineToken}`,
                     },
                     body: JSON.stringify({ to: lineUserId, messages: [flexMessage] }),
-                }).catch(e => console.error('[notify-photo-assigned] LINE push error:', e))
-            ));
+                });
+                if (!res.ok) {
+                    const err = await res.text();
+                    console.error(`[notify-photo-assigned] LINE push failed for ${lineUserId}:`, err);
+                    return { lineUserId, ok: false, error: err };
+                }
+                return { lineUserId, ok: true };
+            }));
+            lineStatus = results.every(r => r.ok) ? 'sent' : 'partial_fail';
+            console.log('[notify-photo-assigned] LINE results:', results);
+        } else {
+            lineStatus = 'missing_datetime';
         }
 
-        return NextResponse.json({ success: true, notified: assigneeIds.length });
+        return NextResponse.json({ success: true, notified: assigneeIds.length, lineUserIds, lineStatus });
     } catch (error) {
         console.error('[notify-photo-assigned] Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
