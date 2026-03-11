@@ -9,7 +9,6 @@ import toast from "react-hot-toast";
 import { UserProfile } from "@/types";
 import { useBookings } from "@/hooks/useBookings";
 import { format, isAfter, startOfDay } from "date-fns";
-import { createPhotographyFlexMessage } from "@/utils/flexMessageTemplates";
 
 interface PhotographyJobModalProps {
     isOpen: boolean;
@@ -228,33 +227,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                 await addDoc(collection(db, "photography_jobs"), jobData);
             }
 
-            // Send LINE notifications to all assigned photographers
-            for (const photographer of selectedPhotographers) {
-                if (photographer.lineUserId) {
-                    // Use new professional Flex Message template
-                    const flexMessage = createPhotographyFlexMessage({
-                        title,
-                        location,
-                        date,
-                        startTime,
-                        endTime,
-                        teamMembers: assigneeNames,
-                        description,
-                        appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://crms6it.vercel.app"
-                    });
-
-                    await fetch('/api/line/push', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            to: photographer.lineUserId,
-                            messages: [flexMessage]
-                        })
-                    }).catch(e => console.error("LINE Notify Error", e));
-                }
-            }
-
-            // In-app + FCM push to all assigned photographers
+            // In-app + FCM + LINE flex push to all assigned photographers
             const formattedDate = new Date(date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
             const currentUser = auth.currentUser;
             if (currentUser) {
@@ -262,7 +235,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                     fetch('/api/notify-photo-assigned', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                        body: JSON.stringify({ assigneeIds, title, location, formattedDate }),
+                        body: JSON.stringify({ assigneeIds, title, location, formattedDate, date, startTime, endTime, description, assigneeNames }),
                     }).catch(() => {});
                 }).catch(() => {});
             }

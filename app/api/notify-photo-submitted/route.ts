@@ -48,20 +48,6 @@ export async function POST(request: Request) {
             });
         }
 
-        // In-app confirmation for photographer
-        if (photographerUid) {
-            batch.set(notifRef.doc(), {
-                userId: photographerUid,
-                type: 'photo_submitted_confirm',
-                title: `ส่งงานเรียบร้อยแล้ว`,
-                body: `${title} — รับงานเรียบร้อย รอผู้บริหารตรวจสอบ`,
-                linkTo: '/photography',
-                read: false,
-                createdAt: FieldValue.serverTimestamp(),
-                metadata: { jobId: jobId ?? '' },
-            });
-        }
-
         await batch.commit();
 
         // FCM push to admin + moderator
@@ -81,22 +67,6 @@ export async function POST(request: Request) {
                 },
                 webpush: { fcmOptions: { link: `${appUrl}/admin/photography` } },
             }).catch(() => {});
-        }
-
-        // FCM confirmation push to photographer
-        if (photographerUid) {
-            const photoDoc = await adminDb.collection('users').doc(photographerUid).get();
-            const photoTokens: string[] = photoDoc.data()?.fcmTokens || [];
-            if (photoTokens.length > 0) {
-                await admin.messaging().sendEachForMulticast({
-                    tokens: photoTokens,
-                    notification: {
-                        title: `ส่งงานเรียบร้อยแล้ว`,
-                        body: `${title} — รอผู้บริหารตรวจสอบ`,
-                    },
-                    webpush: { fcmOptions: { link: `${appUrl}/photography` } },
-                }).catch(() => {});
-            }
         }
 
         return NextResponse.json({ success: true, notified: recipientIds.size });

@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import admin from 'firebase-admin';
+import { createPhotographyFlexMessage } from '@/utils/flexMessageTemplates';
 
 /**
  * POST /api/notify-photo-assigned
- * ส่ง in-app + FCM push ให้ช่างภาพที่ได้รับมอบหมายงาน
+ * ส่ง in-app + FCM push + LINE flex ให้ช่างภาพที่ได้รับมอบหมายงาน
  * Called client-side after assigning photography job
  */
 export async function POST(request: Request) {
@@ -20,19 +21,21 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { assigneeIds, title, location, formattedDate } = await request.json();
+        const { assigneeIds, title, location, formattedDate, date, startTime, endTime, description, assigneeNames } = await request.json();
 
         if (!assigneeIds || assigneeIds.length === 0) {
             return NextResponse.json({ success: true, notified: 0 });
         }
 
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
+        const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
         const notifTitle = `งานถ่ายภาพใหม่`;
         const notifBody = `${title} — ${location} (${formattedDate})`;
 
         const batch = adminDb.batch();
         const notifRef = adminDb.collection('notifications');
         const allTokens: string[] = [];
+        const lineUserIds: string[] = [];
 
         await Promise.all(assigneeIds.map(async (uid: string) => {
             // In-app notification
@@ -47,10 +50,12 @@ export async function POST(request: Request) {
                 metadata: {},
             });
 
-            // Collect FCM tokens
+            // Collect FCM tokens + LINE user IDs
             const userDoc = await adminDb.collection('users').doc(uid).get();
-            const tokens: string[] = userDoc.data()?.fcmTokens || [];
+            const data = userDoc.data();
+            const tokens: string[] = data?.fcmTokens || [];
             allTokens.push(...tokens);
+            if (data?.lineUserId) lineUserIds.push(data.lineUserId);
         }));
 
         await batch.commit();
@@ -62,6 +67,30 @@ export async function POST(request: Request) {
                 notification: { title: notifTitle, body: notifBody },
                 webpush: { fcmOptions: { link: `${appUrl}/my-work` } },
             }).catch(() => {});
+        }
+
+        // LINE flex push to each photographer individually
+        if (lineToken && lineUserIds.length > 0 && date && startTime && endTime) {
+            const flexMessage = createPhotographyFlexMessage({
+                title,
+                location,
+                date,
+                startTime,
+                endTime,
+                teamMembers: assigneeNames || [],
+                description,
+                appUrl,
+            });
+            await Promise.all(lineUserIds.map(lineUserId =>
+                fetch('https://api.line.me/v2/bot/message/push', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${lineToken}`,
+                    },
+                    body: JSON.stringify({ to: lineUserId, messages: [flexMessage] }),
+                }).catch(e => console.error('[notify-photo-assigned] LINE push error:', e))
+            ));
         }
 
         return NextResponse.json({ success: true, notified: assigneeIds.length });
