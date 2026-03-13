@@ -46,21 +46,30 @@ export function formatThaiDate(
 
     if (isNaN(d.getTime())) return '-';
 
-    const thaiMonths = shortMonth
-        ? ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-        : ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+    // Use Intl.DateTimeFormat to force Bangkok timezone (UTC+7)
+    // This ensures consistent time regardless of server environment
+    const formatter = new Intl.DateTimeFormat('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        day: 'numeric',
+        month: shortMonth ? 'short' : 'long',
+        year: 'numeric',
+        hour: includeTime ? '2-digit' : undefined,
+        minute: includeTime ? '2-digit' : undefined,
+        hour12: false,
+    });
 
-    const day = d.getDate();
-    const month = thaiMonths[d.getMonth()];
-    const year = d.getFullYear() + 543; // Convert to Buddhist Era
+    const parts = formatter.formatToParts(d);
+    const day = parts.find(p => p.type === 'day')?.value || '';
+    const month = parts.find(p => p.type === 'month')?.value || '';
+    const yearValue = parts.find(p => p.type === 'year')?.value || '';
 
     let result = `${day} ${month}`;
-    if (includeYear) result += ` ${year}`;
+    if (includeYear) result += ` ${yearValue}`;
 
     if (includeTime) {
-        const hours = d.getHours().toString().padStart(2, '0');
-        const minutes = d.getMinutes().toString().padStart(2, '0');
-        result += ` ${hours}:${minutes}`;
+        const hour = parts.find(p => p.type === 'hour')?.value || '00';
+        const minute = parts.find(p => p.type === 'minute')?.value || '00';
+        result += ` ${hour}:${minute}`;
     }
 
     return result;

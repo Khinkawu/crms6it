@@ -8,6 +8,7 @@ import { adminDb, adminStorage } from '@/lib/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { RepairTicket } from '@/types';
 import { createRepairNewFlexMessage, createFacilityNewFlexMessage } from '@/utils/flexMessageTemplates';
+import { formatThaiDate } from './dateUtils';
 import { logger } from './logger';
 
 // ============================================================================
@@ -79,13 +80,35 @@ const SIDE_MAPPING: Record<string, string> = {
     'ต้น': 'junior_high', 'ตน': 'junior_high',
     'junior': 'junior_high', 'junior_high': 'junior_high',
     'ฝั่งม.ต้น': 'junior_high', 'ฝั่งมต้น': 'junior_high',
+    'มัธยมต้น': 'junior_high', 'มัธยมศึกษาตอนต้น': 'junior_high',
     // ม.ปลาย variations
     'ม.ปลาย': 'senior_high', 'มปลาย': 'senior_high', 'ม ปลาย': 'senior_high',
     'ม.ปราย': 'senior_high', 'มปราย': 'senior_high',
     'ปลาย': 'senior_high', 'ปราย': 'senior_high',
     'senior': 'senior_high', 'senior_high': 'senior_high',
-    'ฝั่งม.ปลาย': 'senior_high', 'ฝั่งมปลาย': 'senior_high'
+    'ฝั่งม.ปลาย': 'senior_high', 'ฝั่งมปลาย': 'senior_high',
+    'มัธยมปลาย': 'senior_high', 'มัธยมศึกษาตอนปลาย': 'senior_high',
 };
+
+/**
+ * Normalizes user input or AI parameter to a valid zone ID ('junior_high' or 'senior_high')
+ * Handles cases like "ห้อง ผอ. มปลาย" or "ฝั่งมัธยมต้น"
+ */
+function normalizeZoneToId(input: string): 'junior_high' | 'senior_high' {
+    const cleanInput = input.trim().toLowerCase();
+    
+    // Exact mapping check
+    if (SIDE_MAPPING[cleanInput]) return SIDE_MAPPING[cleanInput] as 'junior_high' | 'senior_high';
+
+    // Keyword containment check
+    const seniorKeywords = ['ปลาย', 'ปราย', 'senior', 'sh'];
+    const juniorKeywords = ['ต้น', 'ตน', 'junior', 'jh'];
+
+    if (seniorKeywords.some(k => cleanInput.includes(k))) return 'senior_high';
+    if (juniorKeywords.some(k => cleanInput.includes(k))) return 'junior_high';
+
+    return 'junior_high'; // Default fallback
+}
 
 // --- Helpers ---
 
@@ -98,16 +121,10 @@ export function getRoomDisplayName(id: string): string {
 function formatToThaiTime(dateInput: any): string {
     if (!dateInput) return '-';
     try {
-        const date = dateInput instanceof Timestamp ? dateInput.toDate() :
+        const d = dateInput instanceof Timestamp ? dateInput.toDate() :
             (dateInput.toDate ? dateInput.toDate() : new Date(dateInput));
-        return date.toLocaleString('th-TH', {
-            timeZone: 'Asia/Bangkok',
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        }) + " น.";
+        
+        return formatThaiDate(d, { includeTime: true, includeYear: true, shortMonth: true }) + " น.";
     } catch (e) {
         return '-';
     }
@@ -450,8 +467,7 @@ export async function createRepairFromAI(
 
         if (!room || !description || !side) return { success: false, error: 'ข้อมูลไม่ครบค่ะ' };
 
-        const trimmedSide = side.trim().toLowerCase();
-        const normalizedSide = SIDE_MAPPING[trimmedSide] || SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
+        const normalizedSide = normalizeZoneToId(side);
         logger.info('Create Repair AI', `side input: "${side}" -> normalized: "${normalizedSide}"`);
 
         // Upload base64 image to Storage so LINE Flex Messages can display it
@@ -589,8 +605,7 @@ export async function createFacilityRepairFromAI(
             }
         }
 
-        const trimmedSide = side.trim().toLowerCase();
-        const normalizedSide = SIDE_MAPPING[trimmedSide] || SIDE_MAPPING[side.toLowerCase()] || 'junior_high';
+        const normalizedSide = normalizeZoneToId(side);
 
         const validCategories = ['แอร์', 'ไฟฟ้า', 'ประปา', 'โครงสร้าง', 'เบ็ดเตล็ด'];
         const category = validCategories.includes(issueCategory) ? issueCategory : 'เบ็ดเตล็ด';
