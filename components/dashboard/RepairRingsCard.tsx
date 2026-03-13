@@ -52,7 +52,9 @@ interface DonutRingProps {
 function DonutRing({ stats, label, icon: Icon, colorPending, colorDone, colorTrack, delay = 0 }: DonutRingProps) {
     const r = 38;
     const circ = 2 * Math.PI * r;
-    const pendingPct = stats.total > 0 ? ((stats.pending + stats.inProgress) / stats.total) : 0;
+    // We use combined percentage for the pending arc so it draws the full length,
+    // and the completed arc is drawn on top of it.
+    const combinedPct = stats.total > 0 ? ((stats.pending + stats.inProgress + stats.completed) / stats.total) : 0;
     const donePct = stats.total > 0 ? (stats.completed / stats.total) : 0;
 
     const totalCount = useCountUp(stats.total);
@@ -71,7 +73,7 @@ function DonutRing({ stats, label, icon: Icon, colorPending, colorDone, colorTra
                 <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
                     {/* Track */}
                     <circle cx="50" cy="50" r={r} fill="none" stroke="currentColor" strokeWidth="8" className={colorTrack} />
-                    {/* Pending/In-progress arc */}
+                    {/* Pending/In-progress arc (draws combined length so done can overlay it) */}
                     <motion.circle
                         cx="50" cy="50" r={r}
                         fill="none" stroke="currentColor" strokeWidth="8"
@@ -79,7 +81,7 @@ function DonutRing({ stats, label, icon: Icon, colorPending, colorDone, colorTra
                         strokeLinecap="round"
                         strokeDasharray={circ}
                         initial={{ strokeDashoffset: circ }}
-                        animate={{ strokeDashoffset: circ - pendingPct * circ }}
+                        animate={{ strokeDashoffset: circ - combinedPct * circ }}
                         transition={{ delay: delay + 0.2, duration: 0.9, ease: "easeOut" }}
                     />
                     {/* Completed arc (offset = pending arc length) */}
