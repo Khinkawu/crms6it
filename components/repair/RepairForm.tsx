@@ -231,7 +231,7 @@ export default function RepairForm() {
                                 {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </div>
-                        <div className="sm:col-span-2">
+                        <div>
                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block flex items-center gap-1">
                                 <Phone size={12} />
                                 เบอร์โทรศัพท์ <span className="text-red-500">*</span>

@@ -11,9 +11,8 @@ import { logActivity } from "@/utils/logger";
 import { compressImage } from "@/utils/imageCompression";
 import {
     User, MapPin, Image as ImageIcon, FileText,
-    Send, Loader2, X, Plus, Phone, Building2
+    Send, Loader2, X, Plus, Wrench, Phone, Building
 } from "lucide-react";
-import { FacilityIssueCategory } from "@/types";
 import { POSITIONS, DEPARTMENTS } from "@/config/bookingConfig";
 
 export default function FacilityForm() {
@@ -228,7 +227,7 @@ export default function FacilityForm() {
                                 {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                         </div>
-                        <div className="sm:col-span-2">
+                        <div>
                             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block flex items-center gap-1">
                                 <Phone size={12} />
                                 เบอร์โทรศัพท์ <span className="text-red-500">*</span>
@@ -254,55 +253,52 @@ export default function FacilityForm() {
                     </div>
 
                     <div className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">โซน <span className="text-red-500">*</span></label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {[
-                                        { value: 'junior_high', label: 'ม.ต้น', icon: '🏫' },
-                                        { value: 'senior_high', label: 'ม.ปลาย', icon: '🎓' },
-                                    ].map((option) => (
-                                        <label
-                                            key={option.value}
-                                            className={`
-                                                flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all
-                                                ${formData.zone === option.value
-                                                    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-500 text-amber-700 dark:text-amber-300 shadow-sm'
-                                                    : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                }
-                                            `}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name="zone"
-                                                value={option.value}
-                                                checked={formData.zone === option.value}
-                                                onChange={handleInputChange}
-                                                className="hidden"
-                                            />
-                                            <span className="text-lg">{option.icon}</span>
-                                            <span className="font-semibold text-sm">{option.label}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block flex items-center gap-1">
-                                    <Building2 size={12} />
-                                    ห้อง / สถานที่ <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="room"
-                                    value={formData.room}
-                                    onChange={handleInputChange}
-                                    placeholder="เช่น ห้อง 101, ห้องประชุม ฯลฯ"
-                                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none placeholder:text-gray-400"
-                                    required
-                                />
+                        <div>
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block flex items-center gap-1">
+                                <Building size={12} />
+                                ห้อง / สถานที่ <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="room"
+                                value={formData.room}
+                                onChange={handleInputChange}
+                                placeholder="เช่น ห้อง 101, ห้องประชุม ฯลฯ"
+                                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none placeholder:text-gray-400"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">โซน <span className="text-red-500">*</span></label>
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { value: 'junior_high', label: 'ม.ต้น', icon: '🏫' },
+                                    { value: 'senior_high', label: 'ม.ปลาย', icon: '🎓' },
+                                ].map((option) => (
+                                    <label
+                                        key={option.value}
+                                        className={`
+                                            flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all
+                                            ${formData.zone === option.value
+                                                ? 'bg-gray-900 dark:bg-white border-gray-900 dark:border-white text-white dark:text-gray-900 shadow-sm'
+                                                : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                            }
+                                        `}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="zone"
+                                            value={option.value}
+                                            checked={formData.zone === option.value}
+                                            onChange={handleInputChange}
+                                            className="hidden"
+                                        />
+                                        <span className="text-xl">{option.icon}</span>
+                                        <span className="font-medium">{option.label}</span>
+                                    </label>
+                                ))}
                             </div>
                         </div>
-
                     </div>
                 </div>
 
@@ -318,7 +314,7 @@ export default function FacilityForm() {
 
                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                         {previews.map((src, index) => (
-                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-600 group bg-gray-100 dark:bg-gray-700 shadow-sm">
+                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-600 group bg-gray-100 dark:bg-gray-700">
                                 <img src={src} alt="Preview" className="w-full h-full object-cover" />
                                 <button
                                     type="button"
@@ -334,7 +330,7 @@ export default function FacilityForm() {
                             <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
-                                className="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center text-gray-400 hover:border-amber-400 hover:text-amber-500 dark:hover:border-amber-500 dark:hover:text-amber-400 transition-all bg-gray-50 dark:bg-gray-700/30"
+                                className="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-all bg-gray-50 dark:bg-gray-700/30"
                             >
                                 <Plus size={24} />
                                 <span className="text-xs mt-1">เพิ่มรูป</span>
@@ -355,13 +351,13 @@ export default function FacilityForm() {
                 <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
                     <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
                         <FileText size={14} className="text-gray-400" />
-                        รายละเอียดปัญหา <span className="text-red-500">*</span>
+                        รายละเอียดอาการเสีย <span className="text-red-500">*</span>
                     </div>
                     <textarea
                         name="description"
                         value={formData.description}
                         onChange={handleInputChange}
-                        placeholder="ระบุปัญหาที่พบให้ละเอียด เพื่อความรวดเร็วในการวางแผนแก้ไข..."
+                        placeholder="ระบุอาการเสียหรือปัญหาที่พบ..."
                         className="w-full min-h-[120px] px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-gray-400/30 outline-none resize-none placeholder:text-gray-400"
                         required
                     />
@@ -376,12 +372,12 @@ export default function FacilityForm() {
                     {isSubmitting ? (
                         <>
                             <Loader2 size={20} className="animate-spin" />
-                            กำลังบันทึกข้อมูล...
+                            กำลังบันทึก...
                         </>
                     ) : (
                         <>
                             <Send size={20} />
-                            ยืนยันการแจ้งซ่อม
+                            ส่งแจ้งซ่อม
                         </>
                     )}
                 </button>
