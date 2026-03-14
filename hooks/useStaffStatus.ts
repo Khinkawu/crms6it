@@ -27,7 +27,7 @@ export function useStaffStatus(enabled = true): UseStaffStatusReturn {
 
         // Sort: busy first → available → away; alphabetical within group
         docs.sort((a, b) => {
-          const order = { busy: 0, available: 1, away: 2 }
+          const order: Record<string, number> = { busy: 0, available: 1, away: 2, day_off: 3, leave: 4 }
           const diff = order[a.availability] - order[b.availability]
           if (diff !== 0) return diff
           return a.displayName.localeCompare(b.displayName, 'th')
