@@ -131,14 +131,14 @@ export default function StatusPicker({ uid, displayName, photoURL, role, isPhoto
           {/* Step 1 — Status */}
           <div className="space-y-2">
             <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">สถานะ</p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {QUICK_STATUSES.map(s => {
                 const isSelected = selectedAvailability === s.value
                 return (
                   <button
                     key={s.value}
                     onClick={() => handleSelectAvailability(s.value)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                    className={`flex-1 min-w-[calc(33.333%-6px)] flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${
                       isSelected
                         ? 'bg-gray-900 dark:bg-white border-transparent text-white dark:text-gray-900'
                         : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
