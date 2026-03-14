@@ -84,7 +84,7 @@ export default function TeamStatusPage() {
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">สถานะทีมโสตฯ</h1>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
                 Real-time · อัพเดทอัตโนมัติ
-                {isAdmin && <span className="ml-2 text-indigo-500 dark:text-indigo-400">· admin: กด "เปลี่ยนรูป" บนการ์ดเพื่ออัพโหลด PNG ครึ่งตัว</span>}
+                {isAdmin && <span className="ml-2 text-indigo-500 dark:text-indigo-400">· admin: กด &ldquo;เปลี่ยนรูป&rdquo; บนการ์ดเพื่ออัพโหลด PNG ครึ่งตัว</span>}
               </p>
             </div>
           </div>
