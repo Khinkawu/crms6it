@@ -8,9 +8,9 @@ import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { updateProfile } from "firebase/auth";
 import { auth, db, storage } from "@/lib/firebase";
-import { compressImage } from "@/utils/imageCompression";
 import ConfirmationModal from "@/components/ConfirmationModal";
 import UserHistoryModal from "@/components/UserHistoryModal";
+import AvatarCropModal from "@/components/TeamStatus/AvatarCropModal";
 import toast from "react-hot-toast";
 import {
     Wrench, Calendar, Package, ClipboardList, ChevronRight,
@@ -59,6 +59,7 @@ function ProfileContent() {
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [displayPhotoURL, setDisplayPhotoURL] = useState<string | null>(null);
     const [displayName, setDisplayName] = useState<string>("");
+    const [cropSrc, setCropSrc] = useState<string | null>(null);
 
     // Admin Feedbacks
     const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
@@ -244,21 +245,24 @@ function ProfileContent() {
         }
     };
 
-    // Upload profile photo
-    const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Upload profile photo — open crop modal first
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !user) return;
+        const src = URL.createObjectURL(file);
+        setCropSrc(src);
+        // Reset input so same file can be re-selected later
+        if (photoInputRef.current) photoInputRef.current.value = "";
+    };
 
+    // Called by AvatarCropModal after confirm → upload (already 512×512 PNG from canvas)
+    const handleCropConfirm = async (blob: Blob) => {
+        if (!user) return;
+        setCropSrc(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
         setIsUploadingPhoto(true);
         try {
-            const compressed = await compressImage(file, {
-                maxWidth: 512,
-                maxHeight: 512,
-                quality: 0.85,
-                maxSizeMB: 0.2,
-            });
             const storageRef = ref(storage, `profile-photos/${user.uid}`);
-            await uploadBytes(storageRef, compressed);
+            await uploadBytes(storageRef, blob);
             const downloadURL = await getDownloadURL(storageRef);
 
             if (auth.currentUser) {
@@ -272,8 +276,6 @@ function ProfileContent() {
             toast.error("ไม่สามารถอัปโหลดรูปได้");
         } finally {
             setIsUploadingPhoto(false);
-            // Reset input so same file can be re-selected
-            if (photoInputRef.current) photoInputRef.current.value = "";
         }
     };
 
@@ -347,7 +349,7 @@ function ProfileContent() {
 
                         {/* Avatar with upload overlay */}
                         <div className="relative shrink-0">
-                            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                            <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
                                 {displayPhotoURL ? (
                                     <img src={displayPhotoURL} alt={displayName} className="w-full h-full object-cover" />
                                 ) : (
@@ -357,7 +359,7 @@ function ProfileContent() {
                                 )}
                                 {/* Upload overlay */}
                                 {isUploadingPhoto && (
-                                    <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
                                         <Loader2 size={20} className="text-white animate-spin" />
                                     </div>
                                 )}
@@ -635,6 +637,17 @@ function ProfileContent() {
                 )}
 
             </div>
+
+            {cropSrc && (
+                <AvatarCropModal
+                    imageSrc={cropSrc}
+                    onConfirm={handleCropConfirm}
+                    onClose={() => {
+                        URL.revokeObjectURL(cropSrc);
+                        setCropSrc(null);
+                    }}
+                />
+            )}
 
             <UserHistoryModal
                 isOpen={historyModalOpen}

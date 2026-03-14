@@ -11,7 +11,7 @@ import ReportIssueModal from "../ReportIssueModal";
 import {
     Home, Wrench, Calendar, User,
     Plus, Package, ClipboardList, MoreHorizontal,
-    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard, Video, AlertCircle
+    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard, Video, AlertCircle, Users
 } from "lucide-react";
 
 export default function BottomNavigation() {
@@ -36,10 +36,7 @@ export default function BottomNavigation() {
         { name: "แจ้งซ่อม", icon: Wrench, path: "/repair" },
         { name: "action", icon: Plus, path: null }, // FAB placeholder
         { name: "จองห้อง", icon: Calendar, path: "/booking" },
-        // Show "เพิ่มเติม" for admin users, "โปรไฟล์" for regular users
-        isAdmin
-            ? { name: "เพิ่มเติม", icon: MoreHorizontal, path: "more" }
-            : { name: "โปรไฟล์", icon: User, path: "/profile" },
+        { name: "เพิ่มเติม", icon: MoreHorizontal, path: "more" },
     ];
 
     // FAB quick actions - add photo job assignment for admins
@@ -58,6 +55,7 @@ export default function BottomNavigation() {
         { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician", "facility_technician"], allowPhotographer: true },
         { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
+        { name: "สถานะทีมโสตฯ", icon: Users, path: "/team-status", roles: ["user", "admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
         { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
         { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician", "facility_technician"] },
         { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician", "admin", "facility_technician"] },
