@@ -78,19 +78,17 @@ export default function TeamStatusPublicPage() {
         )}
 
         {/* Summary bar */}
-        <div className="flex flex-wrap items-stretch bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm">
+        <div className="grid grid-cols-5 bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm">
           {STATUS_ITEMS.map((s, i) => {
             const count = staff.filter(m => m.availability === s.key).length
             return (
               <div
                 key={s.key}
-                className={`flex items-center gap-3 px-5 py-3.5 flex-1 min-w-[80px] ${i < STATUS_ITEMS.length - 1 ? 'border-r border-gray-200 dark:border-gray-700' : ''}`}
+                className={`flex flex-col items-center justify-center gap-1.5 px-1 py-3 ${i < STATUS_ITEMS.length - 1 ? 'border-r border-gray-200 dark:border-gray-700' : ''}`}
               >
-                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${s.dot} ${count === 0 ? 'opacity-30' : ''}`} />
-                <div>
-                  <p className={`text-xl font-bold leading-none ${count === 0 ? 'text-gray-300 dark:text-gray-600' : 'text-gray-900 dark:text-white'}`}>{count}</p>
-                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{s.label}</p>
-                </div>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${s.dot} ${count === 0 ? 'opacity-30' : ''}`} />
+                <p className={`text-lg font-bold leading-none ${count === 0 ? 'text-gray-300 dark:text-gray-600' : 'text-gray-900 dark:text-white'}`}>{count}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">{s.label}</p>
               </div>
             )
           })}
