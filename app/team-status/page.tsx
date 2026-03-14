@@ -3,11 +3,12 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { RefreshCw, Users, Settings, Pencil } from 'lucide-react'
+import { RefreshCw, Users, Settings } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useStaffStatus } from '@/hooks/useStaffStatus'
 import { useAllStaffContext } from '@/hooks/useAllStaffContext'
 import StaffCard from '@/components/TeamStatus/StaffCard'
+import StatusPicker from '@/components/TeamStatus/StatusPicker'
 import { PageSkeleton } from '@/components/ui/Skeleton'
 
 export default function TeamStatusPublicPage() {
@@ -49,15 +50,6 @@ export default function TeamStatusPublicPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isAVStaff && (
-              <Link
-                href="/my-work"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors"
-              >
-                <Pencil size={12} />
-                อัพเดทสถานะ
-              </Link>
-            )}
             {role === 'admin' && (
               <Link
                 href="/admin/team-status"
@@ -73,6 +65,17 @@ export default function TeamStatusPublicPage() {
             </div>
           </div>
         </div>
+
+        {/* Status Picker — AV staff only */}
+        {isAVStaff && user && (
+          <StatusPicker
+            uid={user.uid}
+            displayName={user.displayName ?? ''}
+            photoURL={user.photoURL}
+            role={role ?? 'technician'}
+            isPhotographer={isPhotographer}
+          />
+        )}
 
         {/* Summary bar */}
         <div className="flex flex-wrap items-stretch bg-white dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm">
