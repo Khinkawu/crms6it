@@ -298,7 +298,7 @@ export default function Dashboard() {
                 )}
             </div>
 
-            {/* ── Quick Actions + Recent Activity ── */}
+            {/* ── Quick Actions + Calendar ── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
 
                 {/* Quick Actions + Repair Rings */}
@@ -318,8 +318,28 @@ export default function Dashboard() {
                     />
                 </div>
 
+                {/* Calendar */}
+                <div id="calendar-section" className="lg:col-span-7 flex flex-col">
+                    {eventsLoading ? (
+                        <Skeleton className="h-[580px] w-full rounded-2xl" />
+                    ) : (
+                        <CalendarSection
+                            events={visibleEvents}
+                            view={view}
+                            setView={setView}
+                            date={date}
+                            setDate={setDate}
+                            onSelectEvent={handleSelectEvent}
+                        />
+                    )}
+                </div>
+            </div>
+
+            {/* ── Recent Activity + Gallery ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
                 {/* Recent Activity */}
-                <div className="lg:col-span-7 flex flex-col">
+                <div className="lg:col-span-8 flex flex-col">
                     <SectionHeader
                         title="สถานะงานซ่อมล่าสุด"
                         action={
@@ -337,26 +357,6 @@ export default function Dashboard() {
                             <RecentActivityList activities={activities} />
                         )}
                     </div>
-                </div>
-            </div>
-
-            {/* ── Calendar + Gallery ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-                {/* Calendar */}
-                <div id="calendar-section" className="lg:col-span-8">
-                    {eventsLoading ? (
-                        <Skeleton className="h-[580px] w-full rounded-2xl" />
-                    ) : (
-                        <CalendarSection
-                            events={visibleEvents}
-                            view={view}
-                            setView={setView}
-                            date={date}
-                            setDate={setDate}
-                            onSelectEvent={handleSelectEvent}
-                        />
-                    )}
                 </div>
 
                 {/* Photo Gallery */}
