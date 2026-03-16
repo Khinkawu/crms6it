@@ -27,6 +27,59 @@ import PhotoGalleryList from "@/components/dashboard/PhotoGalleryList";
 import RepairRingsCard from "@/components/dashboard/RepairRingsCard";
 import StaffMiniCard from "@/components/TeamStatus/StaffMiniCard";
 import { useStaffStatus } from "@/hooks/useStaffStatus";
+import Image from "next/image";
+import {
+    AVAILABILITY_COLOR,
+    AVAILABILITY_PRO_LABEL,
+    type StaffStatus,
+} from "@/types/staffStatus";
+
+const STATUS_RING: Record<string, string> = {
+    available: 'ring-emerald-500',
+    busy:      'ring-amber-500',
+    away:      'ring-sky-500',
+    day_off:   'ring-red-500',
+    leave:     'ring-red-500',
+}
+
+function StaffAvatarBubble({ staff, priority }: { staff: StaffStatus; priority?: boolean }) {
+    const ring  = STATUS_RING[staff.availability] ?? 'ring-gray-300'
+    const dot   = AVAILABILITY_COLOR[staff.availability]
+    const label = AVAILABILITY_PRO_LABEL[staff.availability]
+    const firstName = staff.displayName.split(' ')[0]
+
+    return (
+        <a href="/team-status" className="flex flex-col items-center gap-1.5 flex-shrink-0">
+            <div className="relative">
+                {staff.photoURL ? (
+                    /* ring อยู่ที่ outer, overflow-hidden อยู่ที่ inner — ไม่ clip กัน */
+                    <div className={`w-14 h-14 rounded-full ring-[3px] ring-offset-2 ring-offset-white dark:ring-offset-gray-950 ${ring}`}>
+                        <div className="w-full h-full rounded-full overflow-hidden">
+                            <Image
+                                src={staff.photoURL}
+                                alt={staff.displayName}
+                                width={56}
+                                height={56}
+                                className="w-full h-full object-cover"
+                                unoptimized
+                                priority={priority}
+                            />
+                        </div>
+                    </div>
+                ) : (
+                    <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-xl ring-[3px] ring-offset-2 ring-offset-white dark:ring-offset-gray-950 ${ring}`}>
+                        {staff.displayName.charAt(0).toUpperCase()}
+                    </div>
+                )}
+                <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-gray-950 ${dot}`} />
+            </div>
+            <div className="flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+                <span className="text-[10px] text-gray-500 dark:text-gray-400">{label}</span>
+            </div>
+        </a>
+    )
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -210,17 +263,38 @@ export default function Dashboard() {
                     }
                 />
                 {staffLoading ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                        {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
-                    </div>
+                    <>
+                        {/* Mobile skeleton */}
+                        <div className="sm:hidden flex gap-4 overflow-x-auto pb-1 justify-center">
+                            {[0, 1, 2, 3, 4].map(i => (
+                                <div key={i} className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                                    <Skeleton className="w-14 h-14 rounded-full" />
+                                    <Skeleton className="h-2.5 w-10 rounded" />
+                                </div>
+                            ))}
+                        </div>
+                        {/* Desktop skeleton */}
+                        <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
+                        </div>
+                    </>
                 ) : teamStaff.length === 0 ? (
-                    <div className="text-center py-8 text-sm text-gray-400">ยังไม่มีข้อมูลทีม</div>
+                    <div className="text-center py-6 text-sm text-gray-400">ยังไม่มีข้อมูลทีม</div>
                 ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                        {teamStaff.map((member, i) => (
-                            <StaffMiniCard key={member.uid} staff={member} priority={i < 5} />
-                        ))}
-                    </div>
+                    <>
+                        {/* Mobile — avatar bubbles แถวเดียว */}
+                        <div className="sm:hidden flex gap-5 overflow-x-auto py-2 scrollbar-none justify-center">
+                            {teamStaff.map((member, i) => (
+                                <StaffAvatarBubble key={member.uid} staff={member} priority={i < 6} />
+                            ))}
+                        </div>
+                        {/* Desktop/Tablet — card grid */}
+                        <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {teamStaff.map((member, i) => (
+                                <StaffMiniCard key={member.uid} staff={member} priority={i < 5} />
+                            ))}
+                        </div>
+                    </>
                 )}
             </div>
 
