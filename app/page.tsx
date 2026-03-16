@@ -5,8 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import {
     Wrench, Calendar as CalendarIcon, Camera, Video,
-    Clock, TrendingUp, CheckCircle2, AlertCircle,
-    Package, Users, Download, ArrowUpRight, ArrowDownRight
+    Users, ArrowUpRight,
 } from "lucide-react";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -17,8 +16,7 @@ import { useBookings, BookingEvent } from "@/hooks/useBookings";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { useRepairTickets } from "@/hooks/useRepairTickets";
 import { PageSkeleton, Skeleton } from "@/components/ui/Skeleton";
-import { Views } from "react-big-calendar";
-import { startOfDay } from "date-fns";
+
 
 import RecentActivityList from "@/components/dashboard/RecentActivityList";
 import CalendarSection from "@/components/dashboard/CalendarSection";
@@ -27,6 +25,8 @@ import PhotographyJobModal from "@/components/PhotographyJobModal";
 import ReportIssueModal from "@/components/ReportIssueModal";
 import PhotoGalleryList from "@/components/dashboard/PhotoGalleryList";
 import RepairRingsCard from "@/components/dashboard/RepairRingsCard";
+import StaffMiniCard from "@/components/TeamStatus/StaffMiniCard";
+import { useStaffStatus } from "@/hooks/useStaffStatus";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,40 +45,6 @@ function getThaiDate() {
 
 function getTime() {
     return new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
-}
-
-// ── Stat Card ─────────────────────────────────────────────────────────────────
-
-interface StatCardProps {
-    label: string;
-    value: number | string;
-    icon: React.ElementType;
-    trend?: { value: string; up: boolean };
-    loading?: boolean;
-}
-
-function StatCard({ label, value, icon: Icon, trend, loading }: StatCardProps) {
-    return (
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
-                <div className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800">
-                    <Icon size={16} className="text-gray-500 dark:text-gray-400" />
-                </div>
-            </div>
-            {loading ? (
-                <Skeleton className="h-8 w-16" />
-            ) : (
-                <span className="text-3xl font-bold text-gray-900 dark:text-white">{value}</span>
-            )}
-            {trend && (
-                <div className={`flex items-center gap-1 text-xs font-medium ${trend.up ? "text-emerald-600" : "text-red-500"}`}>
-                    {trend.up ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                    <span>{trend.value}</span>
-                </div>
-            )}
-        </div>
-    );
 }
 
 // ── Quick Action Card ─────────────────────────────────────────────────────────
@@ -122,9 +88,11 @@ export default function Dashboard() {
     const [now, setNow] = useState(getTime());
 
     const isReady = !!user && !loading;
-    const { events, visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true, enabled: isReady, realtime: false });
+    const { visibleEvents, view, setView, date, setDate, loading: eventsLoading } = useBookings({ filterApprovedOnly: true, includePhotographyJobs: true, enabled: isReady, realtime: false });
     const { activities, loading: activitiesLoading } = useActivityLogs({ filterRepairOnly: true, enabled: isReady, realtime: false });
     const { stats: repairStats, loading: statsLoading } = useRepairTickets({ enabled: isReady, fetchInventory: false, realtime: false });
+    const { staff: allStaff, loading: staffLoading } = useStaffStatus(isReady);
+    const teamStaff = allStaff.filter(m => m.role !== 'admin');
 
     const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -179,21 +147,9 @@ export default function Dashboard() {
 
     if (loading || !user) return <PageSkeleton />;
 
-    const todayActivities = events.filter(e => {
-        const isToday = e.start.toDateString() === new Date().toDateString();
-        if (e.eventType === 'photography') return isToday;
-        return isToday && e.status === 'approved';
-    }).length;
-
     const handleSelectEvent = (event: BookingEvent) => {
         setSelectedEvent(event);
         setIsDetailsModalOpen(true);
-    };
-
-    const handleTodayClick = () => {
-        setView(Views.AGENDA);
-        setDate(startOfDay(new Date()));
-        document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth' });
     };
 
     const quickActions = [
@@ -243,36 +199,29 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* ── Stats Row ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
-                    label="งานซ่อมทั้งหมด"
-                    value={repairStats?.total ?? 0}
-                    icon={Wrench}
-                    loading={statsLoading}
+            {/* ── Team Status Row ── */}
+            <div>
+                <SectionHeader
+                    title="สถานะทีมโสตฯ"
+                    action={
+                        <a href="/team-status" className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                            ดูทั้งหมด →
+                        </a>
+                    }
                 />
-                <StatCard
-                    label="รอดำเนินการ"
-                    value={repairStats?.pending ?? 0}
-                    icon={AlertCircle}
-                    loading={statsLoading}
-                    trend={repairStats?.pending > 0 ? { value: "ต้องดำเนินการ", up: false } : undefined}
-                />
-                <StatCard
-                    label="กำลังซ่อม"
-                    value={repairStats?.inProgress ?? 0}
-                    icon={Clock}
-                    loading={statsLoading}
-                />
-                <button onClick={handleTodayClick} className="text-left cursor-pointer">
-                    <StatCard
-                        label="กิจกรรมวันนี้"
-                        value={todayActivities}
-                        icon={CalendarIcon}
-                        loading={eventsLoading}
-                        trend={todayActivities > 0 ? { value: `${todayActivities} รายการ`, up: true } : undefined}
-                    />
-                </button>
+                {staffLoading ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
+                    </div>
+                ) : teamStaff.length === 0 ? (
+                    <div className="text-center py-8 text-sm text-gray-400">ยังไม่มีข้อมูลทีม</div>
+                ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        {teamStaff.map((member, i) => (
+                            <StaffMiniCard key={member.uid} staff={member} priority={i < 5} />
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* ── Quick Actions + Recent Activity ── */}

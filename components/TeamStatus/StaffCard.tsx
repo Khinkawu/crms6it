@@ -106,7 +106,7 @@ export default function StaffCard({ staff, context, onAvatarChange, onStatusOver
       </div>
 
       {/* ── Info area ── */}
-      <div className="px-4 py-4 flex flex-col gap-3">
+      <div className="px-4 py-4 flex flex-col gap-3 flex-1">
 
         {/* Name + status */}
         <div className="flex items-start justify-between gap-2">
@@ -155,23 +155,24 @@ export default function StaffCard({ staff, context, onAvatarChange, onStatusOver
           </div>
         )}
 
-        {/* Phone */}
-        {staff.phone && (
-          <a
-            href={`tel:${staff.phone}`}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors group"
-          >
-            <Phone size={14} className="shrink-0 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
-              {staff.phone}
-            </span>
-          </a>
-        )}
+        {/* Phone + Timestamp — always at bottom */}
+        <div className="mt-auto flex flex-col gap-2">
+          {staff.phone && (
+            <a
+              href={`tel:${staff.phone}`}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors group"
+            >
+              <Phone size={14} className="shrink-0 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
+                {staff.phone}
+              </span>
+            </a>
+          )}
 
-        {/* Timestamp */}
-        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-auto pt-1 border-t border-gray-100 dark:border-gray-700">
-          {timeAgo(staff.updatedAt)}
-        </p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 pt-1 border-t border-gray-100 dark:border-gray-700">
+            {timeAgo(staff.updatedAt)}
+          </p>
+        </div>
       </div>
     </div>
   )
