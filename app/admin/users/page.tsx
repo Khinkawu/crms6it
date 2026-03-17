@@ -171,7 +171,7 @@ const DesktopRow = memo(function DesktopRow({
                         <div className="flex items-center gap-1.5">
                             <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">{u.displayName}</span>
                             {isSelf && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium leading-none flex-shrink-0">you</span>}
-                            {u.isPhotographer && <Camera className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" title="Photographer" />}
+                            {u.isPhotographer && <Camera className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />}
                         </div>
                     </div>
                 </div>
