@@ -160,7 +160,6 @@ function Th({ label, sortKey, sort, onSort }: {
     label: string;
     sortKey?: string;
     sort?: SortConfig<any>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onSort?: (k: any) => void;
 }) {
     const active = sort?.key === sortKey;
