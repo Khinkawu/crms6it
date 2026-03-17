@@ -44,54 +44,69 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No photo IDs provided' }, { status: 400 });
         }
 
-        let postId: string;
-
-        if (photoIds.length === 1) {
-            // Single photo: Already uploaded, just need to publish it
-            // For single photos uploaded as unpublished, we need to create a post
-            const feedBody = {
-                message: caption,
-                attached_media: [{ media_fbid: photoIds[0] }],
-                published: shouldPublish ? 'true' : 'false',
-                access_token: ACCESS_TOKEN,
-            };
-
-            const postRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${PAGE_ID}/feed`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(feedBody),
-            });
-
-            const postResponseText = await postRes.text();
-            if (!postRes.ok) {
-                throw new Error(`Failed to create post: ${postResponseText}`);
+        // Idempotency check — if job already has a Facebook post, return success immediately.
+        // Prevents duplicate posts when the client retries after a Vercel timeout.
+        if (jobId) {
+            const existing = await adminDb.collection('photography_jobs').doc(jobId).get();
+            const existingData = existing.data();
+            if (existingData?.facebookPostId) {
+                return NextResponse.json({
+                    success: true,
+                    postId: existingData.facebookPostId,
+                    permalinkUrl: existingData.facebookPermalink ?? null,
+                    alreadyExists: true,
+                });
             }
-
-            const postData = JSON.parse(postResponseText);
-            postId = postData.id;
-        } else {
-            // Multiple photos: Create feed post with all attached media
-            const feedBody = {
-                message: caption,
-                attached_media: photoIds.map(id => ({ media_fbid: id })),
-                published: shouldPublish ? 'true' : 'false',
-                access_token: ACCESS_TOKEN,
-            };
-
-            const postRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${PAGE_ID}/feed`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(feedBody),
-            });
-
-            const postResponseText = await postRes.text();
-            if (!postRes.ok) {
-                throw new Error(`Failed to create post: ${postResponseText}`);
-            }
-
-            const postData = JSON.parse(postResponseText);
-            postId = postData.id;
         }
+
+        const feedBody = {
+            message: caption,
+            attached_media: photoIds.map(id => ({ media_fbid: id })),
+            published: shouldPublish ? 'true' : 'false',
+            access_token: ACCESS_TOKEN,
+        };
+
+        const postRes = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${PAGE_ID}/feed`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(feedBody),
+        });
+
+        const postResponseText = await postRes.text();
+
+        if (!postRes.ok) {
+            // Handle "Already Posted" — Facebook content-duplicate detection.
+            // The post was created in a previous attempt but Firestore was not updated.
+            // Treat as success so the job can be marked completed in Firestore.
+            let fbErrorSubcode: number | undefined;
+            try {
+                const fbError = JSON.parse(postResponseText);
+                fbErrorSubcode = fbError?.error?.error_subcode;
+            } catch {
+                // non-JSON error body — fall through to normal error handling
+            }
+
+            if (fbErrorSubcode === 1366051) {
+                // Post already exists on Facebook (content duplicate).
+                // Mark the job as posted without storing the lost post ID.
+                if (jobId) {
+                    await adminDb.collection('photography_jobs').doc(jobId).update({
+                        facebookPostedAt: FieldValue.serverTimestamp(),
+                        facebookNote: 'Post already existed on Facebook (duplicate detected)',
+                    });
+                }
+                return NextResponse.json({
+                    success: true,
+                    alreadyPosted: true,
+                    message: 'Post already exists on Facebook',
+                });
+            }
+
+            throw new Error(`Failed to create post: ${postResponseText}`);
+        }
+
+        const postData = JSON.parse(postResponseText);
+        const postId: string = postData.id;
 
         // Generate shareable permalink URL
         const actualPostId = postId.includes('_') ? postId.split('_')[1] : postId;
