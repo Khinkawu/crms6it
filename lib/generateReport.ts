@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, addYears } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { auth } from '@/lib/firebase';
 
 // --- 1. Helper Functions ---
 
@@ -283,9 +284,14 @@ export const generateInventoryLogReport = async (
     const signatureCache = new Map<string, string>();
     if (uniqueUrls.length > 0) {
         try {
+            const u = auth.currentUser;
+            const idToken = u ? await u.getIdToken() : null;
             const proxyResponse = await fetch('/api/admin/proxy-image', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}),
+                },
                 body: JSON.stringify({ urls: uniqueUrls }),
             });
             if (proxyResponse.ok) {

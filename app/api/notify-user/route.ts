@@ -7,15 +7,24 @@ import admin from 'firebase-admin';
 
 export async function POST(request: Request) {
     try {
-        // Require a valid Firebase ID token — any authenticated user (technician/admin)
+        // Require a valid Firebase ID token from staff (admin/moderator/technician)
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        let senderUid: string;
         try {
-            await adminAuth.verifyIdToken(authHeader.substring(7));
+            const decoded = await adminAuth.verifyIdToken(authHeader.substring(7));
+            senderUid = decoded.uid;
         } catch {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        // Only staff roles may trigger notifications — block regular users from spamming
+        const senderDoc = await adminDb.collection('users').doc(senderUid).get();
+        const senderRole = senderDoc.data()?.role as string | undefined;
+        const allowedRoles = ['admin', 'moderator', 'technician', 'facility_technician'];
+        if (!senderRole || !allowedRoles.includes(senderRole)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const { email, ticketId, room, problem, technicianNote, completionImage, status } = await request.json();

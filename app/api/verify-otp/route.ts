@@ -45,11 +45,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Verify OTP — compare against hash (bcrypt) or plaintext fallback for old records
+        // Verify OTP — must have bcrypt hash (plaintext fallback removed)
         const storedHash = otpData.otpHash;
-        const isValid = storedHash
-            ? await bcrypt.compare(otp, storedHash)
-            : otpData.otp === otp;
+        if (!storedHash) {
+            // Legacy record without hash — invalidate and force re-request
+            await adminDb.collection('otp_codes').doc(lineUserId).delete();
+            return NextResponse.json(
+                { success: false, error: 'OTP ไม่ถูกต้อง กรุณาขอ OTP ใหม่' },
+                { status: 400 }
+            );
+        }
+        const isValid = await bcrypt.compare(otp, storedHash);
 
         if (!isValid) {
             await adminDb.collection('otp_codes').doc(lineUserId).update({

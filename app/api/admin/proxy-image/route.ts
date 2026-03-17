@@ -1,13 +1,35 @@
 import { NextResponse } from 'next/server';
+import { adminAuth } from '@/lib/firebaseAdmin';
+
+/**
+ * Shared auth check — requires a valid Firebase ID token.
+ * Returns the decoded token on success, or a 401 NextResponse on failure.
+ */
+async function requireAuth(request: Request): Promise<{ uid: string } | NextResponse> {
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    if (!token) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    try {
+        return await adminAuth.verifyIdToken(token);
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+}
 
 /**
  * GET /api/admin/proxy-image?url=<firebase-storage-url>
- * 
+ *
  * Server-side proxy for Firebase Storage images.
  * Bypasses CORS restrictions when client-side access is blocked.
  * Returns the image as base64 data URL.
+ * Requires: Firebase ID token in Authorization header.
  */
 export async function GET(request: Request) {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     try {
         const { searchParams } = new URL(request.url);
         const imageUrl = searchParams.get('url');
@@ -39,17 +61,22 @@ export async function GET(request: Request) {
         const dataUrl = `data:${contentType};base64,${base64}`;
 
         return NextResponse.json({ dataUrl });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
         console.error('Proxy image error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
 }
 
 /**
  * POST /api/admin/proxy-image
  * Batch fetch: accepts { urls: string[] }, returns { results: { [url]: dataUrl } }
+ * Requires: Firebase ID token in Authorization header.
  */
 export async function POST(request: Request) {
+    const authResult = await requireAuth(request);
+    if (authResult instanceof NextResponse) return authResult;
+
     try {
         const { urls } = await request.json();
 
@@ -78,8 +105,9 @@ export async function POST(request: Request) {
         }));
 
         return NextResponse.json({ results });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
         console.error('Batch proxy image error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: msg }, { status: 500 });
     }
 }
