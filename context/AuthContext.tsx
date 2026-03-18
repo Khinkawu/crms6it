@@ -55,6 +55,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     ) => {
         const userSnap = await getDoc(userRef);
 
+        let resolvedRole: UserRole = 'user';
+        let resolvedIsPhotographer = false;
+
         if (!userSnap.exists()) {
             // New user — create doc with defaults
             await setDoc(userRef, {
@@ -69,12 +72,49 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
             // Existing user — sync Google profile if changed
             const userData = userSnap.data();
+            resolvedRole = userData.role as UserRole;
+            resolvedIsPhotographer = userData.isPhotographer || false;
             if (currentUser.displayName !== userData.displayName || currentUser.photoURL !== userData.photoURL) {
                 await updateDoc(userRef, {
                     displayName: currentUser.displayName,
                     photoURL: currentUser.photoURL,
                     updatedAt: serverTimestamp()
                 });
+            }
+        }
+
+        // Auto-initialize staff_status for AV staff (technician + photographer)
+        // so they appear on the dashboard from first login without needing to manually update
+        const isAVStaff = resolvedRole === 'technician' || resolvedIsPhotographer;
+        if (isAVStaff) {
+            const statusRef = doc(db, 'staff_status', currentUser.uid);
+            const statusSnap = await getDoc(statusRef);
+            if (!statusSnap.exists()) {
+                await setDoc(statusRef, {
+                    uid: currentUser.uid,
+                    displayName: currentUser.displayName,
+                    photoURL: currentUser.photoURL ?? null,
+                    role: resolvedRole,
+                    isPhotographer: resolvedIsPhotographer,
+                    availability: 'available',
+                    taskCategoryId: null,
+                    taskLabel: null,
+                    taskNote: null,
+                    location: null,
+                    updatedAt: serverTimestamp(),
+                });
+            } else {
+                // Keep displayName/photoURL in sync with Google profile
+                const statusData = statusSnap.data();
+                if (
+                    statusData.displayName !== currentUser.displayName ||
+                    statusData.photoURL !== (currentUser.photoURL ?? null)
+                ) {
+                    await updateDoc(statusRef, {
+                        displayName: currentUser.displayName,
+                        photoURL: currentUser.photoURL ?? null,
+                    });
+                }
             }
         }
     };

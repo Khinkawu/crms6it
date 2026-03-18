@@ -444,6 +444,7 @@ export default function BookingManagement() {
                 await updateDoc(doc(db, "bookings", confirmAction.id), { status: confirmAction.payload });
                 if (target?.requesterId) {
                     const isApproved = confirmAction.payload === "approved";
+                    // In-app bell notification (existing)
                     createNotification({
                         userId: target.requesterId,
                         type: "booking_result",
@@ -452,6 +453,22 @@ export default function BookingManagement() {
                         linkTo: "/booking",
                         metadata: { bookingId: confirmAction.id },
                     }).catch(() => { });
+                    // FCM web push — approved/rejected only (fire-and-forget)
+                    if (confirmAction.payload === "approved" || confirmAction.payload === "rejected") {
+                        fetch('/api/notify-booking-result', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-internal-request': 'true',
+                            },
+                            body: JSON.stringify({
+                                requesterId: target.requesterId,
+                                status: confirmAction.payload,
+                                title: target.title,
+                                roomName: target.roomName || target.room || '',
+                            }),
+                        }).catch(() => { });
+                    }
                 }
                 toast.success("อัปเดตสถานะเรียบร้อย");
             } else {

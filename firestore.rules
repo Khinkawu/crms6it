@@ -187,5 +187,14 @@ service cloud.firestore {
       allow update: if isAdmin() || isModerator() || isFacilityTechnician();
       allow delete: if isAdmin();
     }
+
+    // staff_status — สถานะการทำงานของโสตฯ (technician + photographer)
+    // ทุกคน login อ่านได้ (dashboard แสดงต่อทีม), เจ้าของเท่านั้นเขียนได้
+    match /staff_status/{uid} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }

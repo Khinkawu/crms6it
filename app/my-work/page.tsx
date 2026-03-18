@@ -19,6 +19,7 @@ import MyPhotographyJobsModal from "@/components/MyPhotographyJobsModal";
 import DailyReportModal from "@/components/DailyReportModal";
 import { RepairTicket, PhotographyJob, DailyReport } from "@/types";
 import { getThaiStatus, getStatusColor } from "@/hooks/useRepairAdmin";
+import StatusPicker from "@/components/TeamStatus/StatusPicker";
 import { exportToExcel } from "@/utils/excelExport";
 // We'll fallback to photography export for now if printing/exporting
 import { exportPhotographyToExcel } from "@/utils/photographyExport";
@@ -219,9 +220,23 @@ export default function MyWorkPage() {
         }
     };
 
+    // AV staff = IT technician OR photographer
+    const isAVStaff = role === 'technician' || isPhotographer === true;
+
     return (
         <div className="animate-fade-in pb-24">
             <div className="max-w-5xl mx-auto space-y-6">
+                {/* AV Staff Status Picker — only for technician + photographer */}
+                {isAVStaff && user && (
+                    <StatusPicker
+                        uid={user.uid}
+                        displayName={getDisplayName()}
+                        photoURL={user.photoURL}
+                        role={role ?? 'technician'}
+                        isPhotographer={isPhotographer}
+                    />
+                )}
+
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">

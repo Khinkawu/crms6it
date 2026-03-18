@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import {
@@ -17,15 +17,18 @@ import {
     Search,
     Plus,
     Trash2,
-    Image as ImageIcon
+    Image as ImageIcon,
+    TrendingUp
 } from "lucide-react";
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc, Timestamp, limit, where, getCountFromServer } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, getDocs, doc, deleteDoc, Timestamp, limit, where, getCountFromServer } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { PhotographyJob, UserProfile } from "@/types";
 import toast from "react-hot-toast";
 import PhotographyJobModal from "@/components/PhotographyJobModal";
 import EditPhotographyJobModal from "@/components/EditPhotographyJobModal";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import PhotographyDashboard from "@/components/PhotographyDashboard";
+import { isSameDay, parseISO } from "date-fns";
 
 export default function PhotographyManagement() {
     const { user, role, isPhotographer, loading } = useAuth();
@@ -42,6 +45,19 @@ export default function PhotographyManagement() {
     const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
     const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [showDashboard, setShowDashboard] = useState(false);
+    const [dashboardAllJobs, setDashboardAllJobs] = useState<PhotographyJob[]>([]);
+    const [dashboardLoading, setDashboardLoading] = useState(false);
+    const dashboardFetchedRef = useRef(false);
+    const [dashboardFilterType, setDashboardFilterType] = useState<'all' | 'month' | 'day'>('all');
+    const [dashboardFilterDate, setDashboardFilterDate] = useState<string>(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    });
+    const [dashboardFilterMonth, setDashboardFilterMonth] = useState<string>(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    });
     const photographers = allUsers.filter(u => u.isPhotographer);
 
     // Redirect unauthorized users
@@ -116,7 +132,7 @@ export default function PhotographyManagement() {
             where("status", "in", ["assigned", "pending_assign"])
         );
 
-        // Query 2: Recent completed/cancelled jobs (limit 100 to prevent huge payloads)
+        // Query 2: Recent completed/cancelled jobs (limit 100 to keep reads cheap)
         const qHistory = query(
             collection(db, "photography_jobs"),
             where("status", "in", ["completed", "cancelled"]),
@@ -189,6 +205,39 @@ export default function PhotographyManagement() {
         if ((job as any).assigneeName) return [(job as any).assigneeName];
         return [];
     };
+
+    // Fetch ALL jobs once when dashboard opens (one-shot getDocs, not realtime)
+    useEffect(() => {
+        if (!showDashboard || dashboardFetchedRef.current || !user) return;
+        dashboardFetchedRef.current = true;
+        setDashboardLoading(true);
+        getDocs(query(collection(db, "photography_jobs"), orderBy("startTime", "desc")))
+            .then(snapshot => {
+                setDashboardAllJobs(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PhotographyJob)));
+            })
+            .catch(console.error)
+            .finally(() => setDashboardLoading(false));
+    }, [showDashboard, user]);
+
+    // Dashboard filtered jobs (uses dashboardAllJobs — full dataset fetched once)
+    const dashboardFilteredJobs = useMemo(() => {
+        if (dashboardFilterType === 'all') return dashboardAllJobs;
+        if (dashboardFilterType === 'day') {
+            const selectedDate = parseISO(dashboardFilterDate);
+            return dashboardAllJobs.filter(j => {
+                const jobDate = j.startTime?.toDate?.();
+                return jobDate && isSameDay(jobDate, selectedDate);
+            });
+        }
+        if (dashboardFilterType === 'month') {
+            const [year, month] = dashboardFilterMonth.split('-').map(Number);
+            return dashboardAllJobs.filter(j => {
+                const jobDate = j.startTime?.toDate?.();
+                return jobDate && jobDate.getFullYear() === year && jobDate.getMonth() + 1 === month;
+            });
+        }
+        return dashboardAllJobs;
+    }, [dashboardAllJobs, dashboardFilterType, dashboardFilterDate, dashboardFilterMonth]);
 
     // Filter jobs
     const filteredJobs = jobs
@@ -339,7 +388,69 @@ export default function PhotographyManagement() {
                 </div>
             </div>
 
+            {/* Dashboard Toggle & Dashboard */}
+            <div className="flex flex-wrap items-center gap-3 justify-between">
+                <button
+                    onClick={() => setShowDashboard(!showDashboard)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-colors ${
+                        showDashboard
+                            ? 'bg-blue-600 dark:bg-blue-700 text-white'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                >
+                    <TrendingUp size={18} />
+                    {showDashboard ? 'ซ่อน Dashboard' : 'แสดง Dashboard'}
+                </button>
 
+                {showDashboard && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Filter type buttons */}
+                        {(['all', 'month', 'day'] as const).map(type => (
+                            <button
+                                key={type}
+                                onClick={() => setDashboardFilterType(type)}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                    dashboardFilterType === type
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                }`}
+                            >
+                                {type === 'all' ? 'ทั้งหมด' : type === 'month' ? 'รายเดือน' : 'รายวัน'}
+                            </button>
+                        ))}
+
+                        {/* Month picker */}
+                        {dashboardFilterType === 'month' && (
+                            <input
+                                type="month"
+                                value={dashboardFilterMonth}
+                                onChange={e => setDashboardFilterMonth(e.target.value)}
+                                className="px-3 py-1.5 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border-0 focus:ring-2 focus:ring-blue-500"
+                            />
+                        )}
+
+                        {/* Day picker */}
+                        {dashboardFilterType === 'day' && (
+                            <input
+                                type="date"
+                                value={dashboardFilterDate}
+                                onChange={e => setDashboardFilterDate(e.target.value)}
+                                className="px-3 py-1.5 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white border-0 focus:ring-2 focus:ring-blue-500"
+                            />
+                        )}
+
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {dashboardFilteredJobs.length} งาน
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            {showDashboard && (
+                dashboardLoading
+                    ? <div className="text-center py-12 text-gray-500 dark:text-gray-400">กำลังโหลดข้อมูล Dashboard...</div>
+                    : <PhotographyDashboard jobs={dashboardFilteredJobs} allUsers={allUsers} />
+            )}
 
             {/* Search and Filter */}
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
