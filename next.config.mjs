@@ -25,7 +25,7 @@ const nextConfig = {
                             "img-src * data: blob:",
                             "connect-src 'self' *.googleapis.com *.firebaseio.com wss://*.firebaseio.com firebasestorage.googleapis.com *.cloudfunctions.net *.google.com",
                             "font-src 'self' fonts.gstatic.com data:",
-                            "frame-src 'self' blob: *.line.me accounts.google.com",
+                            "frame-src 'self' blob: *.line.me accounts.google.com *.firebaseapp.com",
                             "frame-ancestors 'self'",
                         ].join('; '),
                     },
