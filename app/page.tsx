@@ -105,7 +105,7 @@ function getTime() {
 function QuickActionCard({ icon: Icon, title, description, href, badge, onClick }: {
     icon: React.ElementType; title: string; description: string; href?: string; badge?: number; onClick?: () => void;
 }) {
-    const cls = "group flex items-center gap-3 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl hover:border-gray-400 dark:hover:border-gray-600 transition-all cursor-pointer";
+    const cls = "group flex items-center gap-3 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl hover:border-gray-400 dark:hover:border-gray-600 transition-all cursor-pointer text-left w-full";
     const inner = (
         <>
             <div className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors relative">
