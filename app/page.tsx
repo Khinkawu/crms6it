@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import {
     Wrench, Calendar as CalendarIcon, Camera, Video,
-    Users, ArrowUpRight,
+    Users, ArrowUpRight, UserCircle, AlertCircle,
 } from "lucide-react";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -102,11 +102,12 @@ function getTime() {
 
 // ── Quick Action Card ─────────────────────────────────────────────────────────
 
-function QuickActionCard({ icon: Icon, title, description, href, badge }: {
-    icon: React.ElementType; title: string; description: string; href: string; badge?: number;
+function QuickActionCard({ icon: Icon, title, description, href, badge, onClick }: {
+    icon: React.ElementType; title: string; description: string; href?: string; badge?: number; onClick?: () => void;
 }) {
-    return (
-        <a href={href} className="group flex items-center gap-3 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl hover:border-gray-400 dark:hover:border-gray-600 transition-all">
+    const cls = "group flex items-center gap-3 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl hover:border-gray-400 dark:hover:border-gray-600 transition-all cursor-pointer";
+    const inner = (
+        <>
             <div className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors relative">
                 <Icon size={18} className="text-gray-700 dark:text-gray-300" />
                 {badge != null && badge > 0 && (
@@ -118,8 +119,10 @@ function QuickActionCard({ icon: Icon, title, description, href, badge }: {
                 <p className="text-xs text-gray-400 truncate">{description}</p>
             </div>
             <ArrowUpRight size={14} className="ml-auto text-gray-300 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors flex-shrink-0" />
-        </a>
+        </>
     );
+    if (onClick) return <button onClick={onClick} className={cls}>{inner}</button>;
+    return <a href={href} className={cls}>{inner}</a>;
 }
 
 // ── Section Header ────────────────────────────────────────────────────────────
@@ -210,6 +213,8 @@ export default function Dashboard() {
         { icon: CalendarIcon, title: "จองห้อง / คิว", description: "จองห้องหรือคิวช่างภาพ", href: "/booking" },
         { icon: Camera, title: "ภาพกิจกรรม", description: "ประมวลภาพกิจกรรม", href: "/gallery" },
         { icon: Video, title: "คลังวิดีโอ", description: "รวมวิดีโอกิจกรรม", href: "/video-gallery" },
+        { icon: UserCircle, title: "โปรไฟล์", description: "ข้อมูลและการตั้งค่าบัญชี", href: "/profile" },
+        { icon: AlertCircle, title: "แจ้งปัญหา", description: "รายงานปัญหาการใช้งาน", onClick: () => setIsReportModalOpen(true) },
         ...(isPhotographer ? [{ icon: Camera, title: "งานของฉัน", description: "ดูภาพรวมและประวัติงาน", href: "/my-work", badge: pendingPhotoJobsCount }] : []),
         ...(role === 'admin' ? [{ icon: Users, title: "ผู้ใช้งาน", description: "จัดการผู้ใช้ระบบ", href: "/admin/users" }] : []),
     ];
@@ -307,7 +312,7 @@ export default function Dashboard() {
                         <SectionHeader title="เริ่มต้นใช้งาน" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {quickActions.map((a) => (
-                                <QuickActionCard key={a.href} {...a} />
+                                <QuickActionCard key={a.title} {...a} />
                             ))}
                         </div>
                     </div>
