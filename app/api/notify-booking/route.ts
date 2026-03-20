@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import admin from 'firebase-admin';
+import { logWebEvent } from '@/lib/analytics';
 
 /**
  * POST /api/notify-booking
@@ -74,9 +75,11 @@ export async function POST(request: Request) {
             }).catch(() => {});
         }
 
+        logWebEvent({ eventType: 'booking_create', metadata: { bookingId, title, roomName } });
         return NextResponse.json({ success: true, notified: recipientIds.size });
     } catch (error) {
         console.error('[notify-booking] Error:', error);
+        logWebEvent({ eventType: 'api_error', error: 'notify-booking failed', metadata: { route: 'notify-booking' } });
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

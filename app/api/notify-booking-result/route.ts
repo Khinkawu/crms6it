@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import admin from 'firebase-admin';
+import { logWebEvent } from '@/lib/analytics';
 
 export async function POST(req: Request) {
     try {
@@ -97,6 +98,10 @@ export async function POST(req: Request) {
 
         console.log(`[notify-booking-result] status=${status} requesterId=${requesterId} success=${result.successCount} fail=${result.failureCount}`);
 
+        logWebEvent({
+            eventType: status === 'approved' ? 'booking_approve' : 'booking_reject',
+            metadata: { requesterId, title, roomName, status },
+        });
         return NextResponse.json({
             status: 'ok',
             successCount: result.successCount,
@@ -105,6 +110,7 @@ export async function POST(req: Request) {
 
     } catch (error) {
         console.error('[notify-booking-result] Error:', error);
+        logWebEvent({ eventType: 'api_error', error: 'notify-booking-result failed', metadata: { route: 'notify-booking-result' } });
         return NextResponse.json({ status: 'error' }, { status: 500 });
     }
 }

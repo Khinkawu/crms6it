@@ -1357,20 +1357,21 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
             return reply;
 
         } else {
-            // Log missed intent
+            // No Intent -> Chat Message
+            reply = aiRes.message || responseText;
+
+            // Log missed intent (after reply is resolved so we can capture aiReply)
             try {
                 await adminDb.collection('missed_intents').add({
                     userMessage,
                     userId: lineUserId,
                     intent: aiRes.intent || 'NONE',
+                    aiReply: typeof reply === 'string' ? reply.substring(0, 500) : null,
                     timestamp: FieldValue.serverTimestamp(),
                 });
             } catch (err) {
                 console.error('Failed to log missed intent:', err);
             }
-
-            // No Intent -> Chat Message
-            reply = aiRes.message || responseText;
             context.messages.push({ role: 'model', content: typeof reply === 'string' ? reply : 'ส่งข้อความสำเร็จ', timestamp: new Date() });
             await saveConversationContext(lineUserId, context);
             return reply;

@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { createFacilityNewFlexMessage } from '@/utils/flexMessageTemplates';
 import admin from 'firebase-admin';
+import { logWebEvent } from '@/lib/analytics';
 
 export async function POST(req: Request) {
     try {
@@ -156,10 +157,12 @@ export async function POST(req: Request) {
         }
 
         console.log(`[notify-facility] Successfully notified ${targetUserIds.length} users.`);
+        logWebEvent({ eventType: 'repair_submit', metadata: { ticketId, room, zone, type: 'facility', issueCategory } });
         return NextResponse.json({ status: 'ok', notifiedCount: targetUserIds.length });
 
     } catch (error) {
         console.error('Error sending LINE notification:', error);
+        logWebEvent({ eventType: 'api_error', error: 'notify-facility failed', metadata: { route: 'notify-facility' } });
         return NextResponse.json({ status: 'error' }, { status: 500 });
     }
 }

@@ -5,6 +5,7 @@ import { createRepairCompleteFlexMessage, createStatusBubble } from '@/utils/fle
 import { getThaiStatus, getStatusHexColor } from '@/utils/repairHelpers';
 import admin from 'firebase-admin';
 import { logLineEvent } from '@/lib/lineMonitor';
+import { logWebEvent } from '@/lib/analytics';
 
 export async function POST(request: Request) {
     try {
@@ -143,10 +144,12 @@ export async function POST(request: Request) {
         }
 
         logLineEvent({ direction: 'outbound', type: 'push_notify', status: 'ok', lineUserId });
+        logWebEvent({ eventType: 'repair_status_update', metadata: { ticketId, status, room } });
         return NextResponse.json({ success: true, line: 'sent' });
 
     } catch (error) {
         console.error('Notification Error:', error);
+        logWebEvent({ eventType: 'api_error', error: 'notify-user failed', metadata: { route: 'notify-user' } });
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

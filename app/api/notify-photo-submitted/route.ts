@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import admin from 'firebase-admin';
+import { logWebEvent } from '@/lib/analytics';
 
 /**
  * POST /api/notify-photo-submitted
@@ -69,9 +70,11 @@ export async function POST(request: Request) {
             }).catch(() => {});
         }
 
+        logWebEvent({ eventType: 'photo_upload', metadata: { jobId, title, photographerName } });
         return NextResponse.json({ success: true, notified: recipientIds.size });
     } catch (error) {
         console.error('[notify-photo-submitted] Error:', error);
+        logWebEvent({ eventType: 'api_error', error: 'notify-photo-submitted failed', metadata: { route: 'notify-photo-submitted' } });
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

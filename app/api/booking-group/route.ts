@@ -4,6 +4,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import admin from 'firebase-admin'
 import { generateOccurrences, type DayOfWeek } from '@/lib/bookingGroupUtils'
 import { prepareMultiDayFolders } from '@/lib/googleDrive'
+import { logWebEvent } from '@/lib/analytics'
 
 /**
  * POST /api/booking-group
@@ -315,6 +316,7 @@ export async function POST(request: Request) {
         console.error('[booking-group] Notification failed (non-fatal):', err)
     }
 
+    logWebEvent({ eventType: 'booking_create', metadata: { groupId, type, created: ok.length, skipped } })
     return NextResponse.json({
         success: true,
         groupId,

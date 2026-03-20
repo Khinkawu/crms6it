@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import bcrypt from 'bcryptjs';
+import { logWebEvent } from '@/lib/analytics';
 
 export async function POST(request: NextRequest) {
     try {
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
         // Delete OTP
         await adminDb.collection('otp_codes').doc(lineUserId).delete();
 
+        logWebEvent({ eventType: 'line_link', metadata: { email, lineUserId } });
         return NextResponse.json({
             success: true,
             displayName,

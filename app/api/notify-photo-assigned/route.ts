@@ -3,6 +3,7 @@ import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import admin from 'firebase-admin';
 import { createPhotographyFlexMessage } from '@/utils/flexMessageTemplates';
+import { logWebEvent } from '@/lib/analytics';
 
 /**
  * POST /api/notify-photo-assigned
@@ -121,9 +122,11 @@ export async function POST(request: Request) {
             lineStatus = 'missing_datetime';
         }
 
+        logWebEvent({ eventType: 'photo_assign', metadata: { assigneeCount: assigneeIds.length, title } });
         return NextResponse.json({ success: true, notified: assigneeIds.length, lineUserIds, lineStatus });
     } catch (error) {
         console.error('[notify-photo-assigned] Error:', error);
+        logWebEvent({ eventType: 'api_error', error: 'notify-photo-assigned failed', metadata: { route: 'notify-photo-assigned' } });
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

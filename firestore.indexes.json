@@ -231,6 +231,22 @@
         { "fieldPath": "userName", "order": "ASCENDING" },
         { "fieldPath": "transactionDate", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "usage_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventType", "order": "ASCENDING" },
+        { "fieldPath": "ts", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "usage_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "ts", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

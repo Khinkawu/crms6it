@@ -205,5 +205,27 @@ service cloud.firestore {
       allow update: if isOwner(uid) || isAdmin();
       allow delete: if isAdmin();
     }
+
+    // ====================================================================
+    // Analytics Collections — Admin read only, server write only
+    // ====================================================================
+
+    // line_logs — บันทึกการใช้งาน LINE Bot (server-only write)
+    match /line_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // server Admin SDK only
+    }
+
+    // missed_intents — ข้อความที่ LINE Bot ไม่เข้าใจ (server-only write)
+    match /missed_intents/{intentId} {
+      allow read: if isAdmin();
+      allow write: if false; // server Admin SDK only
+    }
+
+    // usage_events — การใช้งาน Web/API (server-only write)
+    match /usage_events/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false; // server Admin SDK only
+    }
   }
 }

@@ -17,16 +17,12 @@ interface LineLogEvent {
 /**
  * Fire-and-forget: log LINE Bot events to Firestore.
  * Never throws — logging must never break the main flow.
- * TTL field: set Firestore TTL policy on `expireAt` to auto-delete after 30 days.
+ * No TTL — retained permanently for analytics.
  */
 export function logLineEvent(event: LineLogEvent): void {
-    const expireAt = new Date();
-    expireAt.setDate(expireAt.getDate() + 30);
-
     adminDb.collection('line_logs').add({
         ...event,
         ts: FieldValue.serverTimestamp(),
-        expireAt,
     }).catch(() => {
         // Intentionally swallowed — monitoring must not affect production flow
     });

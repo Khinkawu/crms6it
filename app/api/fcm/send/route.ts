@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import admin from 'firebase-admin';
 // Import to ensure Firebase Admin is initialized
 import { adminDb } from '@/lib/firebaseAdmin';
+import { logWebEvent } from '@/lib/analytics';
 
 export async function POST(request: NextRequest) {
     try {
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
         // Send the message
         const response = await admin.messaging().send(message);
 
+        logWebEvent({ eventType: 'fcm_send', userId, metadata: { title } });
         return NextResponse.json({
             success: true,
             messageId: response

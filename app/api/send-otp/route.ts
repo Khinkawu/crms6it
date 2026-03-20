@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import { generateOtp, sendOtpEmail } from '@/lib/emailService';
 import { FieldValue } from 'firebase-admin/firestore';
 import bcrypt from 'bcryptjs';
+import { logWebEvent } from '@/lib/analytics';
 
 export async function POST(request: NextRequest) {
     try {
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        logWebEvent({ eventType: 'otp_send', metadata: { email } });
         return NextResponse.json({
             success: true,
             message: `ส่ง OTP ไปที่ ${email} แล้ว กรุณาตรวจสอบอีเมล`
