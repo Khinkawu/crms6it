@@ -4,8 +4,9 @@ import React, { useState, useEffect } from "react";
 import { collection, doc, updateDoc, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
-import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Save, Camera } from "lucide-react";
+import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Save, Camera, Repeat2, Ban, PauseCircle, XCircle } from "lucide-react";
 import { getBangkokDateString } from "@/lib/dateUtils";
+import { useAuth } from "@/context/AuthContext";
 
 
 // Manually defining Booking interface here to avoid import issues for now if types file is separate
@@ -30,6 +31,8 @@ interface BookingData {
     micCount?: string;
     attachments?: string[];
     needsPhotographer?: boolean;
+    groupId?: string;
+    dayIndex?: number | null;
 }
 
 interface EditBookingModalProps {
@@ -207,7 +210,9 @@ const TimeSelect = ({ label, value, onChange }: { label: string, value: string, 
 };
 
 export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }: EditBookingModalProps) {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
+    const [groupActionLoading, setGroupActionLoading] = useState(false);
 
     // Initialize form data from booking
     const [formData, setFormData] = useState({
@@ -321,6 +326,42 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
         const newLinks = [...attachmentLinks];
         newLinks[index] = value;
         setAttachmentLinks(newLinks);
+    };
+
+    const handleGroupAction = async (action: 'cancel_occurrence' | 'pause_group' | 'cancel_group') => {
+        const confirmMessages: Record<string, string> = {
+            cancel_occurrence: 'ยืนยันการยกเลิกเฉพาะสัปดาห์นี้?',
+            pause_group: 'ยืนยันการหยุดพักการจองทั้ง Group ชั่วคราว?',
+            cancel_group: 'ยืนยันการยกเลิกการจอง Group ทั้งหมด? การกระทำนี้ไม่สามารถยกเลิกได้',
+        };
+        if (!window.confirm(confirmMessages[action])) return;
+
+        setGroupActionLoading(true);
+        try {
+            const idToken = await user?.getIdToken();
+            const res = await fetch('/api/booking-group', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
+                body: JSON.stringify({
+                    action,
+                    bookingType: 'room',
+                    bookingId: booking.id,
+                    groupId: booking.groupId,
+                    updates: { groupId: booking.groupId },
+                }),
+            });
+            if (!res.ok) throw new Error('Request failed');
+            toast.success('ดำเนินการเรียบร้อย');
+            onUpdate();
+            onClose();
+        } catch {
+            toast.error('เกิดข้อผิดพลาด');
+        } finally {
+            setGroupActionLoading(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -576,6 +617,52 @@ export default function EditBookingModal({ isOpen, onClose, booking, onUpdate }:
                                 </div>
                             )}
                         </div>
+
+                        {/* Group actions — only shown when booking is part of a group */}
+                        {booking.groupId && (
+                            <div className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 bg-amber-50 dark:bg-amber-900/20 space-y-3">
+                                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-bold">
+                                    <Repeat2 size={15} />
+                                    การจองนี้เป็นส่วนหนึ่งของ Group
+                                    {booking.dayIndex != null && ` (Day ${booking.dayIndex + 1})`}
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button
+                                        type="button"
+                                        disabled={groupActionLoading}
+                                        onClick={() => handleGroupAction('cancel_occurrence')}
+                                        className="flex flex-col items-center gap-1 p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    >
+                                        <Ban size={16} />
+                                        ยกเลิกครั้งนี้
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={groupActionLoading}
+                                        onClick={() => handleGroupAction('pause_group')}
+                                        className="flex flex-col items-center gap-1 p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                                    >
+                                        <PauseCircle size={16} />
+                                        หยุดพัก Group
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={groupActionLoading}
+                                        onClick={() => handleGroupAction('cancel_group')}
+                                        className="flex flex-col items-center gap-1 p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    >
+                                        <XCircle size={16} />
+                                        ยกเลิก Group
+                                    </button>
+                                </div>
+                                {groupActionLoading && (
+                                    <div className="flex items-center gap-2 text-xs text-amber-600">
+                                        <Loader2 size={12} className="animate-spin" />
+                                        กำลังดำเนินการ...
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <div className="flex gap-3 pt-4">
                             <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50">ยกเลิก</button>

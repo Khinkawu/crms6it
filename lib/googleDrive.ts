@@ -194,6 +194,72 @@ export const initiateResumableUploadToFolder = async ({
     return { uploadUrl };
 };
 
+interface MultiDayFoldersParams {
+    rootFolderId: string
+    year: string
+    semester: string
+    month: string
+    eventName: string    // e.g. "อบรม Cybersecurity"
+    dates: string[]      // YYYY-MM-DD array
+}
+
+interface DaySubFolder {
+    dayIndex: number
+    date: string
+    folderId: string
+    folderLink: string
+}
+
+interface MultiDayFoldersResult {
+    mainFolder: { folderId: string; folderLink: string }
+    subFolders: DaySubFolder[]
+}
+
+/**
+ * Create Drive folder hierarchy for a multi-day photo event.
+ * root → year → semester → month → eventName →
+ *   Day1_YYYY-MM-DD / Day2_YYYY-MM-DD / ...
+ *
+ * Uses getOrCreateFolder (idempotent) — safe to call multiple times.
+ */
+export const prepareMultiDayFolders = async ({
+    rootFolderId,
+    year,
+    semester,
+    month,
+    eventName,
+    dates,
+}: MultiDayFoldersParams): Promise<MultiDayFoldersResult> => {
+    const drive = getDriveClient()
+
+    // Build shared parent path
+    const yearFolder = await getOrCreateFolder(drive, rootFolderId, `ปีการศึกษา ${year}`)
+    const semesterFolder = await getOrCreateFolder(drive, yearFolder.id, `ภาคเรียนที่ ${semester}`)
+    const monthFolder = await getOrCreateFolder(drive, semesterFolder.id, month)
+    const mainEventFolder = await getOrCreateFolder(drive, monthFolder.id, eventName)
+
+    // Create Day sub-folders sequentially to avoid race conditions
+    const subFolders: DaySubFolder[] = []
+    for (let i = 0; i < dates.length; i++) {
+        const folderName = `Day${i + 1}_${dates[i]}`
+        const subFolder = await getOrCreateFolder(drive, mainEventFolder.id, folderName)
+        subFolders.push({
+            dayIndex: i,
+            date: dates[i],
+            folderId: subFolder.id,
+            folderLink: subFolder.webViewLink,
+        })
+    }
+
+    return {
+        mainFolder: {
+            folderId: mainEventFolder.id,
+            folderLink: mainEventFolder.webViewLink,
+        },
+        subFolders,
+    }
+}
+
 interface UploadParams {
     fileBuffer: Buffer;
     fileName: string;

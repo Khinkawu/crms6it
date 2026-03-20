@@ -5,7 +5,11 @@ import { useAuth } from "@/context/AuthContext";
 import { collection, addDoc, query, where, getDocs, Timestamp, serverTimestamp, getDoc, doc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import toast from "react-hot-toast";
-import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Camera } from "lucide-react";
+import { Calendar, MapPin, Briefcase, Paperclip, CheckSquare, Loader2, Link as LinkIcon, Plus, X, Camera, AlertTriangle } from "lucide-react";
+import BookingFrequencySelector from "./BookingFrequencySelector";
+import MultiDatePicker from "./MultiDatePicker";
+import RecurringConfig, { type RecurringConfigValue } from "./RecurringConfig";
+import { type FrequencyMode } from "@/lib/bookingGroupUtils";
 import { getTodayBangkok, getBangkokDateString } from "@/lib/dateUtils";
 
 // Extracted components and config
@@ -34,6 +38,15 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
     const [loading, setLoading] = useState(false);
 
     const [bookingType, setBookingType] = useState<'room' | 'photo'>('room');
+    const [frequencyMode, setFrequencyMode] = useState<FrequencyMode>('once');
+    const [selectedDates, setSelectedDates] = useState<string[]>([]);
+    const [recurringConfig, setRecurringConfig] = useState<RecurringConfigValue>({
+        days: [],
+        startDate: '',
+        endDate: '',
+    });
+    // Dates skipped due to conflict (shown after group submit)
+    const [skippedDates, setSkippedDates] = useState<string[]>([]);
 
     const [formData, setFormData] = useState({
         position: "",
@@ -179,9 +192,28 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
         const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
         const endDateTime = new Date(`${formData.date}T${formData.endTime}`);
 
-        if (startDateTime >= endDateTime) {
-            toast.error("เวลาสิ้นสุดต้องหลังจากเวลาเริ่มต้น");
+        // For multi_day / recurring, skip single date check
+        if (frequencyMode === 'once') {
+            if (startDateTime >= endDateTime) {
+                toast.error("เวลาสิ้นสุดต้องหลังจากเวลาเริ่มต้น");
+                return;
+            }
+        }
+
+        // Group booking validation
+        if (frequencyMode === 'multi_day' && selectedDates.length === 0) {
+            toast.error("กรุณาเพิ่มวันที่อย่างน้อย 1 วัน");
             return;
+        }
+        if (frequencyMode === 'recurring') {
+            if (recurringConfig.days.length === 0) {
+                toast.error("กรุณาเลือกวันในสัปดาห์อย่างน้อย 1 วัน");
+                return;
+            }
+            if (!recurringConfig.startDate) {
+                toast.error("กรุณาระบุวันเริ่มต้น");
+                return;
+            }
         }
 
         setLoading(true);
@@ -190,6 +222,98 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
         try {
             // 2. Prepare Links (Filter empty)
             const validLinks = hasAttachments ? attachmentLinks.filter(link => link.trim() !== "") : [];
+
+            // ===== GROUP BOOKING (multi_day / recurring) =====
+            if (frequencyMode !== 'once') {
+                if (!formData.roomId && bookingType === 'room') {
+                    toast.error("กรุณาเลือกห้องประชุม");
+                    setLoading(false);
+                    return;
+                }
+
+                const room = bookingType === 'room' ? getRoomById(formData.roomId) : null;
+                const idToken = await user?.getIdToken();
+                if (!idToken) {
+                    toast.error("กรุณาเข้าสู่ระบบใหม่");
+                    setLoading(false);
+                    return;
+                }
+
+                toast.loading("กำลังตรวจสอบและสร้างการจอง...", { id: toastId });
+
+                const body: Record<string, unknown> = {
+                    type: frequencyMode,
+                    bookingType,
+                    formData: {
+                        title: formData.title,
+                        description: formData.description,
+                        requesterName: user?.displayName || user?.email || 'Unknown',
+                        position: formData.position,
+                        department: formData.department,
+                        phoneNumber: formData.phoneNumber,
+                        startTime: formData.startTime,
+                        endTime: formData.endTime,
+                        // room fields
+                        roomId: formData.roomId,
+                        roomName: room?.name || formData.roomId,
+                        equipment: formData.equipment,
+                        ownEquipment: formData.ownEquipment,
+                        attendees: formData.attendees,
+                        roomLayout: formData.roomLayout,
+                        roomLayoutDetails: formData.roomLayoutDetails,
+                        micCount: formData.micCount,
+                        needsPhotographer: formData.needsPhotographer,
+                        attachments: validLinks,
+                        // photo fields
+                        location: formData.location,
+                    },
+                };
+
+                if (frequencyMode === 'multi_day') {
+                    body.dates = selectedDates;
+                } else {
+                    body.recurrenceConfig = {
+                        days: recurringConfig.days,
+                        startDate: recurringConfig.startDate,
+                        endDate: recurringConfig.endDate || undefined,
+                    };
+                }
+
+                const res = await fetch('/api/booking-group', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                const json = await res.json();
+
+                if (!res.ok) {
+                    toast.error(json.error || 'เกิดข้อผิดพลาด', { id: toastId });
+                    setLoading(false);
+                    return;
+                }
+
+                // Show skipped dates warning if any
+                if (json.skipped?.length > 0) {
+                    setSkippedDates(json.skipped);
+                    toast.success(
+                        `จองสำเร็จ ${json.created} ครั้ง (ข้ามไป ${json.skipped.length} วันที่มีการจองแล้ว)`,
+                        { id: toastId, duration: 5000 }
+                    );
+                } else {
+                    toast.success(
+                        `จองสำเร็จ ${json.created} ครั้ง!`,
+                        { id: toastId }
+                    );
+                }
+
+                if (onSuccess) onSuccess();
+                return;
+            }
+            // ===== END GROUP BOOKING =====
 
             if (bookingType === 'room') {
                 /* ================= SUBMIT ROOM BOOKING ================= */
@@ -432,40 +556,102 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                 />
                             </div>
 
-                            {/* Date & Time Selection */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="space-y-1 min-w-0">
-                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">วันที่</label>
-                                    <div className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                                            <Calendar size={16} className="text-gray-400" />
+                            {/* Frequency Selector */}
+                            <BookingFrequencySelector
+                                value={frequencyMode}
+                                onChange={(mode) => {
+                                    setFrequencyMode(mode);
+                                    setSkippedDates([]);
+                                }}
+                            />
+
+                            {/* Date Section — varies by frequency mode */}
+                            {frequencyMode === 'once' && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-1 min-w-0">
+                                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">วันที่</label>
+                                        <div className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+                                                <Calendar size={16} className="text-gray-400" />
+                                            </div>
+                                            <input
+                                                type="date"
+                                                name="date"
+                                                value={formData.date}
+                                                onChange={handleInputChange}
+                                                className="w-full max-w-full h-[46px] pl-10 pr-3 bg-transparent text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-none dark:[color-scheme:dark]"
+                                                style={{ minWidth: 0 }}
+                                                required
+                                            />
                                         </div>
-                                        <input
-                                            type="date"
-                                            name="date"
-                                            value={formData.date}
-                                            onChange={handleInputChange}
-                                            className="w-full max-w-full h-[46px] pl-10 pr-3 bg-transparent text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 outline-none dark:[color-scheme:dark]"
-                                            style={{ minWidth: 0 }}
-                                            required
+                                    </div>
+                                    <TimeSelect
+                                        label="เวลาเริ่ม"
+                                        value={formData.startTime}
+                                        onChange={(val) => setFormData(p => ({ ...p, startTime: val }))}
+                                    />
+                                    <TimeSelect
+                                        label="เวลาสิ้นสุด"
+                                        value={formData.endTime}
+                                        onChange={(val) => setFormData(p => ({ ...p, endTime: val }))}
+                                    />
+                                </div>
+                            )}
+
+                            {frequencyMode === 'multi_day' && (
+                                <div className="space-y-4">
+                                    <MultiDatePicker
+                                        dates={selectedDates}
+                                        onChange={setSelectedDates}
+                                    />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <TimeSelect
+                                            label="เวลาเริ่ม (ทุกวัน)"
+                                            value={formData.startTime}
+                                            onChange={(val) => setFormData(p => ({ ...p, startTime: val }))}
+                                        />
+                                        <TimeSelect
+                                            label="เวลาสิ้นสุด (ทุกวัน)"
+                                            value={formData.endTime}
+                                            onChange={(val) => setFormData(p => ({ ...p, endTime: val }))}
                                         />
                                     </div>
                                 </div>
+                            )}
 
-                                {/* Start Time */}
-                                <TimeSelect
-                                    label="เวลาเริ่ม"
-                                    value={formData.startTime}
-                                    onChange={(val) => setFormData(p => ({ ...p, startTime: val }))}
-                                />
+                            {frequencyMode === 'recurring' && (
+                                <div className="space-y-4">
+                                    <RecurringConfig
+                                        value={recurringConfig}
+                                        onChange={setRecurringConfig}
+                                    />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <TimeSelect
+                                            label="เวลาเริ่ม (ทุกสัปดาห์)"
+                                            value={formData.startTime}
+                                            onChange={(val) => setFormData(p => ({ ...p, startTime: val }))}
+                                        />
+                                        <TimeSelect
+                                            label="เวลาสิ้นสุด (ทุกสัปดาห์)"
+                                            value={formData.endTime}
+                                            onChange={(val) => setFormData(p => ({ ...p, endTime: val }))}
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
-                                {/* End Time */}
-                                <TimeSelect
-                                    label="เวลาสิ้นสุด"
-                                    value={formData.endTime}
-                                    onChange={(val) => setFormData(p => ({ ...p, endTime: val }))}
-                                />
-                            </div>
+                            {/* Skipped dates warning */}
+                            {skippedDates.length > 0 && (
+                                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-bold mb-1">
+                                        <AlertTriangle size={14} />
+                                        ข้ามไป {skippedDates.length} วัน (ห้องถูกจองแล้ว)
+                                    </div>
+                                    <ul className="text-xs text-amber-600 dark:text-amber-400 space-y-0.5 pl-4 list-disc">
+                                        {skippedDates.map(d => <li key={d}>{d}</li>)}
+                                    </ul>
+                                </div>
+                            )}
 
                             {/* Topic & Description */}
                             <div className="space-y-4">

@@ -128,6 +128,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // bookingGroups — ทุกคน login อ่านได้, สร้างได้ถ้าเป็นเจ้าของ, admin/moderator อัปเดตได้
+    match /bookingGroups/{groupId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.requesterId == request.auth.uid;
+      allow update: if isModerator() ||
+        (isAuthenticated() && resource.data.requesterId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
     // repair_tickets — ทุกคนดูได้, ทุกคนสร้างได้, technician/admin/moderator อัปเดตสถานะได้
     match /repair_tickets/{ticketId} {
       allow read: if isAuthenticated();
