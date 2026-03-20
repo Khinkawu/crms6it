@@ -58,24 +58,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         let resolvedRole: UserRole = 'user';
         let resolvedIsPhotographer = false;
 
-        if (!userSnap.exists()) {
-            // Check for orphaned placeholder doc created by OTP flow (verify-otp creates auto-ID doc)
-            let inheritedLineUserId: string | null = null;
-            if (currentUser.email) {
-                const orphanQuery = query(
-                    collection(db, 'users'),
-                    where('email', '==', currentUser.email)
-                );
-                const orphanSnap = await getDocs(orphanQuery);
-                for (const orphanDoc of orphanSnap.docs) {
-                    if (orphanDoc.id !== currentUser.uid) {
-                        inheritedLineUserId = orphanDoc.data().lineUserId || null;
-                        await deleteDoc(orphanDoc.ref);
+        // Always: clean up orphaned placeholder docs from OTP flow (runs on every login, cheap)
+        // Handles both: new user (OTP→web) and LIFF race condition (OTP→LIFF where setDoc wins)
+        let inheritedLineUserId: string | null = null;
+        if (currentUser.email) {
+            const orphanQuery = query(
+                collection(db, 'users'),
+                where('email', '==', currentUser.email)
+            );
+            const orphanSnap = await getDocs(orphanQuery);
+            for (const orphanDoc of orphanSnap.docs) {
+                if (orphanDoc.id !== currentUser.uid) {
+                    const orphanLineUserId = orphanDoc.data().lineUserId || null;
+                    if (orphanLineUserId && !inheritedLineUserId) {
+                        inheritedLineUserId = orphanLineUserId;
                     }
+                    await deleteDoc(orphanDoc.ref);
                 }
             }
+            // Fix line_bindings.uid if it was pointing to the deleted orphan
+            if (inheritedLineUserId) {
+                await updateDoc(doc(db, 'line_bindings', inheritedLineUserId), {
+                    uid: currentUser.uid
+                }).catch(() => {});
+            }
+        }
 
-            // New user — create doc with defaults
+        if (!userSnap.exists()) {
+            // New user — create doc with defaults, inherit lineUserId from orphan if present
             await setDoc(userRef, {
                 uid: currentUser.uid,
                 email: currentUser.email,
@@ -86,24 +96,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 createdAt: serverTimestamp(),
                 ...(inheritedLineUserId ? { lineUserId: inheritedLineUserId } : {})
             });
-
-            // Fix line_bindings.uid to point to real Firebase UID (was pointing to deleted auto-ID)
-            if (inheritedLineUserId) {
-                await updateDoc(doc(db, 'line_bindings', inheritedLineUserId), {
-                    uid: currentUser.uid
-                }).catch(() => {}); // Silently ignore if binding doesn't exist
-            }
         } else {
             // Existing user — sync Google profile if changed
             const userData = userSnap.data();
             resolvedRole = userData.role as UserRole;
             resolvedIsPhotographer = userData.isPhotographer || false;
-            if (currentUser.displayName !== userData.displayName || currentUser.photoURL !== userData.photoURL) {
-                await updateDoc(userRef, {
-                    displayName: currentUser.displayName,
-                    photoURL: currentUser.photoURL,
-                    updatedAt: serverTimestamp()
-                });
+            const updates: Record<string, any> = {};
+            if (currentUser.displayName !== userData.displayName) updates.displayName = currentUser.displayName;
+            if (currentUser.photoURL !== userData.photoURL) updates.photoURL = currentUser.photoURL;
+            if (inheritedLineUserId && !userData.lineUserId) updates.lineUserId = inheritedLineUserId;
+            if (Object.keys(updates).length > 0) {
+                await updateDoc(userRef, { ...updates, updatedAt: serverTimestamp() });
             }
         }
 
