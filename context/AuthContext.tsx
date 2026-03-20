@@ -10,7 +10,7 @@ import {
     User
 } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { UserRole } from "../types";
 
 interface AuthContextType {
@@ -59,6 +59,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         let resolvedIsPhotographer = false;
 
         if (!userSnap.exists()) {
+            // Check for orphaned placeholder doc created by OTP flow (verify-otp creates auto-ID doc)
+            let inheritedLineUserId: string | null = null;
+            if (currentUser.email) {
+                const orphanQuery = query(
+                    collection(db, 'users'),
+                    where('email', '==', currentUser.email)
+                );
+                const orphanSnap = await getDocs(orphanQuery);
+                for (const orphanDoc of orphanSnap.docs) {
+                    if (orphanDoc.id !== currentUser.uid) {
+                        inheritedLineUserId = orphanDoc.data().lineUserId || null;
+                        await deleteDoc(orphanDoc.ref);
+                    }
+                }
+            }
+
             // New user — create doc with defaults
             await setDoc(userRef, {
                 uid: currentUser.uid,
@@ -67,7 +83,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 photoURL: currentUser.photoURL,
                 role: 'user' as UserRole,
                 isPhotographer: false,
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
+                ...(inheritedLineUserId ? { lineUserId: inheritedLineUserId } : {})
             });
         } else {
             // Existing user — sync Google profile if changed
