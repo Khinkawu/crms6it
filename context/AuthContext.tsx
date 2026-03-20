@@ -86,6 +86,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 createdAt: serverTimestamp(),
                 ...(inheritedLineUserId ? { lineUserId: inheritedLineUserId } : {})
             });
+
+            // Fix line_bindings.uid to point to real Firebase UID (was pointing to deleted auto-ID)
+            if (inheritedLineUserId) {
+                await updateDoc(doc(db, 'line_bindings', inheritedLineUserId), {
+                    uid: currentUser.uid
+                }).catch(() => {}); // Silently ignore if binding doesn't exist
+            }
         } else {
             // Existing user — sync Google profile if changed
             const userData = userSnap.data();
