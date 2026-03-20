@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { createRepairCompleteFlexMessage, createStatusBubble } from '@/utils/flexMessageTemplates';
 import { getThaiStatus, getStatusHexColor } from '@/utils/repairHelpers';
 import admin from 'firebase-admin';
+import { logLineEvent } from '@/lib/lineMonitor';
 
 export async function POST(request: Request) {
     try {
@@ -86,6 +87,7 @@ export async function POST(request: Request) {
 
         // 4. LINE push (only if linked)
         if (!lineUserId) {
+            logLineEvent({ direction: 'outbound', type: 'push_notify', status: 'skipped', lineUserId: userUID });
             return NextResponse.json({ success: true, line: 'skipped' });
         }
 
@@ -136,9 +138,11 @@ export async function POST(request: Request) {
         if (!lineResponse.ok) {
             const errorData = await lineResponse.json();
             console.error('LINE API Error:', errorData);
+            logLineEvent({ direction: 'outbound', type: 'push_notify', status: 'error', lineUserId, error: JSON.stringify(errorData) });
             return NextResponse.json({ success: true, line: 'failed' });
         }
 
+        logLineEvent({ direction: 'outbound', type: 'push_notify', status: 'ok', lineUserId });
         return NextResponse.json({ success: true, line: 'sent' });
 
     } catch (error) {

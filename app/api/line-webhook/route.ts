@@ -3,6 +3,7 @@ import { Client, FlexMessage, TextMessage, validateSignature } from '@line/bot-s
 import { adminDb } from '../../../lib/firebaseAdmin';
 import { processAIMessage } from '@/lib/aiAgent';
 import { getThaiStatus, getStatusHexColor } from '@/utils/repairHelpers';
+import { logLineEvent } from '@/lib/lineMonitor';
 
 // Initialize LINE Client
 const config = {
@@ -63,6 +64,12 @@ export async function POST(req: Request) {
         return NextResponse.json({ status: 'ok' });
     } catch (error) {
         console.error('Error in LINE Webhook:', error);
+        logLineEvent({
+            direction: 'inbound',
+            type: 'unknown',
+            status: 'error',
+            error: error instanceof Error ? error.message : String(error),
+        });
         return NextResponse.json({ status: 'error' }, { status: 500 });
     }
 }
@@ -79,6 +86,7 @@ async function handleMessageEvent(event: any) {
     }
 
     // Process with AI Agent
+    const start = Date.now();
     try {
         // Show typing indicator
         await sendTypingIndicator(userId);
@@ -96,6 +104,8 @@ async function handleMessageEvent(event: any) {
             console.log('[AI Agent] Reply: [Message Object]');
             await client.replyMessage(replyToken, aiReply as any);
         }
+
+        logLineEvent({ direction: 'inbound', type: 'text', status: 'ok', lineUserId: userId, durationMs: Date.now() - start });
     } catch (error: any) {
         console.error('=== AI Agent Error ===');
         console.error('Error name:', error?.name);
@@ -103,6 +113,8 @@ async function handleMessageEvent(event: any) {
         console.error('Error stack:', error?.stack);
         console.error('Full error:', JSON.stringify(error, null, 2));
         console.error('======================');
+
+        logLineEvent({ direction: 'inbound', type: 'text', status: 'error', lineUserId: userId, durationMs: Date.now() - start, error: error?.message });
 
         await client.replyMessage(replyToken, {
             type: 'text',
@@ -117,6 +129,7 @@ async function handleImageMessage(event: any) {
     const messageId = event.message.id;
     const replyToken = event.replyToken;
 
+    const start = Date.now();
     try {
         // Show typing indicator
         await sendTypingIndicator(userId);
@@ -146,8 +159,11 @@ async function handleImageMessage(event: any) {
         } else {
             await client.replyMessage(replyToken, aiReply);
         }
+
+        logLineEvent({ direction: 'inbound', type: 'image', status: 'ok', lineUserId: userId, durationMs: Date.now() - start });
     } catch (error) {
         console.error('Image processing error:', error);
+        logLineEvent({ direction: 'inbound', type: 'image', status: 'error', lineUserId: userId, durationMs: Date.now() - start, error: error instanceof Error ? error.message : String(error) });
         await client.replyMessage(replyToken, {
             type: 'text',
             text: 'ขออภัยค่ะ ไม่สามารถวิเคราะห์รูปภาพได้ กรุณาลองใหม่อีกครั้งนะคะ',
