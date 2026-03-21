@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
     Wrench, Calendar, Package, Users, Camera, Clock,
     FileSpreadsheet, Printer, ArrowUpRight, Loader2,
-    CheckCircle2, Timer, PauseCircle, Activity, TrendingUp, Building2
+    CheckCircle2, Timer, PauseCircle, Activity, TrendingUp, Building2, BarChart2
 } from "lucide-react";
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -291,6 +291,12 @@ export default function AdminDashboard() {
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                        href="/admin/analytics"
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-sm text-white transition-colors"
+                    >
+                        <BarChart2 size={16} /> Analytics
+                    </Link>
                     <div className="relative">
                         <select
                             value={dateRange}

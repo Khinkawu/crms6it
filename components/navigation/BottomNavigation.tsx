@@ -11,7 +11,7 @@ import ReportIssueModal from "../ReportIssueModal";
 import {
     Home, Wrench, Calendar, User,
     Plus, Package, ClipboardList, MoreHorizontal,
-    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard, Video, AlertCircle, Users
+    Settings, X, LogOut, Sun, Moon, Camera, LayoutDashboard, Video, AlertCircle, Users, TrendingUp
 } from "lucide-react";
 
 export default function BottomNavigation() {
@@ -39,19 +39,25 @@ export default function BottomNavigation() {
         { name: "เพิ่มเติม", icon: MoreHorizontal, path: "more" },
     ];
 
-    // FAB quick actions - add photo job assignment for admins
+    // FAB quick actions - role-based for admin
     const fabActions = [
-        { name: "แจ้งซ่อม", icon: Wrench, path: "/repair", color: "from-orange-500 to-red-500", isModal: false },
-        { name: "จองห้อง", icon: Calendar, path: "/booking", color: "from-blue-500 to-cyan-500", isModal: false },
+        ...(!isAdmin ? [
+            { name: "แจ้งซ่อม", icon: Wrench, path: "/repair", color: "from-orange-500 to-red-500", isModal: false },
+            { name: "จองห้อง", icon: Calendar, path: "/booking", color: "from-blue-500 to-cyan-500", isModal: false },
+        ] : []),
         ...(canAssignPhotoJobs ? [
             { name: "มอบหมายงานภาพ", icon: Camera, path: null, color: "from-amber-500 to-yellow-500", isModal: true, modalAction: () => setPhotoJobModalOpen(true) }
+        ] : []),
+        ...(isAdmin ? [
+            { name: "Analytics", icon: TrendingUp, path: "/admin/analytics", color: "from-indigo-500 to-purple-500", isModal: false },
         ] : []),
     ];
 
     // More menu items for admin
     const moreMenuItems = [
         { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
-        { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "admin", "moderator", "technician", "facility_technician"], action: () => setReportModalOpen(true) },
+        { name: "Analytics", icon: TrendingUp, path: "/admin/analytics", roles: ["admin"] },
+        { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "moderator", "technician", "facility_technician"], action: () => setReportModalOpen(true) },
         { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician", "facility_technician"], allowPhotographer: true },
         { name: "Command Center", icon: LayoutDashboard, path: "/admin/command-center", roles: ["admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
