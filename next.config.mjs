@@ -23,7 +23,7 @@ const nextConfig = {
                             "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.googleapis.com apis.google.com *.line-scdn.net",
                             "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
                             "img-src * data: blob:",
-                            "connect-src 'self' *.googleapis.com *.firebaseio.com wss://*.firebaseio.com firebasestorage.googleapis.com *.cloudfunctions.net *.google.com api.line.me access.line.me obs.line-scdn.net",
+                            "connect-src 'self' *.googleapis.com *.firebaseio.com wss://*.firebaseio.com firebasestorage.googleapis.com *.cloudfunctions.net *.google.com *.line.me *.line-scdn.net",
                             "font-src 'self' fonts.gstatic.com data:",
                             "frame-src 'self' blob: *.line.me accounts.google.com *.firebaseapp.com",
                             "frame-ancestors 'self' https://*.line.me",
