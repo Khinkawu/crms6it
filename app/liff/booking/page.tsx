@@ -54,7 +54,7 @@ export default function BookingLiffPage() {
                 // Sign In to Firebase (Silent) - With Timeout
                 const signInPromise = signInWithCustomToken(auth, token);
                 const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error("Login Timeout")), 10000)
+                    setTimeout(() => reject(new Error("Login Timeout")), 30000)
                 );
 
                 await Promise.race([signInPromise, timeoutPromise]);
