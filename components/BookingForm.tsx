@@ -37,7 +37,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
 
-    const [bookingType, setBookingType] = useState<'room' | 'photo'>('room');
+    const [bookingType, setBookingType] = useState<'room' | 'classroom' | 'photo'>('room');
     const [frequencyMode, setFrequencyMode] = useState<FrequencyMode>('once');
     const [selectedDates, setSelectedDates] = useState<string[]>([]);
     const [recurringConfig, setRecurringConfig] = useState<RecurringConfigValue>({
@@ -54,6 +54,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
         phoneNumber: "",
         roomZone: "junior_high",
         roomId: "",
+        classroomName: "",
         title: "",
         description: "",
         location: "", // Added for photo job
@@ -230,6 +231,11 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                     setLoading(false);
                     return;
                 }
+                if (!formData.classroomName && bookingType === 'classroom') {
+                    toast.error("กรุณาระบุชื่อห้องเรียน");
+                    setLoading(false);
+                    return;
+                }
 
                 const room = bookingType === 'room' ? getRoomById(formData.roomId) : null;
                 const idToken = await user?.getIdToken();
@@ -241,6 +247,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
 
                 toast.loading("กำลังตรวจสอบและสร้างการจอง...", { id: toastId });
 
+                const classroomRoomName = `[${formData.roomZone === 'junior_high' ? 'ม.ต้น' : 'ม.ปลาย'}] ${formData.classroomName}`;
                 const body: Record<string, unknown> = {
                     type: frequencyMode,
                     bookingType,
@@ -254,8 +261,8 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                         startTime: formData.startTime,
                         endTime: formData.endTime,
                         // room fields
-                        roomId: formData.roomId,
-                        roomName: room?.name || formData.roomId,
+                        roomId: bookingType === 'classroom' ? formData.classroomName : formData.roomId,
+                        roomName: bookingType === 'classroom' ? classroomRoomName : (room?.name || formData.roomId),
                         equipment: formData.equipment,
                         ownEquipment: formData.ownEquipment,
                         attendees: formData.attendees,
@@ -315,7 +322,56 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
             }
             // ===== END GROUP BOOKING =====
 
-            if (bookingType === 'room') {
+            if (bookingType === 'classroom') {
+                /* ================= SUBMIT CLASSROOM BOOKING ================= */
+                if (!formData.classroomName) {
+                    toast.error("กรุณาระบุชื่อห้องเรียน");
+                    setLoading(false);
+                    return;
+                }
+
+                toast.loading("กำลังบันทึกการจอง...", { id: toastId });
+
+                const classroomRoomName = `[${formData.roomZone === 'junior_high' ? 'ม.ต้น' : 'ม.ปลาย'}] ${formData.classroomName}`;
+
+                const bookingRef = await addDoc(collection(db, "bookings"), {
+                    bookingType: 'classroom',
+                    roomId: formData.classroomName,
+                    roomName: classroomRoomName,
+                    requesterName: user?.displayName || user?.email || "Unknown",
+                    requesterId: user?.uid,
+                    requesterEmail: user?.email,
+                    position: formData.position,
+                    department: formData.department,
+                    phoneNumber: formData.phoneNumber,
+                    title: formData.title,
+                    description: formData.description,
+                    startTime: Timestamp.fromDate(startDateTime),
+                    endTime: Timestamp.fromDate(endDateTime),
+                    attendees: formData.attendees,
+                    needsPhotographer: formData.needsPhotographer,
+                    status: 'pending',
+                    createdAt: serverTimestamp(),
+                });
+
+                const startLabel = startDateTime.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                user?.getIdToken().then(idToken => {
+                    fetch('/api/notify-booking', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                        body: JSON.stringify({
+                            bookingId: bookingRef.id,
+                            title: formData.title,
+                            roomName: classroomRoomName,
+                            requesterName: user?.displayName || user?.email || 'Unknown',
+                            startTime: startLabel,
+                        }),
+                    }).catch(() => {});
+                }).catch(() => {});
+
+                toast.success("จองห้องเรียนสำเร็จ!", { id: toastId });
+
+            } else if (bookingType === 'room') {
                 /* ================= SUBMIT ROOM BOOKING ================= */
                 if (!formData.roomId) {
                     toast.error("กรุณาเลือกห้องประชุม");
@@ -378,7 +434,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                 }).catch(() => {});
 
                 toast.success("จองห้องประชุมสำเร็จ!", { id: toastId });
-            } else {
+            } else if (bookingType === 'photo') {
                 /* ================= SUBMIT PHOTO JOB ================= */
                 if (!formData.title) {
                     toast.error("กรุณาระบุชื่อกิจกรรม");
@@ -437,7 +493,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
             {/* Header */}
             <div className="p-6 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Calendar className="text-blue-600" /> จองห้องประชุม / จองคิวช่างภาพ
+                    <Calendar className="text-blue-600" /> จองห้อง / จองคิวช่างภาพ
                 </h2>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">กรอกรายละเอียดเพื่อขอใช้บริการ</p>
             </div>
@@ -447,11 +503,11 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                 <form onSubmit={handleSubmit} className="space-y-6">
 
                     {/* Booking Type Tabs */}
-                    <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl mb-6">
+                    <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl mb-6">
                         <button
                             type="button"
                             onClick={() => setBookingType('room')}
-                            className={`py-2 px-4 rounded-lg text-sm font-bold transition-all ${bookingType === 'room'
+                            className={`py-2 px-2 rounded-lg text-xs font-bold transition-all ${bookingType === 'room'
                                 ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm'
                                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                 }`}
@@ -460,8 +516,18 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                         </button>
                         <button
                             type="button"
+                            onClick={() => setBookingType('classroom')}
+                            className={`py-2 px-2 rounded-lg text-xs font-bold transition-all ${bookingType === 'classroom'
+                                ? 'bg-white dark:bg-gray-700 text-green-600 shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                }`}
+                        >
+                            🏫 จองห้องเรียน
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => setBookingType('photo')}
-                            className={`py-2 px-4 rounded-lg text-sm font-bold transition-all ${bookingType === 'photo'
+                            className={`py-2 px-2 rounded-lg text-xs font-bold transition-all ${bookingType === 'photo'
                                 ? 'bg-white dark:bg-gray-700 text-purple-600 shadow-sm'
                                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                 }`}
@@ -516,7 +582,7 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
 
                     <div className="border-t border-gray-100 dark:border-gray-800 pt-4"></div>
 
-                    {bookingType === 'room' ? (
+                    {bookingType === 'room' && (
                         /* ================= ROOM BOOKING FORM ================= */
                         <div className="space-y-6 animate-fade-in">
                             {/* Room Selection */}
@@ -865,7 +931,191 @@ export default function BookingForm({ onSuccess, onCancel, initialDate, classNam
                                 </button>
                             </div>
                         </div>
-                    ) : (
+                    )}
+
+                    {bookingType === 'classroom' && (
+                        /* ================= CLASSROOM BOOKING FORM ================= */
+                        <div className="space-y-6 animate-fade-in">
+                            {/* Room Name Input */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <MapPin size={18} className="text-green-500" /> ระบุห้องเรียน
+                                </label>
+                                <div className="flex gap-4 mb-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="roomZone"
+                                            value="junior_high"
+                                            checked={formData.roomZone === "junior_high"}
+                                            onChange={handleInputChange}
+                                            className="text-green-600 focus:ring-green-500"
+                                        />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">มัธยมต้น</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="roomZone"
+                                            value="senior_high"
+                                            checked={formData.roomZone === "senior_high"}
+                                            onChange={handleInputChange}
+                                            className="text-green-600 focus:ring-green-500"
+                                        />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">มัธยมปลาย</span>
+                                    </label>
+                                </div>
+                                <input
+                                    type="text"
+                                    name="classroomName"
+                                    value={formData.classroomName}
+                                    onChange={handleInputChange}
+                                    placeholder="เช่น ห้อง 523, ห้องคอมพิวเตอร์, ห้องแลปฟิสิกส์"
+                                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                                    required
+                                />
+                            </div>
+
+                            {/* Frequency Selector */}
+                            <BookingFrequencySelector
+                                value={frequencyMode}
+                                onChange={(mode) => {
+                                    setFrequencyMode(mode);
+                                    setSkippedDates([]);
+                                }}
+                            />
+
+                            {/* Date Section */}
+                            {frequencyMode === 'once' && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-1 min-w-0">
+                                        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">วันที่</label>
+                                        <div className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+                                                <Calendar size={16} className="text-gray-400" />
+                                            </div>
+                                            <input
+                                                type="date"
+                                                name="date"
+                                                value={formData.date}
+                                                onChange={handleInputChange}
+                                                className="w-full max-w-full h-[46px] pl-10 pr-3 bg-transparent text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-green-500 outline-none dark:[color-scheme:dark]"
+                                                style={{ minWidth: 0 }}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <TimeSelect
+                                        label="เวลาเริ่ม"
+                                        value={formData.startTime}
+                                        onChange={(val) => setFormData(p => ({ ...p, startTime: val }))}
+                                    />
+                                    <TimeSelect
+                                        label="เวลาสิ้นสุด"
+                                        value={formData.endTime}
+                                        onChange={(val) => setFormData(p => ({ ...p, endTime: val }))}
+                                    />
+                                </div>
+                            )}
+
+                            {frequencyMode === 'multi_day' && (
+                                <div className="space-y-4">
+                                    <MultiDatePicker dates={selectedDates} onChange={setSelectedDates} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <TimeSelect label="เวลาเริ่ม (ทุกวัน)" value={formData.startTime} onChange={(val) => setFormData(p => ({ ...p, startTime: val }))} />
+                                        <TimeSelect label="เวลาสิ้นสุด (ทุกวัน)" value={formData.endTime} onChange={(val) => setFormData(p => ({ ...p, endTime: val }))} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {frequencyMode === 'recurring' && (
+                                <div className="space-y-4">
+                                    <RecurringConfig value={recurringConfig} onChange={setRecurringConfig} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <TimeSelect label="เวลาเริ่ม (ทุกสัปดาห์)" value={formData.startTime} onChange={(val) => setFormData(p => ({ ...p, startTime: val }))} />
+                                        <TimeSelect label="เวลาสิ้นสุด (ทุกสัปดาห์)" value={formData.endTime} onChange={(val) => setFormData(p => ({ ...p, endTime: val }))} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {skippedDates.length > 0 && (
+                                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-bold mb-1">
+                                        <AlertTriangle size={14} />
+                                        ข้ามไป {skippedDates.length} วัน (ห้องถูกจองแล้ว)
+                                    </div>
+                                    <ul className="text-xs text-amber-600 dark:text-amber-400 space-y-0.5 pl-4 list-disc">
+                                        {skippedDates.map(d => <li key={d}>{d}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Topic & Description */}
+                            <div className="space-y-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">หัวข้อ / วัตถุประสงค์การใช้ห้อง</label>
+                                    <input
+                                        type="text"
+                                        name="title"
+                                        value={formData.title}
+                                        onChange={handleInputChange}
+                                        placeholder="เช่น สอนเสริม, สอบ, อบรม"
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">รายละเอียดเพิ่มเติม</label>
+                                    <textarea
+                                        name="description"
+                                        value={formData.description}
+                                        onChange={handleInputChange}
+                                        rows={3}
+                                        placeholder="รายละเอียดเพิ่มเติม"
+                                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-green-500 outline-none resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="border-t border-gray-100 dark:border-gray-800 pt-4"></div>
+
+                            {/* Attendees */}
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">จำนวนผู้เข้าร่วม (คน)</label>
+                                <input
+                                    type="number"
+                                    name="attendees"
+                                    value={formData.attendees}
+                                    onChange={handleInputChange}
+                                    placeholder="ระบุจำนวน"
+                                    min="1"
+                                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                                />
+                            </div>
+
+                            {/* Needs Photographer Toggle */}
+                            <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                <div className="flex items-center gap-3">
+                                    <Camera size={20} className="text-purple-500" />
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white">ต้องการช่างภาพ</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">สำหรับถ่ายภาพ/วิดีโอในกิจกรรม</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); setFormData(prev => ({ ...prev, needsPhotographer: !prev.needsPhotographer })); }}
+                                    onTouchEnd={(e) => { e.preventDefault(); setFormData(prev => ({ ...prev, needsPhotographer: !prev.needsPhotographer })); }}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${formData.needsPhotographer ? 'bg-purple-600' : 'bg-gray-200 dark:bg-gray-700'}`}
+                                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.needsPhotographer ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {bookingType === 'photo' && (
                         /* ================= PHOTO JOB FORM ================= */
                         <div className="space-y-6 animate-fade-in">
                             {/* Photo Job Info Header */}

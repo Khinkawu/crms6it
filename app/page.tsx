@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import {
     Wrench, Calendar as CalendarIcon, Camera, Video,
-    Users, ArrowUpRight, UserCircle, AlertCircle,
+    Users, ArrowUpRight, UserCircle, AlertCircle, BarChart2,
 } from "lucide-react";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -208,14 +208,17 @@ export default function Dashboard() {
         setIsDetailsModalOpen(true);
     };
 
+    const isAdminRole = role === 'admin' || role === 'moderator';
     const quickActions = [
-        { icon: Wrench, title: "แจ้งซ่อม", description: "แจ้งปัญหาอุปกรณ์", href: "/repair" },
-        { icon: CalendarIcon, title: "จองห้อง / คิว", description: "จองห้องหรือคิวช่างภาพ", href: "/booking" },
+        ...(!isAdminRole ? [{ icon: Wrench, title: "แจ้งซ่อม", description: "แจ้งปัญหาอุปกรณ์", href: "/repair" }] : []),
+        ...(!isAdminRole ? [{ icon: CalendarIcon, title: "จองห้อง / คิว", description: "จองห้องหรือคิวช่างภาพ", href: "/booking" }] : []),
         { icon: Camera, title: "ภาพกิจกรรม", description: "ประมวลภาพกิจกรรม", href: "/gallery" },
-        { icon: Video, title: "คลังวิดีโอ", description: "รวมวิดีโอกิจกรรม", href: "/video-gallery" },
+        ...(!isAdminRole ? [{ icon: Video, title: "คลังวิดีโอ", description: "รวมวิดีโอกิจกรรม", href: "/video-gallery" }] : []),
+        ...(isAdminRole ? [{ icon: CalendarIcon, title: "จัดการการจอง", description: "อนุมัติและติดตามการจอง", href: "/admin/bookings" }] : []),
         { icon: UserCircle, title: "โปรไฟล์", description: "ข้อมูลและการตั้งค่าบัญชี", href: "/profile" },
-        { icon: AlertCircle, title: "แจ้งปัญหา", description: "รายงานปัญหาการใช้งาน", onClick: () => setIsReportModalOpen(true) },
+        ...(!isAdminRole ? [{ icon: AlertCircle, title: "แจ้งปัญหา", description: "รายงานปัญหาการใช้งาน", onClick: () => setIsReportModalOpen(true) }] : []),
         ...(isPhotographer ? [{ icon: Camera, title: "งานของฉัน", description: "ดูภาพรวมและประวัติงาน", href: "/my-work", badge: pendingPhotoJobsCount }] : []),
+        ...(role === 'admin' ? [{ icon: BarChart2, title: "Analytics", description: "สถิติและภาพรวมระบบ", href: "/admin/analytics" }] : []),
         ...(role === 'admin' ? [{ icon: Users, title: "ผู้ใช้งาน", description: "จัดการผู้ใช้ระบบ", href: "/admin/users" }] : []),
     ];
 
