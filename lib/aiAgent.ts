@@ -915,6 +915,13 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     return `❌ กรุณาใช้ email @tesaban6.ac.th เท่านั้นค่ะ\nตัวอย่าง: kawin@tesaban6.ac.th`;
                 }
 
+                // Block student accounts (std*, stdm*, or numeric prefix)
+                const localPart = email.split('@')[0];
+                if (/^(std|\d)/i.test(localPart)) {
+                    await clearPendingAction(lineUserId);
+                    return `❌ ระบบนี้สำหรับครูและบุคลากรเท่านั้นค่ะ\nไม่สามารถผูกบัญชีนักเรียนได้`;
+                }
+
                 // Call send-otp API
                 try {
                     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';

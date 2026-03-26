@@ -161,6 +161,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     return;
                 }
 
+                // 2. Block student accounts (std*, stdm*, or numeric prefix)
+                const localPart = currentUser.email.split("@")[0];
+                if (/^(std|\d)/i.test(localPart)) {
+                    await firebaseSignOut(auth);
+                    setUser(null);
+                    setRole(null);
+                    setIsPhotographer(false);
+                    toast.error("ระบบนี้สำหรับครูและบุคลากรเท่านั้น");
+                    setLoading(false);
+                    return;
+                }
+
                 const userRef = doc(db, "users", currentUser.uid);
 
                 // 2. getDoc (one-time read) — faster than onSnapshot for initial load
