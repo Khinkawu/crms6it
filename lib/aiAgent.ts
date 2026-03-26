@@ -471,7 +471,19 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     if (jobs.length === 0) {
         const dateDesc = searchDate ? (isNaN(new Date(searchDate).getTime()) ? date : new Date(searchDate).toLocaleDateString('th-TH')) : '';
         const kwDesc = keyword ? `"${keyword}"` : '';
-        return { message: `ไม่พบภาพกิจกรรม${kwDesc} ${dateDesc} ค่ะ ลองค้นหาใหม่นะคะ` };
+
+        // Check if searched date is before photo cutoff (2025-12-15)
+        const PHOTO_CUTOFF = new Date('2025-12-15');
+        const isBeforeCutoff = searchDate ? new Date(searchDate) < PHOTO_CUTOFF : false;
+
+        let noResultMsg = `ไม่พบภาพกิจกรรม${kwDesc}${dateDesc ? ` วันที่ ${dateDesc}` : ''} ค่ะ\n\n`;
+        noResultMsg += `ลองปรับคำค้นหาใหม่ได้ค่ะ เช่น\n`;
+        noResultMsg += `- ใช้คำทั่วไปแทนชื่อกิจกรรมเต็ม (เช่น "กีฬาสี" แทน "กีฬาสีประจำปี")\n`;
+        noResultMsg += `- ลองใช้คำอื่นที่มีความหมายใกล้เคียง`;
+        if (isBeforeCutoff) {
+            noResultMsg += `\n\n⚠️ ระบบเก็บข้อมูลภาพตั้งแต่ 15 ธันวาคม 2568 เป็นต้นมาค่ะ กิจกรรมก่อนหน้านั้นอาจไม่มีในระบบ`;
+        }
+        return { message: noResultMsg };
     }
 
     const bubbles: any[] = jobs.slice(0, 10).map((job) => {
