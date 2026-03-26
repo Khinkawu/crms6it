@@ -345,8 +345,9 @@ ${JSON.stringify(photoListShort)}
 
 Output JSON ONLY (no explanation):
 [
-    { "id": "photo_id", "reason": "why it matches" }
+    { "id": "photo_id", "reason": "why it matches", "confidence": 85 }
 ]
+confidence: 0-100 (how relevant this album is to the query. 100 = perfect match, 50 = loosely related, 0 = not related)
     `;
 
     try {
@@ -364,12 +365,14 @@ Output JSON ONLY (no explanation):
         let rankedItems = JSON.parse(jsonMatch[0]);
         if (!Array.isArray(rankedItems)) rankedItems = [rankedItems];
 
-        logger.info('Gemini RAG', `AI selected ${rankedItems.length} photos`);
+        // Filter out low-confidence results (< 50%) to avoid returning irrelevant photos
+        const confidentItems = rankedItems.filter((item: any) => (item.confidence ?? 100) >= 50);
+        logger.info('Gemini RAG', `AI selected ${rankedItems.length} photos, ${confidentItems.length} passed confidence threshold`);
 
         // Re-map back to full objects
-        return rankedItems.map((item: any) => {
+        return confidentItems.map((item: any) => {
             const fullPhoto = photos.find(p => p.id === item.id);
-            return fullPhoto ? { ...fullPhoto, aiReason: item.reason } : null;
+            return fullPhoto ? { ...fullPhoto, aiReason: item.reason, aiConfidence: item.confidence } : null;
         }).filter(Boolean);
 
     } catch (error) {

@@ -207,31 +207,67 @@ function parseAIResponse(responseText: string): AIResponseParsed {
     return { message: responseText };
 }
 
-function parseThaiDate(dateStr: string): string | undefined {
+const THAI_MONTHS: Record<string, number> = {
+    'มกราคม': 0, 'ม.ค.': 0,
+    'กุมภาพันธ์': 1, 'ก.พ.': 1,
+    'มีนาคม': 2, 'มี.ค.': 2,
+    'เมษายน': 3, 'เม.ย.': 3,
+    'พฤษภาคม': 4, 'พ.ค.': 4,
+    'มิถุนายน': 5, 'มิ.ย.': 5,
+    'กรกฎาคม': 6, 'ก.ค.': 6,
+    'สิงหาคม': 7, 'ส.ค.': 7,
+    'กันยายน': 8, 'ก.ย.': 8,
+    'ตุลาคม': 9, 'ต.ค.': 9,
+    'พฤศจิกายน': 10, 'พ.ย.': 10,
+    'ธันวาคม': 11, 'ธ.ค.': 11,
+};
+
+interface ParsedDate {
+    isoDate: string;       // first day of period (YYYY-MM-DD)
+    isMonthOnly: boolean;  // true = filter by month range, false = exact day
+}
+
+function parseThaiDate(dateStr: string): ParsedDate | undefined {
     const now = new Date();
     const bkkNow = new Date(now.getTime() + (7 * 60 * 60 * 1000));
     const str = dateStr.toLowerCase().trim();
 
-    if (str === 'today' || str === 'วันนี้') return bkkNow.toISOString().split('T')[0];
+    if (str === 'today' || str === 'วันนี้') return { isoDate: bkkNow.toISOString().split('T')[0], isMonthOnly: false };
 
     if (str === 'tomorrow' || str === 'พรุ่งนี้') {
         const tmr = new Date(bkkNow); tmr.setDate(tmr.getDate() + 1);
-        return tmr.toISOString().split('T')[0];
+        return { isoDate: tmr.toISOString().split('T')[0], isMonthOnly: false };
     }
 
     if (str === 'yesterday' || str === 'เมื่อวาน' || str === 'เมื่อวานนี้') {
         const yest = new Date(bkkNow); yest.setDate(yest.getDate() - 1);
-        return yest.toISOString().split('T')[0];
+        return { isoDate: yest.toISOString().split('T')[0], isMonthOnly: false };
     }
 
+    // Thai month + year: "กันยายน 2568", "ก.ย. 2568", "กันยายน 68"
+    for (const [thaiName, monthIdx] of Object.entries(THAI_MONTHS)) {
+        if (dateStr.includes(thaiName)) {
+            const yearMatch = dateStr.match(/\d{2,4}/);
+            if (yearMatch) {
+                let yr = parseInt(yearMatch[0]);
+                if (yr < 100) yr += 2500; // "68" → 2568
+                if (yr > 2500) yr -= 543;  // Buddhist → Gregorian
+                const dt = new Date(yr, monthIdx, 1);
+                if (!isNaN(dt.getTime())) return { isoDate: dt.toISOString().split('T')[0], isMonthOnly: true };
+            }
+        }
+    }
+
+    // DD/MM/YYYY or DD-MM-YYYY
     const m = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if (m) {
         let yr = parseInt(m[3]); if (yr > 2500) yr -= 543;
         const dt = new Date(yr, parseInt(m[2]) - 1, parseInt(m[1]));
-        if (!isNaN(dt.getTime())) return dt.toISOString().split('T')[0];
+        if (!isNaN(dt.getTime())) return { isoDate: dt.toISOString().split('T')[0], isMonthOnly: false };
     }
+
     const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    if (!isNaN(d.getTime())) return { isoDate: d.toISOString().split('T')[0], isMonthOnly: false };
     return undefined;
 }
 
@@ -280,7 +316,7 @@ async function handleCheckRepair(params: Record<string, unknown>, userProfile: U
 async function handleCheckAvailability(params: Record<string, unknown>): Promise<string> {
     const { room, date, startTime, endTime } = params as { room?: string; date?: string; startTime?: string; endTime?: string };
     if (room && date && startTime && endTime) {
-        const normalizedDate = parseThaiDate(date) || parseThaiDate('today')!;
+        const normalizedDate = parseThaiDate(date)?.isoDate || parseThaiDate('today')!.isoDate;
         const availability = await checkRoomAvailability(room, normalizedDate, startTime, endTime);
         const displayDate = date.toLowerCase() === 'today' || date === 'วันนี้' ? 'วันนี้' : formatThaiDate(new Date(normalizedDate));
 
@@ -294,7 +330,7 @@ async function handleCheckAvailability(params: Record<string, unknown>): Promise
 async function handleRoomSchedule(params: Record<string, unknown>): Promise<string> {
     const { room, date } = params as { room?: string; date?: string };
     const rawDate = date || 'today';
-    const targetDate = parseThaiDate(rawDate) || parseThaiDate('today')!;
+    const targetDate = parseThaiDate(rawDate)?.isoDate || parseThaiDate('today')!.isoDate;
     const displayDate = rawDate.toLowerCase() === 'today' || rawDate === 'วันนี้' ? 'วันนี้' : formatThaiDate(new Date(targetDate));
 
     if (!room) return `กรุณาระบุห้องที่ต้องการดูตารางด้วยนะคะ (เช่น ขอตารางห้องลีลาวดี วันนี้)`;
@@ -316,7 +352,7 @@ async function handleMyWork(userProfile: UserProfile, params?: Record<string, un
     let displayDate = '';
 
     if (date) {
-        filterDate = parseThaiDate(date);
+        filterDate = parseThaiDate(date)?.isoDate;
         if (filterDate) {
             const d = new Date(filterDate);
             displayDate = isNaN(d.getTime()) ? ` (${date})` : ` (${d.toLocaleDateString('th-TH')})`;
@@ -398,6 +434,7 @@ async function handleMyWork(userProfile: UserProfile, params?: Record<string, un
 interface GallerySearchResult {
     message: string | FlexMessage;
     jobs?: any[];
+    cutoffNote?: string;
 }
 
 async function handleGallerySearchWithResults(params: Record<string, unknown>): Promise<GallerySearchResult> {
@@ -406,8 +443,12 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     const keyword = rawKeyword && rawKeyword !== 'undefined' ? rawKeyword : undefined;
     const date = rawDate && rawDate !== 'undefined' ? rawDate : undefined;
 
-    let searchDate: string | undefined;
-    if (date) searchDate = parseThaiDate(date);
+    const parsedDate = date ? parseThaiDate(date) : undefined;
+    const searchDate = parsedDate?.isoDate;
+    const isMonthOnly = parsedDate?.isMonthOnly ?? false;
+
+    const PHOTO_CUTOFF = new Date('2025-12-15');
+    const isBeforeCutoff = searchDate ? new Date(searchDate) < PHOTO_CUTOFF : false;
 
     // 1. Fetch ALL completed jobs
     let allJobs = await searchGallery(undefined, undefined, 9999);
@@ -416,7 +457,7 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     let jobs: any[] = [];
 
     if (keyword || date) {
-        // PHASE 1: Text matching (same logic as web gallery — reliable & fast)
+        // PHASE 1: Text matching
         if (keyword) {
             const tokens = keyword.trim().toLowerCase().split(/[\s,]+/).filter(t => t.length > 0);
             jobs = allJobs.filter(job => {
@@ -426,37 +467,30 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
             logger.info('AI Handler', `Text match: ${jobs.length} photos matched keyword "${keyword}"`);
         }
 
-        // Date filter (apply on text-matched results, or all if no keyword)
+        // Date filter
         if (searchDate) {
             const pool = jobs.length > 0 ? jobs : allJobs;
-            const targetYMD = searchDate.split('T')[0];
+            const targetDate = new Date(searchDate);
             jobs = pool.filter(job => {
-                // If searchGallery filtered it natively, this check might be redundant but safe
-                if (job.rawDate) {
-                    const d = new Date(job.rawDate);
-                    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0] === targetYMD;
+                if (!job.rawDate) return false; // ❌ exclude jobs with no date info
+                const d = new Date(job.rawDate);
+                if (isNaN(d.getTime())) return false;
+                if (isMonthOnly) {
+                    // Month query: match same year + month
+                    return d.getFullYear() === targetDate.getFullYear() && d.getMonth() === targetDate.getMonth();
                 }
-                // Fallback: check if the thai date string contains the year or something, but searchGallery already handles date filtering if we pass it, except we don't pass date to searchGallery here.
-                return true; // We need to fix searchGallery to return rawDate or pass date directly. Let's fix searchGallery temporarily via rawDate
+                // Exact day match
+                return d.toISOString().split('T')[0] === searchDate;
             });
-            logger.info('AI Handler', `After date filter: ${jobs.length} photos`);
+            logger.info('AI Handler', `After date filter (${isMonthOnly ? 'month' : 'day'}): ${jobs.length} photos`);
         }
 
-        // PHASE 2: AI semantic fallback (only when text matching found nothing)
-        if (jobs.length === 0) {
+        // PHASE 2: AI semantic fallback (only when text matching found nothing AND no date was specified)
+        // Skip AI fallback if date was given — don't let AI return wrong-date photos
+        if (jobs.length === 0 && !searchDate) {
             logger.info('AI Handler', `Text match found nothing, trying AI semantic search...`);
-            let queryForAI = keyword || '';
-            if (date) queryForAI += ` (Date/Time context: ${date})`;
-
-            // If we have a searchDate, only pass the date-filtered pool to AI to prevent it returning other dates
-            let aiPool = allJobs;
-            if (searchDate) {
-                const targetYMD = searchDate.split('T')[0];
-                aiPool = allJobs.filter(job => job.date && job.date.includes(targetYMD.replace(/-/g, '/')));
-                logger.info('AI Handler', `Restricting AI fallback pool to ${aiPool.length} jobs for date ${targetYMD}`);
-            }
-
-            const rankedJobs = await rankPhotosWithAI(queryForAI, aiPool);
+            const queryForAI = keyword || '';
+            const rankedJobs = await rankPhotosWithAI(queryForAI, allJobs);
             if (rankedJobs.length > 0) {
                 logger.info('AI Handler', `AI Ranking fallback: selected ${rankedJobs.length} photos`);
                 jobs = rankedJobs;
@@ -469,14 +503,10 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
     }
 
     if (jobs.length === 0) {
-        const dateDesc = searchDate ? (isNaN(new Date(searchDate).getTime()) ? date : new Date(searchDate).toLocaleDateString('th-TH')) : '';
         const kwDesc = keyword ? `"${keyword}"` : '';
+        const dateDesc = searchDate ? new Date(searchDate).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) : '';
 
-        // Check if searched date is before photo cutoff (2025-12-15)
-        const PHOTO_CUTOFF = new Date('2025-12-15');
-        const isBeforeCutoff = searchDate ? new Date(searchDate) < PHOTO_CUTOFF : false;
-
-        let noResultMsg = `ไม่พบภาพกิจกรรม${kwDesc}${dateDesc ? ` วันที่ ${dateDesc}` : ''} ค่ะ\n\n`;
+        let noResultMsg = `ไม่พบภาพกิจกรรม${kwDesc}${dateDesc ? ` ${dateDesc}` : ''} ค่ะ\n\n`;
         noResultMsg += `ลองปรับคำค้นหาใหม่ได้ค่ะ เช่น\n`;
         noResultMsg += `- ใช้คำทั่วไปแทนชื่อกิจกรรมเต็ม (เช่น "กีฬาสี" แทน "กีฬาสีประจำปี")\n`;
         noResultMsg += `- ลองใช้คำอื่นที่มีความหมายใกล้เคียง`;
@@ -554,12 +584,43 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
         };
     });
 
+    const allBubbles = isBeforeCutoff
+        ? [
+            {
+                type: 'bubble',
+                size: 'kilo',
+                body: {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '⚠️ ข้อมูลอาจไม่ครบ',
+                            weight: 'bold',
+                            color: '#f59e0b',
+                            size: 'sm'
+                        },
+                        {
+                            type: 'text',
+                            text: 'ระบบเก็บข้อมูลภาพตั้งแต่ 15 ธ.ค. 2568 เป็นต้นมาค่ะ กิจกรรมก่อนหน้านั้นอาจไม่มีในระบบ',
+                            wrap: true,
+                            size: 'xs',
+                            color: '#666666',
+                            margin: 'sm'
+                        }
+                    ]
+                }
+            },
+            ...bubbles
+        ]
+        : bubbles;
+
     const flexMessage: FlexMessage = {
         type: 'flex',
         altText: `พบ ${jobs.length} กิจกรรม`,
         contents: {
             type: 'carousel',
-            contents: bubbles
+            contents: allBubbles
         }
     };
 
@@ -581,7 +642,7 @@ async function handleVideoGallerySearchWithResults(params: Record<string, unknow
     logger.info('AI Handler', `Video Search - Params: keyword="${keyword}", date="${date}"`);
 
     let searchDate: string | undefined;
-    if (date) searchDate = parseThaiDate(date);
+    if (date) searchDate = parseThaiDate(date)?.isoDate;
 
     // 1. Fetch ALL published videos
     let allVideos = await searchVideoGallery(undefined, undefined, 9999);
