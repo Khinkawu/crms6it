@@ -9,12 +9,16 @@ import ITRepairsView from "./ITRepairsView";
 import FacilityRepairsView from "./FacilityRepairsView";
 
 function CombinedRepairDashboardContent() {
-    const { user, role, loading: authLoading } = useAuth();
+    const { user, role, hasAtlasRole, loading: authLoading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
 
     // Access Control
-    const canAccessIT = useMemo(() => role === 'admin' || role === 'technician' || role === 'moderator', [role]);
+    // Atlas users with the 'repair' sub-role can access IT repairs
+    const canAccessIT = useMemo(
+        () => role === 'admin' || role === 'technician' || role === 'moderator' || (role === 'atlas' && hasAtlasRole('repair')),
+        [role, hasAtlasRole]
+    );
     const canAccessFacility = useMemo(() => role === 'admin' || role === 'facility_technician' || role === 'moderator', [role]);
 
     // Tab State: default from URL param, else facility_technician → facility, else it

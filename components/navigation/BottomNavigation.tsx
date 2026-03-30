@@ -26,7 +26,7 @@ export default function BottomNavigation() {
 
     if (!user) return null;
 
-    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician';
+    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician' || role === 'atlas';
     const isModerator = role === 'admin' || role === 'moderator';
     const canAssignPhotoJobs = role === 'admin';
 
@@ -54,19 +54,19 @@ export default function BottomNavigation() {
 
     // More menu items
     const moreMenuItems = [
-        { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
+        { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician", "facility_technician", "atlas"] },
         { name: "คำขอของฉัน", icon: ClipboardList, path: "/my-requests", roles: ["user"] },
         { name: "Analytics", icon: TrendingUp, path: "/admin/analytics", roles: ["admin"] },
-        { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "moderator", "technician", "facility_technician"], action: () => setReportModalOpen(true) },
+        { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "moderator", "technician", "facility_technician", "atlas"], action: () => setReportModalOpen(true) },
         { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician", "facility_technician"], allowPhotographer: true },
-        { name: "Command Center", icon: LayoutDashboard, path: "/admin/command-center", roles: ["admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
+        { name: "Command Center", icon: LayoutDashboard, path: "/admin/command-center", roles: ["admin", "moderator", "technician", "facility_technician", "atlas"], allowPhotographer: true },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
-        { name: "สถานะทีมโสตฯ", icon: Users, path: "/team-status", roles: ["user", "admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
-        { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
-        { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician", "facility_technician"] },
+        { name: "สถานะทีมโสตฯ", icon: Users, path: "/team-status", roles: ["user", "admin", "moderator", "technician", "facility_technician", "atlas"], allowPhotographer: true },
+        { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician", "facility_technician", "atlas"] },
+        { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician", "facility_technician", "atlas"] },
         { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician", "admin", "facility_technician"] },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
-        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "atlas"] },
         { name: "คลังโสตฯ", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
         { name: "คลังอาคาร", icon: Package, path: "/admin/facility/inventory", roles: ["facility_technician"] },
         { name: "จัดการผู้ใช้", icon: Settings, path: "/admin/users", roles: ["admin"] },

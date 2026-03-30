@@ -19,7 +19,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
 
     if (!user) return null;
 
-    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician';
+    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician' || role === 'atlas';
 
     const mainItems = [
         { name: "Dashboard", icon: LayoutDashboard, path: "/" },
@@ -35,7 +35,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
         { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
         { name: "จัดการซ่อมอาคาร", icon: Building2, path: "/admin/repairs?tab=facility", roles: ["facility_technician"] },
         { name: "การจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
-        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "atlas"] },
         // Each technician only sees their own inventory
         { name: "คลังโสตฯ", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
         { name: "คลังอาคาร", icon: Package, path: "/admin/facility/inventory", roles: ["facility_technician"] },

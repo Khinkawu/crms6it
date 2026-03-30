@@ -25,7 +25,7 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
 
     if (!user) return null;
 
-    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician';
+    const isAdmin = role === 'admin' || role === 'moderator' || role === 'technician' || role === 'facility_technician' || role === 'atlas';
 
     const mainItems = [
         { name: "Overview", nameTh: "ภาพรวม", icon: Home, path: "/" },
@@ -42,7 +42,7 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
         { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
         { name: "จัดการซ่อมอาคาร", icon: Building2, path: "/admin/repairs?tab=facility", roles: ["facility_technician"] },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["admin", "moderator"] },
-        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "atlas"] },
         { name: "คลังโสตฯ", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
         { name: "คลังอาคาร", icon: Package, path: "/admin/facility/inventory", roles: ["facility_technician"] },
         { name: "ผู้ใช้", icon: Users, path: "/admin/users", roles: ["admin"] },
@@ -70,6 +70,7 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
             technician: { label: "Tech", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
             moderator: { label: "Mod", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300" },
             facility_technician: { label: "Facility", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
+            atlas: { label: "โสตฯ", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" },
             user: { label: "User", color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
         };
         return badges[role || 'user'] || badges.user;

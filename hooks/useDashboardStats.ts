@@ -81,7 +81,7 @@ const EMPTY_PERFORMANCE: PerformanceStats = {
 // ============================================================================
 
 export function useDashboardStats(dateRange: DateRange = 'all') {
-    const { user, role, isPhotographer } = useAuth();
+    const { user, role, isPhotographer, atlasRoles } = useAuth();
     const [actionable, setActionable] = useState<ActionableStats>(EMPTY_ACTIONABLE);
     const [performance, setPerformance] = useState<PerformanceStats>(EMPTY_PERFORMANCE);
     const [personStats, setPersonStats] = useState<PersonStat[]>([]);
@@ -108,7 +108,7 @@ export function useDashboardStats(dateRange: DateRange = 'all') {
                 // ---------------------------------------------------------
                 const actionablePromises = [];
 
-                if (canSee(role, isPhotographer, 'repairs')) {
+                if (canSee(role, isPhotographer, 'repairs', atlasRoles)) {
                     actionablePromises.push(
                         getCountFromServer(query(collection(db, "repair_tickets"), where("status", "==", "pending")))
                             .then(s => newActionable.repairsPending = s.data().count).catch(() => { })
@@ -147,7 +147,7 @@ export function useDashboardStats(dateRange: DateRange = 'all') {
                 // ---------------------------------------------------------
                 if (dateRange === 'all') {
                     // Fast path: use cached 'stats' documents for 'All Time'
-                    if (canSee(role, isPhotographer, 'repairs')) {
+                    if (canSee(role, isPhotographer, 'repairs', atlasRoles)) {
                         const snap = await getDoc(doc(db, "stats", "repairs"));
                         const d = snap.exists() ? snap.data() : null;
                         const cachedTotal = d?.total || 0;
@@ -246,7 +246,7 @@ export function useDashboardStats(dateRange: DateRange = 'all') {
                     const startTimestamp = Timestamp.fromDate(now);
 
                     // For repairs, we look at 'updatedAt' to catch completed tickets this period
-                    if (canSee(role, isPhotographer, 'repairs')) {
+                    if (canSee(role, isPhotographer, 'repairs', atlasRoles)) {
                         const snap = await getDocs(query(collection(db, "repair_tickets"), where("updatedAt", ">=", startTimestamp), limit(200)));
                         snap.forEach(doc => {
                             const d = doc.data();
@@ -319,7 +319,7 @@ export function useDashboardStats(dateRange: DateRange = 'all') {
         };
 
         fetchStats();
-    }, [user, role, isPhotographer, dateRange]);
+    }, [user, role, isPhotographer, atlasRoles, dateRange]);
 
     return { actionable, performance, personStats, loading };
 }
@@ -331,13 +331,15 @@ export function useDashboardStats(dateRange: DateRange = 'all') {
 export function canSee(
     role: UserRole | null,
     isPhotographer: boolean,
-    section: 'repairs' | 'bookings' | 'photography' | 'inventory' | 'facility_repairs' | 'users'
+    section: 'repairs' | 'bookings' | 'photography' | 'inventory' | 'facility_repairs' | 'users',
+    atlasRoles: string[] = []
 ): boolean {
     if (!role) return false;
 
     switch (section) {
         case 'repairs':
-            return ['admin', 'moderator', 'technician'].includes(role);
+            return ['admin', 'moderator', 'technician'].includes(role) ||
+                (role === 'atlas' && atlasRoles.includes('repair'));
         case 'bookings':
             return ['admin', 'moderator'].includes(role);
         case 'photography':

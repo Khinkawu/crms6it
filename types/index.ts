@@ -43,7 +43,7 @@ export interface Transaction {
     userPosition?: string; // for requisition
 }
 
-export type UserRole = 'user' | 'technician' | 'facility_technician' | 'admin' | 'moderator';
+export type UserRole = 'user' | 'technician' | 'facility_technician' | 'admin' | 'moderator' | 'atlas';
 
 export interface UserProfile {
     uid: string;
@@ -53,7 +53,8 @@ export interface UserProfile {
     role: UserRole;
     responsibility?: 'junior_high' | 'senior_high' | 'all'; // For technicians
     createdAt?: Timestamp;
-    isPhotographer?: boolean;
+    isPhotographer?: boolean; // Legacy — kept for backward compat (Phase 7 will migrate)
+    atlasRoles?: string[]; // Sub-roles for atlas: 'repair' | 'photographer' | 'pr' | 'graphic'
     lineUserId?: string; // LINE User ID
     lineDisplayName?: string; // LINE Display Name (used for photographers)
 }

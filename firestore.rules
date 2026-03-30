@@ -18,8 +18,20 @@ service cloud.firestore {
       return isAuthenticated() && myData().role in ['admin', 'moderator'];
     }
 
+    function isAtlas() {
+      return isAuthenticated() && myData().role == 'atlas';
+    }
+
+    function hasAtlasRole(subRole) {
+      return isAtlas() && subRole in myData().atlasRoles;
+    }
+
     function isPhotographer() {
-      return isAuthenticated() && myData().isPhotographer == true;
+      return isAuthenticated() && (myData().isPhotographer == true || myData().role == 'atlas');
+    }
+
+    function canAccessRepairs() {
+      return isTechnician() || isAdmin() || isModerator() || hasAtlasRole('repair');
     }
 
     function isTechnician() {

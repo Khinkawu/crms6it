@@ -19,6 +19,14 @@ import {
     Filter, ChevronLeft, ChevronRight
 } from "lucide-react";
 
+// ─── Atlas sub-role definitions ────────────────────────────────────────────────
+const ATLAS_SUB_ROLES: { id: string; label: string }[] = [
+    { id: 'repair',       label: 'ช่างซ่อม IT' },
+    { id: 'photographer', label: 'ตากล้อง' },
+    { id: 'pr',           label: 'ประชาสัมพันธ์' },
+    { id: 'graphic',      label: 'กราฟิก' },
+];
+
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 50;
 
@@ -58,6 +66,11 @@ const ROLE_CONFIG: Record<string, {
         label: "Facility", icon: <Building2 className="w-3.5 h-3.5" />,
         badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700",
         stat:  "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300",
+    },
+    atlas: {
+        label: "โสตฯ", icon: <Camera className="w-3.5 h-3.5" />,
+        badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-700",
+        stat:  "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300",
     },
     user: {
         label: "User", icon: <User className="w-3.5 h-3.5" />,
@@ -145,9 +158,10 @@ const SortTh = memo(function SortTh({ label, field, sort, onSort }: {
 
 // ─── Memoized row components ───────────────────────────────────────────────────
 type RowHandlers = {
-    onRoleChange: (uid: string, role: UserRole) => void;
-    onZoneChange:  (uid: string, zone: "junior_high" | "senior_high" | "all") => void;
-    onPhotoToggle: (uid: string, current: boolean) => void;
+    onRoleChange:       (uid: string, role: UserRole) => void;
+    onZoneChange:       (uid: string, zone: "junior_high" | "senior_high" | "all") => void;
+    onPhotoToggle:      (uid: string, current: boolean) => void;
+    onAtlasRoleToggle:  (uid: string, subRole: string, currentRoles: string[]) => void;
 };
 
 const DesktopRow = memo(function DesktopRow({
@@ -204,6 +218,7 @@ const DesktopRow = memo(function DesktopRow({
                             <option value="moderator">Moderator</option>
                             <option value="technician">Tech (IT)</option>
                             <option value="facility_technician">Tech (Facility)</option>
+                            <option value="atlas">โสตฯ</option>
                             <option value="admin">Admin</option>
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
@@ -226,19 +241,45 @@ const DesktopRow = memo(function DesktopRow({
                         </div>
                     )}
 
-                    {/* Photographer toggle */}
-                    <button
-                        onClick={() => handlers.onPhotoToggle(u.uid, u.isPhotographer || false)}
-                        disabled={isUpdating}
-                        title={u.isPhotographer ? "ถอด Photographer" : "เพิ่ม Photographer"}
-                        className={`p-1.5 rounded-lg border transition-all disabled:opacity-40 cursor-pointer ${
-                            u.isPhotographer
-                                ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-600 dark:text-purple-400"
-                                : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:border-gray-300"
-                        }`}
-                    >
-                        <Camera size={14} />
-                    </button>
+                    {/* Atlas sub-roles */}
+                    {u.role === "atlas" && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            {ATLAS_SUB_ROLES.map(sr => {
+                                const active = (u.atlasRoles ?? []).includes(sr.id);
+                                return (
+                                    <button
+                                        key={sr.id}
+                                        onClick={() => handlers.onAtlasRoleToggle(u.uid, sr.id, u.atlasRoles ?? [])}
+                                        disabled={isUpdating}
+                                        title={sr.label}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-semibold border transition-all disabled:opacity-40 cursor-pointer ${
+                                            active
+                                                ? "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                                                : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 hover:border-gray-300"
+                                        }`}
+                                    >
+                                        {sr.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Photographer toggle (hidden for atlas — they always have it) */}
+                    {u.role !== "atlas" && (
+                        <button
+                            onClick={() => handlers.onPhotoToggle(u.uid, u.isPhotographer || false)}
+                            disabled={isUpdating}
+                            title={u.isPhotographer ? "ถอด Photographer" : "เพิ่ม Photographer"}
+                            className={`p-1.5 rounded-lg border transition-all disabled:opacity-40 cursor-pointer ${
+                                u.isPhotographer
+                                    ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-600 dark:text-purple-400"
+                                    : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:border-gray-300"
+                            }`}
+                        >
+                            <Camera size={14} />
+                        </button>
+                    )}
                 </div>
             </td>
         </tr>
@@ -293,6 +334,7 @@ const MobileCard = memo(function MobileCard({
                             <option value="moderator">Moderator</option>
                             <option value="technician">Tech (IT)</option>
                             <option value="facility_technician">Tech (Facility)</option>
+                            <option value="atlas">โสตฯ</option>
                             <option value="admin">Admin</option>
                         </select>
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
@@ -316,21 +358,46 @@ const MobileCard = memo(function MobileCard({
                         </div>
                     </div>
                 )}
-                <div>
-                    <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide block mb-1">Photo</label>
-                    <button
-                        onClick={() => handlers.onPhotoToggle(u.uid, u.isPhotographer || false)}
-                        disabled={isUpdating}
-                        className={`px-3 py-2 rounded-lg border flex items-center gap-1.5 text-xs font-medium transition-all disabled:opacity-40 cursor-pointer ${
-                            u.isPhotographer
-                                ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300"
-                                : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400"
-                        }`}
-                    >
-                        <Camera size={13} />
-                        {u.isPhotographer ? "Active" : "Off"}
-                    </button>
-                </div>
+                {u.role === "atlas" ? (
+                    <div className="w-full">
+                        <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide block mb-1">Sub-roles</label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {ATLAS_SUB_ROLES.map(sr => {
+                                const active = (u.atlasRoles ?? []).includes(sr.id);
+                                return (
+                                    <button
+                                        key={sr.id}
+                                        onClick={() => handlers.onAtlasRoleToggle(u.uid, sr.id, u.atlasRoles ?? [])}
+                                        disabled={isUpdating}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-semibold border transition-all disabled:opacity-40 cursor-pointer ${
+                                            active
+                                                ? "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                                                : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400"
+                                        }`}
+                                    >
+                                        {sr.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : (
+                    <div>
+                        <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide block mb-1">Photo</label>
+                        <button
+                            onClick={() => handlers.onPhotoToggle(u.uid, u.isPhotographer || false)}
+                            disabled={isUpdating}
+                            className={`px-3 py-2 rounded-lg border flex items-center gap-1.5 text-xs font-medium transition-all disabled:opacity-40 cursor-pointer ${
+                                u.isPhotographer
+                                    ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                                    : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400"
+                            }`}
+                        >
+                            <Camera size={13} />
+                            {u.isPhotographer ? "Active" : "Off"}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -456,7 +523,7 @@ export default function UsersPage() {
 
     // ─── Stats (never deferred — always shows real total) ─────────────────────
     const stats = useMemo(() => {
-        const c: Record<string, number> = { admin: 0, moderator: 0, technician: 0, facility_technician: 0, user: 0 };
+        const c: Record<string, number> = { admin: 0, moderator: 0, technician: 0, facility_technician: 0, atlas: 0, user: 0 };
         users.forEach(u => { const r = u.role || "user"; c[r] = (c[r] || 0) + 1; });
         return c;
     }, [users]);
@@ -508,12 +575,29 @@ export default function UsersPage() {
         const { userId, newRole } = pending;
         setUpdatingId(userId);
         try {
-            await updateDoc(doc(db, "users", userId), { role: newRole, updatedAt: serverTimestamp() });
-            setUsers(prev => prev.map(u => u.uid === userId ? { ...u, role: newRole } : u));
+            // When promoting to atlas: set isPhotographer=true for backward compat + init atlasRoles if needed
+            const updatePayload: Record<string, any> = { role: newRole, updatedAt: serverTimestamp() };
+            if (newRole === 'atlas') {
+                updatePayload.isPhotographer = true;
+                const existing = users.find(u => u.uid === userId);
+                if (!existing?.atlasRoles) {
+                    updatePayload.atlasRoles = [];
+                }
+            }
+            await updateDoc(doc(db, "users", userId), updatePayload);
+            setUsers(prev => prev.map(u => {
+                if (u.uid !== userId) return u;
+                const updated = { ...u, role: newRole };
+                if (newRole === 'atlas') {
+                    updated.isPhotographer = true;
+                    if (!updated.atlasRoles) updated.atlasRoles = [];
+                }
+                return updated;
+            }));
             toast.success(`เปลี่ยน role เป็น ${newRole} แล้ว`);
         } catch { toast.error("เปลี่ยน role ไม่สำเร็จ"); }
         finally { setUpdatingId(null); setPending(null); }
-    }, [pending]);
+    }, [pending, users]);
 
     const handleZoneChange = useCallback(async (targetId: string, zone: "junior_high" | "senior_high" | "all") => {
         setUpdatingId(targetId);
@@ -535,12 +619,26 @@ export default function UsersPage() {
         finally { setUpdatingId(null); }
     }, []);
 
+    const handleToggleAtlasRole = useCallback(async (targetId: string, subRole: string, currentRoles: string[]) => {
+        const next = currentRoles.includes(subRole)
+            ? currentRoles.filter(r => r !== subRole)
+            : [...currentRoles, subRole];
+        setUpdatingId(targetId);
+        try {
+            await updateDoc(doc(db, "users", targetId), { atlasRoles: next, updatedAt: serverTimestamp() });
+            setUsers(prev => prev.map(u => u.uid === targetId ? { ...u, atlasRoles: next } : u));
+            toast.success("อัปเดต sub-roles แล้ว");
+        } catch { toast.error("อัปเดต sub-roles ไม่สำเร็จ"); }
+        finally { setUpdatingId(null); }
+    }, []);
+
     // Stable handlers object — won't cause row re-renders
     const handlers = useMemo<RowHandlers>(() => ({
-        onRoleChange:  handleRoleChange,
-        onZoneChange:  handleZoneChange,
-        onPhotoToggle: handlePhotoToggle,
-    }), [handleRoleChange, handleZoneChange, handlePhotoToggle]);
+        onRoleChange:      handleRoleChange,
+        onZoneChange:      handleZoneChange,
+        onPhotoToggle:     handlePhotoToggle,
+        onAtlasRoleToggle: handleToggleAtlasRole,
+    }), [handleRoleChange, handleZoneChange, handlePhotoToggle, handleToggleAtlasRole]);
 
     const clearFilters = useCallback(() => { setSearchTerm(""); setRoleFilter("all"); }, []);
 
@@ -571,8 +669,8 @@ export default function UsersPage() {
 
             {/* Stats bar */}
             {!isLoading && users.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                    {(["admin","moderator","technician","facility_technician","user"] as const).map(r => {
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {(["admin","moderator","technician","facility_technician","atlas","user"] as const).map(r => {
                         const cfg = getRoleConfig(r);
                         const count = stats[r] || 0;
                         const active = roleFilter === r;
@@ -626,6 +724,7 @@ export default function UsersPage() {
                         <option value="moderator">Moderator</option>
                         <option value="technician">Tech (IT)</option>
                         <option value="facility_technician">Tech (Facility)</option>
+                        <option value="atlas">โสตฯ</option>
                         <option value="user">User</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />

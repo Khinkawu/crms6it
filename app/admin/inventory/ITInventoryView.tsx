@@ -51,8 +51,10 @@ export default function ITInventoryView() {
     const [activityLogs, setActivityLogs] = useState<any[]>([]);
     const [isLogLoading, setIsLogLoading] = useState(false);
 
-    // Access control: admin, technician, or photographer can access
-    const hasAccess = role === 'admin' || role === 'technician' || isPhotographer;
+    // Access control: admin, technician, photographer, or atlas can access
+    // Note: isPhotographer is already true for atlas users (set in AuthContext Phase 4),
+    // but we add || role === 'atlas' here as an explicit belt-and-suspenders guard.
+    const hasAccess = role === 'admin' || role === 'technician' || role === 'atlas' || isPhotographer;
 
     // Fetch IT Inventory
     useEffect(() => {

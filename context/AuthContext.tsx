@@ -17,6 +17,8 @@ interface AuthContextType {
     user: User | null;
     role: UserRole | null;
     isPhotographer: boolean;
+    atlasRoles: string[];
+    hasAtlasRole: (subRole: string) => boolean;
     lineDisplayName: string | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
@@ -28,6 +30,8 @@ const AuthContext = createContext<AuthContextType>({
     user: null,
     role: null,
     isPhotographer: false,
+    atlasRoles: [],
+    hasAtlasRole: () => false,
     lineDisplayName: null,
     loading: true,
     signInWithGoogle: async () => { },
@@ -41,6 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [role, setRole] = useState<UserRole | null>(null);
     const [isPhotographer, setIsPhotographer] = useState(false);
+    const [atlasRoles, setAtlasRoles] = useState<string[]>([]);
     const [lineDisplayName, setLineDisplayName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -93,6 +98,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 photoURL: currentUser.photoURL,
                 role: 'user' as UserRole,
                 isPhotographer: false,
+                atlasRoles: [],
                 createdAt: serverTimestamp(),
                 ...(inheritedLineUserId ? { lineUserId: inheritedLineUserId } : {})
             });
@@ -100,7 +106,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // Existing user — sync Google profile if changed
             const userData = userSnap.data();
             resolvedRole = userData.role as UserRole;
-            resolvedIsPhotographer = userData.isPhotographer || false;
+            // Atlas users always have photographer access (backward compat)
+            resolvedIsPhotographer = userData.isPhotographer || resolvedRole === 'atlas' || false;
             const updates: Record<string, any> = {};
             if (currentUser.displayName !== userData.displayName) updates.displayName = currentUser.displayName;
             if (currentUser.photoURL !== userData.photoURL) updates.photoURL = currentUser.photoURL;
@@ -110,9 +117,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
         }
 
-        // Auto-initialize staff_status for AV staff (technician + photographer)
+        // Auto-initialize staff_status for AV staff (technician + photographer + atlas)
         // so they appear on the dashboard from first login without needing to manually update
-        const isAVStaff = resolvedRole === 'technician' || resolvedIsPhotographer;
+        const isAVStaff = resolvedRole === 'technician' || resolvedRole === 'atlas' || resolvedIsPhotographer;
         if (isAVStaff) {
             const statusRef = doc(db, 'staff_status', currentUser.uid);
             const statusSnap = await getDoc(statusRef);
@@ -156,6 +163,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     setUser(null);
                     setRole(null);
                     setIsPhotographer(false);
+                    setAtlasRoles([]);
                     toast.error("อนุญาตเฉพาะอีเมล @tesaban6.ac.th เท่านั้น");
                     setLoading(false);
                     return;
@@ -168,6 +176,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     setUser(null);
                     setRole(null);
                     setIsPhotographer(false);
+                    setAtlasRoles([]);
                     toast.error("ระบบนี้สำหรับครูและบุคลากรเท่านั้น");
                     setLoading(false);
                     return;
@@ -181,18 +190,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     const docSnap = await getDoc(userRef);
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
-                        setRole(userData.role as UserRole);
-                        setIsPhotographer(userData.isPhotographer || false);
+                        const resolvedRole = userData.role as UserRole;
+                        const resolvedAtlasRoles = userData.atlasRoles ?? [];
+                        // Atlas users always have photographer access (backward compat)
+                        const resolvedIsPhotographer = userData.isPhotographer || resolvedRole === 'atlas' || false;
+                        setRole(resolvedRole);
+                        setIsPhotographer(resolvedIsPhotographer);
+                        setAtlasRoles(resolvedAtlasRoles);
                         setLineDisplayName(userData.lineDisplayName || null);
                     } else {
                         setRole('user');
                         setIsPhotographer(false);
+                        setAtlasRoles([]);
                         setLineDisplayName(null);
                     }
                 } catch (error) {
                     console.error("Error fetching user doc:", error);
                     setRole('user');
                     setIsPhotographer(false);
+                    setAtlasRoles([]);
                     setLineDisplayName(null);
                 }
                 setUser(currentUser);
@@ -206,6 +222,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setUser(null);
                 setRole(null);
                 setIsPhotographer(false);
+                setAtlasRoles([]);
                 setLineDisplayName(null);
                 setLoading(false);
             }
@@ -236,11 +253,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(null);
             setRole(null);
             setIsPhotographer(false);
+            setAtlasRoles([]);
             setLineDisplayName(null);
         } catch (error) {
             console.error("Error signing out", error);
         }
     };
+
+    // Returns true if current user has role='atlas' AND the given sub-role
+    const hasAtlasRole = useCallback((subRole: string): boolean => {
+        return role === 'atlas' && atlasRoles.includes(subRole);
+    }, [role, atlasRoles]);
 
     // Helper function to get the appropriate display name
     // For photographers with LINE display name, use that; otherwise use Google name
@@ -252,7 +275,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, [isPhotographer, lineDisplayName, user?.displayName]);
 
     return (
-        <AuthContext.Provider value={{ user, role, isPhotographer, lineDisplayName, loading, signInWithGoogle, signOut, getDisplayName }}>
+        <AuthContext.Provider value={{ user, role, isPhotographer, atlasRoles, hasAtlasRole, lineDisplayName, loading, signInWithGoogle, signOut, getDisplayName }}>
             {children}
         </AuthContext.Provider>
     );
