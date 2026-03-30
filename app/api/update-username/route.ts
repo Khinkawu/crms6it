@@ -63,9 +63,11 @@ export async function POST(request: Request) {
             ops.push({ ref: d.ref, data: { assigneeNames: updated } });
         });
 
-        // 7. activities — userName (no userId field, match by name)
+        // 7. activities — filter by userId (requires backfill of userId field).
+        // Using userId avoids updating activities belonging to another user with the same display name.
+        // Activities created before the backfill will not be updated here (safe default).
         const actSnap = await adminDb.collection('activities')
-            .where('userName', '==', oldName).limit(500).get();
+            .where('userId', '==', uid).limit(500).get();
         actSnap.forEach(d => ops.push({ ref: d.ref, data: { userName: newName } }));
 
         if (ops.length === 0) {
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
             await batch.commit();
         }
 
-        console.log(`[update-username] uid=${uid} "${oldName}" → "${newName}" updated=${ops.length} docs`);
+        console.log(`[update-username] updated=${ops.length} docs`);
         return NextResponse.json({ updated: ops.length });
 
     } catch (error) {

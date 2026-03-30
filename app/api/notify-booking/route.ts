@@ -4,6 +4,23 @@ import { FieldValue } from 'firebase-admin/firestore';
 import admin from 'firebase-admin';
 import { logWebEvent } from '@/lib/analytics';
 
+// Per-UID rate limit: 10 requests per 60 seconds (prevents booking notification spam)
+const uidRateLimit = new Map<string, { count: number; resetAt: number }>();
+const UID_LIMIT = 10;
+const UID_WINDOW_MS = 60 * 1000;
+
+function checkUidRateLimit(uid: string): boolean {
+    const now = Date.now();
+    const entry = uidRateLimit.get(uid);
+    if (!entry || now > entry.resetAt) {
+        uidRateLimit.set(uid, { count: 1, resetAt: now + UID_WINDOW_MS });
+        return true;
+    }
+    if (entry.count >= UID_LIMIT) return false;
+    entry.count++;
+    return true;
+}
+
 /**
  * POST /api/notify-booking
  * สร้าง in-app notification ให้ admin + moderator ทุกคน เมื่อมี booking ใหม่
@@ -15,10 +32,16 @@ export async function POST(request: Request) {
         if (!authHeader?.startsWith('Bearer ')) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        let callerUid: string;
         try {
-            await adminAuth.verifyIdToken(authHeader.substring(7));
+            const decoded = await adminAuth.verifyIdToken(authHeader.substring(7));
+            callerUid = decoded.uid;
         } catch {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        if (!checkUidRateLimit(callerUid)) {
+            return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
         }
 
         const { bookingId, title, roomName, requesterName, startTime } = await request.json();

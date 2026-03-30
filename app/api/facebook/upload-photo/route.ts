@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebaseAdmin';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 
 const PAGE_ID = process.env.FACEBOOK_PAGE_ID;
 const ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
@@ -12,13 +12,21 @@ interface PhotoData {
 
 export const maxDuration = 60; // Allow more time for upload
 
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const MAX_BASE64_BYTES = 20 * 1024 * 1024; // 20MB
+
 export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {
-        await adminAuth.verifyIdToken(authHeader.split('Bearer ')[1]);
+        const decoded = await adminAuth.verifyIdToken(authHeader.split('Bearer ')[1]);
+        const userDoc = await adminDb.collection('users').doc(decoded.uid).get();
+        const role = userDoc.data()?.role;
+        if (!['photographer', 'moderator', 'admin'].includes(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
     } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -39,6 +47,14 @@ export async function POST(request: NextRequest) {
 
         if (!photo || !photo.base64) {
             return NextResponse.json({ error: 'No photo provided' }, { status: 400 });
+        }
+
+        if (!ALLOWED_MIME_TYPES.has(photo.mimeType)) {
+            return NextResponse.json({ error: 'Invalid image type. Allowed: jpeg, png, webp' }, { status: 400 });
+        }
+
+        if (photo.base64.length > MAX_BASE64_BYTES) {
+            return NextResponse.json({ error: 'Image too large (max 20MB)' }, { status: 413 });
         }
 
         const buffer = Buffer.from(photo.base64, 'base64');

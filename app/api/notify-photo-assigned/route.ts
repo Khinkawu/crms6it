@@ -17,7 +17,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         try {
-            await adminAuth.verifyIdToken(authHeader.substring(7));
+            const decoded = await adminAuth.verifyIdToken(authHeader.substring(7));
+            const callerDoc = await adminDb.collection('users').doc(decoded.uid).get();
+            const callerRole = callerDoc.data()?.role;
+            if (callerRole !== 'admin' && callerRole !== 'moderator') {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
         } catch {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -117,13 +122,12 @@ export async function POST(request: Request) {
                 return { lineUserId, ok: true };
             }));
             lineStatus = results.every(r => r.ok) ? 'sent' : 'partial_fail';
-            console.log('[notify-photo-assigned] LINE results:', results);
         } else {
             lineStatus = 'missing_datetime';
         }
 
         logWebEvent({ eventType: 'photo_assign', metadata: { assigneeCount: assigneeIds.length, title } });
-        return NextResponse.json({ success: true, notified: assigneeIds.length, lineUserIds, lineStatus });
+        return NextResponse.json({ success: true, notified: assigneeIds.length, lineStatus });
     } catch (error) {
         console.error('[notify-photo-assigned] Error:', error);
         logWebEvent({ eventType: 'api_error', error: 'notify-photo-assigned failed', metadata: { route: 'notify-photo-assigned' } });

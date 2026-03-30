@@ -37,7 +37,15 @@ async function sendTypingIndicator(userId: string): Promise<void> {
 
 export async function POST(req: Request) {
     try {
+        const contentLength = req.headers.get('content-length');
+        if (contentLength && parseInt(contentLength, 10) > 1_000_000) {
+            return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+        }
+
         const rawBody = await req.text();
+        if (rawBody.length > 1_000_000) {
+            return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+        }
         const signature = req.headers.get('x-line-signature') || '';
 
         if (!validateSignature(rawBody, process.env.LINE_CHANNEL_SECRET!, signature)) {
@@ -91,17 +99,12 @@ async function handleMessageEvent(event: any) {
         // Show typing indicator
         await sendTypingIndicator(userId);
 
-        console.log('[AI Agent] Processing message from user:', userId);
-        console.log('[AI Agent] Message:', text);
-
         // Get AI response
         const aiReply = await processAIMessage(userId, text);
 
         if (typeof aiReply === 'string') {
-            console.log('[AI Agent] Reply:', aiReply.substring(0, 100));
             await client.replyMessage(replyToken, { type: 'text', text: aiReply });
         } else {
-            console.log('[AI Agent] Reply: [Message Object]');
             await client.replyMessage(replyToken, aiReply as any);
         }
 

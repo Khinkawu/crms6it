@@ -5,8 +5,35 @@ import { FieldValue } from 'firebase-admin/firestore';
 import bcrypt from 'bcryptjs';
 import { logWebEvent } from '@/lib/analytics';
 
+// IP-based rate limit: 5 requests per 60 seconds
+const ipRateLimit = new Map<string, { count: number; resetAt: number }>();
+const IP_LIMIT = 5;
+const IP_WINDOW_MS = 60 * 1000;
+
+function checkIpRateLimit(ip: string): boolean {
+    const now = Date.now();
+    const entry = ipRateLimit.get(ip);
+    if (!entry || now > entry.resetAt) {
+        ipRateLimit.set(ip, { count: 1, resetAt: now + IP_WINDOW_MS });
+        return true;
+    }
+    if (entry.count >= IP_LIMIT) return false;
+    entry.count++;
+    return true;
+}
+
 export async function POST(request: NextRequest) {
     try {
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+        // Skip IP rate limit for internal server-to-server calls (e.g. LINE Bot aiAgent)
+        const isInternal = request.headers.get('x-internal-source') === process.env.CRMS_API_SECRET_KEY;
+        if (!isInternal && !checkIpRateLimit(ip)) {
+            return NextResponse.json(
+                { success: false, error: 'Too many requests. Please try again later.' },
+                { status: 429 }
+            );
+        }
+
         const { email, lineUserId } = await request.json();
 
         // Validate email domain

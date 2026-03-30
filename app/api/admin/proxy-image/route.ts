@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebaseAdmin';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
+
+const ALLOWED_ROLES = new Set(['admin', 'moderator', 'photographer']);
 
 /**
- * Shared auth check — requires a valid Firebase ID token.
- * Returns the decoded token on success, or a 401 NextResponse on failure.
+ * Shared auth check — requires a valid Firebase ID token with an allowed role.
+ * Returns the decoded token on success, or a 401/403 NextResponse on failure.
  */
 async function requireAuth(request: Request): Promise<{ uid: string } | NextResponse> {
     const authHeader = request.headers.get('Authorization');
@@ -12,7 +14,13 @@ async function requireAuth(request: Request): Promise<{ uid: string } | NextResp
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {
-        return await adminAuth.verifyIdToken(token);
+        const decoded = await adminAuth.verifyIdToken(token);
+        const userDoc = await adminDb.collection('users').doc(decoded.uid).get();
+        const role = userDoc.data()?.role;
+        if (!ALLOWED_ROLES.has(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        return decoded;
     } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

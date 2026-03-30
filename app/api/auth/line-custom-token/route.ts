@@ -1,46 +1,71 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "../../../../lib/firebaseAdmin";
 
-// This endpoint receives a LINE User ID (trusted from LIFF context? Or verified ID Token?)
-// Ideally, we should verify the ID Token. But for MVP, if we trust the caller (LIFF), we can look up binding.
-// To make it secure, we should expect 'idToken' from liff.getIDToken().
-// But verification requires calling LINE API.
-// For now, let's use the `userId` and maybe a shared secret or just rely on the fact that this API is obscure?
-// NO. Security is important.
-// Actually, since we are in LIFF, we can send the ID Token.
-// But verifying ID Token takes extra step.
-// Let's rely on looking up the `line_bindings` collection.
-// If the `userId` exists in `line_bindings`, we get the `uid` and mint a token.
-
+/**
+ * POST /api/auth/line-custom-token
+ * Issues a Firebase custom token for a LINE-linked user.
+ *
+ * Security: caller must supply a LIFF ID token (liff.getIDToken()).
+ * We verify it against LINE's token endpoint before issuing any Firebase token.
+ * This prevents anyone who knows a LINE user ID from impersonating a staff account.
+ *
+ * Body: { liffIdToken: string }
+ */
 export async function POST(req: NextRequest) {
     try {
-        const { lineUserId } = await req.json();
+        const { liffIdToken } = await req.json();
 
-        if (!lineUserId) {
-            return NextResponse.json({ error: "Missing lineUserId" }, { status: 400 });
+        if (!liffIdToken || typeof liffIdToken !== "string") {
+            return NextResponse.json({ error: "Missing liffIdToken" }, { status: 400 });
         }
 
-        // 1. Look up binding in Firestore (Admin)
-        const bindingSnap = await adminDb.collection("line_bindings").doc(lineUserId).get();
+        const channelId = process.env.LINE_LOGIN_CHANNEL_ID;
+        if (!channelId) {
+            console.error("[line-custom-token] LINE_LOGIN_CHANNEL_ID not configured");
+            return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+        }
+
+        // 1. Verify LIFF ID token with LINE API
+        const verifyRes = await fetch("https://api.line.me/oauth2/v2.1/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                id_token: liffIdToken,
+                client_id: channelId,
+            }),
+        });
+
+        if (!verifyRes.ok) {
+            const errData = await verifyRes.json().catch(() => ({}));
+            console.warn("[line-custom-token] LINE token verification failed:", errData);
+            return NextResponse.json({ error: "Invalid LINE token" }, { status: 401 });
+        }
+
+        const payload = await verifyRes.json();
+        const verifiedLineUserId: string = payload.sub;
+
+        if (!verifiedLineUserId) {
+            return NextResponse.json({ error: "Invalid LINE token payload" }, { status: 401 });
+        }
+
+        // 2. Look up binding in Firestore using the verified LINE user ID
+        const bindingSnap = await adminDb.collection("line_bindings").doc(verifiedLineUserId).get();
 
         if (!bindingSnap.exists) {
             return NextResponse.json({ error: "User not bound" }, { status: 404 });
         }
 
-        const data = bindingSnap.data();
-        const uid = data?.uid;
-
+        const uid = bindingSnap.data()?.uid;
         if (!uid) {
             return NextResponse.json({ error: "Invalid binding data" }, { status: 500 });
         }
 
-        // 2. Generate Custom Token
+        // 3. Issue Firebase custom token
         const customToken = await adminAuth.createCustomToken(uid);
-
         return NextResponse.json({ token: customToken });
 
-    } catch (error: any) {
-        console.error("Custom Token Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error) {
+        console.error("[line-custom-token] Error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

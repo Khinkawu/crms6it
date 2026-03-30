@@ -6,6 +6,7 @@ import { getThaiStatus, getStatusHexColor } from '@/utils/repairHelpers';
 import admin from 'firebase-admin';
 import { logLineEvent } from '@/lib/lineMonitor';
 import { logWebEvent } from '@/lib/analytics';
+import { logError } from '@/lib/errorLogger';
 
 export async function POST(request: Request) {
     try {
@@ -83,7 +84,9 @@ export async function POST(request: Request) {
                 tokens: fcmTokens,
                 notification: { title: notifTitle, body: notifBody },
                 webpush: { fcmOptions: { link: `${appUrl}/repair-history` } },
-            }).catch(() => {});
+            }).catch((err) => {
+                logError({ source: 'fcm', severity: 'high', message: `FCM user push failed: ${String(err)}`, path: '/api/notify-user', metadata: { ticketId, userId: userUID } });
+            });
         }
 
         // 4. LINE push (only if linked)

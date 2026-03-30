@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initiateResumableUpload } from '@/lib/googleDrive';
 import { getThaiAcademicYear, getThaiMonthName } from '@/lib/academicYear';
-import { adminAuth } from '@/lib/firebaseAdmin';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 
 // Route segment config for App Router
 export const maxDuration = 10;
@@ -20,7 +20,12 @@ export async function POST(req: NextRequest) {
 
         const token = authHeader.split('Bearer ')[1];
         try {
-            await adminAuth.verifyIdToken(token);
+            const decoded = await adminAuth.verifyIdToken(token);
+            const userDoc = await adminDb.collection('users').doc(decoded.uid).get();
+            const role = userDoc.data()?.role;
+            if (!['photographer', 'moderator', 'admin'].includes(role)) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
         } catch {
             return NextResponse.json(
                 { error: 'Unauthorized: Invalid or expired token' },
@@ -50,7 +55,7 @@ export async function POST(req: NextRequest) {
         const monthFolderName = getThaiMonthName(jobDate);
         const eventFolderName = `${buddhistYear}-${monthStr}-${dayStr} ${eventName}`;
 
-        const origin = req.headers.get('origin') || req.headers.get('referer') || '';
+        const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
 
         const result = await initiateResumableUpload({
             fileBuffer: Buffer.from([]),

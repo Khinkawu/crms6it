@@ -121,7 +121,8 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ products: result, productStates });
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('[repair-inventory GET] Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
 
@@ -143,21 +144,39 @@ export async function PATCH(request: Request) {
             results.deleted.push(productId);
         }
 
-        // Update specific products
+        // Update specific products — allowlist to prevent arbitrary field injection
+        const ALLOWED_PRODUCT_FIELDS = new Set([
+            'name', 'quantity', 'unit', 'price', 'status',
+            'borrowedCount', 'activeBorrowId', 'updatedAt'
+        ]);
         for (const item of (body.updateProducts || [])) {
-            await adminDb.collection('products').doc(item.id).update(item.fields);
-            results.updated.push({ id: item.id, fields: item.fields });
+            const safeFields: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(item.fields || {})) {
+                if (ALLOWED_PRODUCT_FIELDS.has(k)) safeFields[k] = v;
+            }
+            if (Object.keys(safeFields).length === 0) continue;
+            await adminDb.collection('products').doc(item.id).update(safeFields);
+            results.updated.push({ id: item.id, fields: safeFields });
         }
 
-        // Fix specific transactions
+        // Fix specific transactions — allowlist
+        const ALLOWED_TRANSACTION_FIELDS = new Set([
+            'status', 'returnedAt', 'returnerName', 'repairNote', 'repairedAt'
+        ]);
         for (const item of (body.fixTransactions || [])) {
-            await adminDb.collection('transactions').doc(item.id).update(item.fields);
-            results.fixedTransactions.push({ id: item.id, fields: item.fields });
+            const safeFields: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(item.fields || {})) {
+                if (ALLOWED_TRANSACTION_FIELDS.has(k)) safeFields[k] = v;
+            }
+            if (Object.keys(safeFields).length === 0) continue;
+            await adminDb.collection('transactions').doc(item.id).update(safeFields);
+            results.fixedTransactions.push({ id: item.id, fields: safeFields });
         }
 
         return NextResponse.json({ success: true, results });
     } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        console.error('[repair-inventory PATCH] Error:', error);
+        return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
     }
 }
 
@@ -337,10 +356,7 @@ export async function POST(request: Request) {
         });
 
     } catch (error: any) {
-        console.error('Repair inventory error:', error);
-        return NextResponse.json({
-            success: false,
-            error: error.message
-        }, { status: 500 });
+        console.error('[repair-inventory POST] Error:', error);
+        return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
     }
 }

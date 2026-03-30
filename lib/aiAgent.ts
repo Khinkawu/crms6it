@@ -1000,7 +1000,10 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
                     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
                     const response = await fetch(`${appUrl}/api/send-otp`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-internal-source': process.env.CRMS_API_SECRET_KEY || '',
+                        },
                         body: JSON.stringify({ email, lineUserId })
                     });
                     const result = await response.json();
@@ -1306,9 +1309,6 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
         if (aiRes.intent && aiRes.intent !== 'UNKNOWN') {
 
             // Log reasoning (Thought Process) - Optional: Save to DB
-            if (aiRes.thought) {
-                console.log(`[AI Thought]: ${aiRes.thought}`);
-            }
 
             switch (aiRes.intent) {
                 case 'CHECK_REPAIR':
@@ -1344,7 +1344,6 @@ export async function processAIMessage(lineUserId: string, userMessage: string, 
 
                 case 'IT_KNOWLEDGE_SEARCH':
                     const kbParams = aiRes.params || {};
-                    console.log(`[Intent] IT_KNOWLEDGE_SEARCH:`, kbParams);
                     if (!kbParams.query) {
                         return 'ขอโทษค่ะ รบกวนระบุคำถามให้ชัดเจนอีกนิดได้ไหมคะ? 😅';
                     }

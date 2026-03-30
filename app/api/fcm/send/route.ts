@@ -50,10 +50,7 @@ export async function POST(request: NextRequest) {
         const response = await admin.messaging().send(message);
 
         logWebEvent({ eventType: 'fcm_send', userId, metadata: { title } });
-        return NextResponse.json({
-            success: true,
-            messageId: response
-        });
+        return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error('FCM Send Error:', error);
 
@@ -77,7 +74,7 @@ export async function POST(request: NextRequest) {
                         const updatedTokens = tokens.filter(t => t !== token);
 
                         await userRef.update({ fcmTokens: updatedTokens });
-                        console.log(`[FCM Cleanup] Removed invalid token from user ${userId}`);
+                        console.log('[FCM Cleanup] Removed invalid token');
                     }
                 }
             } catch (cleanupError) {
@@ -91,7 +88,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(
-            { error: error.message || 'Failed to send notification' },
+            { error: 'Internal Server Error' },
             { status: 500 }
         );
     }

@@ -134,18 +134,23 @@ export default function FacilityForm() {
                 updatedAt: serverTimestamp(),
             });
 
-            fetch('/api/notify-facility', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ticketId: docRef.id,
-                    requesterName: user.displayName || "Unknown",
-                    room: formData.room,
-                    zone: formData.zone,
-                    description: formData.description,
-                    imageOneUrl: imageUrls.length > 0 ? imageUrls[0] : null
-                })
-            }).catch(err => console.error("Failed to send LINE notification:", err));
+            user.getIdToken().then(idToken => {
+                fetch('/api/notify-facility', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
+                    body: JSON.stringify({
+                        ticketId: docRef.id,
+                        requesterName: user.displayName || "Unknown",
+                        room: formData.room,
+                        zone: formData.zone,
+                        description: formData.description,
+                        imageOneUrl: imageUrls.length > 0 ? imageUrls[0] : null
+                    })
+                }).catch(err => console.error("Failed to send LINE notification:", err));
+            }).catch(err => console.error("Failed to get ID token for notify-facility:", err));
 
             await logActivity({
                 action: 'repair',

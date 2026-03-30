@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { createFacilityNewFlexMessage } from '@/utils/flexMessageTemplates';
 import admin from 'firebase-admin';
@@ -7,25 +7,19 @@ import { logWebEvent } from '@/lib/analytics';
 
 export async function POST(req: Request) {
     try {
-        // Security: ตรวจสอบว่า request มาจากแหล่งที่เชื่อถือได้
-        const apiKey = req.headers.get('x-api-key');
-        const internalKey = req.headers.get('x-internal-request');
-        const origin = req.headers.get('origin') || req.headers.get('referer') || '';
-
-        const validApiKey = process.env.CRMS_API_SECRET_KEY;
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
-
-        const isValidApiKey = validApiKey && apiKey === validApiKey;
-        const isSameOrigin = origin.startsWith(appUrl) || origin.startsWith('http://localhost');
-        const isInternalRequest = internalKey === 'true';
-
-        if (!isValidApiKey && !isSameOrigin && !isInternalRequest) {
-            console.warn('Unauthorized API access attempt from:', origin);
-            return NextResponse.json(
-                { error: 'Unauthorized: Invalid credentials' },
-                { status: 401 }
-            );
+        // Security: require Firebase Bearer token (any authenticated user)
+        const authHeader = req.headers.get('Authorization') || '';
+        const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        if (!idToken) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        try {
+            await adminAuth.verifyIdToken(idToken);
+        } catch {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
 
         const body = await req.json();
         const { requesterName, room, issueCategory, description, imageOneUrl, zone, ticketId } = body;
@@ -59,14 +53,11 @@ export async function POST(req: Request) {
             }
         });
 
-        console.log(`[notify-facility] Found ${targetUserIds.length} facility technicians from DB.`);
-
         // Deduplicate
         targetUserIds = Array.from(new Set(targetUserIds));
 
         // Fallback to default technician if no facility techs exist with Line IDs
         if (targetUserIds.length === 0 && process.env.LINE_TECHNICIAN_ID) {
-            console.log(`[notify-facility] Using fallback LINE_TECHNICIAN_ID`);
             targetUserIds.push(process.env.LINE_TECHNICIAN_ID);
         }
 
@@ -74,8 +65,6 @@ export async function POST(req: Request) {
             console.warn('[notify-facility] No target user IDs found. Skipping notification.');
             return NextResponse.json({ status: 'skipped', reason: 'No facility technicians found' });
         }
-
-        console.log(`[notify-facility] Final target users: ${targetUserIds.join(', ')}`);
 
         const deepLink = `${appUrl}/admin/facility?ticketId=${ticketId}`;
 

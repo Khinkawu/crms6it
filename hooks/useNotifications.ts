@@ -52,8 +52,10 @@ export function useNotifications(userId: string | undefined): UseNotificationsRe
             } as AppNotification));
             setNotifications(items);
             setLoading(false);
-        }, () => {
+        }, (err) => {
+            console.error('[useNotifications] onSnapshot error:', err);
             setLoading(false);
+            fetch('/api/errors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'firestore', severity: 'high', message: err.message, path: 'notifications/onSnapshot', userId }) }).catch(() => {});
         });
 
         return () => unsub();

@@ -11,13 +11,18 @@ const GRAPH_API_VERSION = 'v22.0';
  * Photos should be uploaded first via /api/facebook/upload-photo
  */
 export async function POST(request: NextRequest) {
-    // Verify Firebase ID token — only authenticated users can post
+    // Verify Firebase ID token — only photographer/moderator/admin can post
     const authHeader = request.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {
-        await adminAuth.verifyIdToken(authHeader.split('Bearer ')[1]);
+        const decoded = await adminAuth.verifyIdToken(authHeader.split('Bearer ')[1]);
+        const userDoc = await adminDb.collection('users').doc(decoded.uid).get();
+        const role = userDoc.data()?.role;
+        if (!['photographer', 'moderator', 'admin'].includes(role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
     } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

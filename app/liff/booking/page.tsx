@@ -34,7 +34,7 @@ export default function BookingLiffPage() {
                 const res = await fetch("/api/auth/line-custom-token", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ lineUserId: profile.userId })
+                    body: JSON.stringify({ liffIdToken: liff.getIDToken() })
                 });
 
                 if (res.status === 404) {

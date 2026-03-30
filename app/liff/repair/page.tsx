@@ -3,13 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { useLiff } from "../../../hooks/useLiff";
 import { useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
 import { signInWithCustomToken } from "firebase/auth";
-import { db, auth } from "../../../lib/firebase";
+import { auth } from "../../../lib/firebase";
 import RepairForm from "../../../components/repair/RepairForm";
 import RepairHistory from "../../../components/repair/RepairHistory";
 import FacilityForm from "../../../components/facility/FacilityForm";
 import { LiffSkeleton, LiffError, triggerHaptic } from "@/components/liff/LiffComponents";
+import liff from "@line/liff";
 
 export default function RepairLiffPage() {
     const { profile, isLoggedIn, isLoading: liffLoading, error } = useLiff(process.env.NEXT_PUBLIC_LINE_LIFF_ID_REPAIR || "");
@@ -35,7 +35,7 @@ export default function RepairLiffPage() {
                 const res = await fetch("/api/auth/line-custom-token", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ lineUserId: profile.userId })
+                    body: JSON.stringify({ liffIdToken: liff.getIDToken() })
                 });
 
                 if (res.status === 404) {

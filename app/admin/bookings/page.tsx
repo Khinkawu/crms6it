@@ -455,18 +455,20 @@ export default function BookingManagement() {
                     }).catch(() => { });
                     // FCM web push — approved/rejected only (fire-and-forget)
                     if (confirmAction.payload === "approved" || confirmAction.payload === "rejected") {
-                        fetch('/api/notify-booking-result', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'x-internal-request': 'true',
-                            },
-                            body: JSON.stringify({
-                                requesterId: target.requesterId,
-                                status: confirmAction.payload,
-                                title: target.title,
-                                roomName: target.roomName || target.room || '',
-                            }),
+                        user?.getIdToken().then(idToken => {
+                            fetch('/api/notify-booking-result', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${idToken}`,
+                                },
+                                body: JSON.stringify({
+                                    requesterId: target.requesterId,
+                                    status: confirmAction.payload,
+                                    title: target.title,
+                                    roomName: target.roomName || target.room || '',
+                                }),
+                            }).catch(() => { });
                         }).catch(() => { });
                     }
                 }

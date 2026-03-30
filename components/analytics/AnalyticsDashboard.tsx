@@ -12,6 +12,7 @@ import {
     Download, TrendingUp, TrendingDown, Minus,
     Bot, Zap, Search, Building2, BarChart3, ChevronRight
 } from "lucide-react";
+import ErrorLogSection from "./ErrorLogSection";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -704,6 +705,9 @@ export default function AnalyticsDashboard() {
                     </div>
                 )}
             </div>
+
+            {/* ── Error Monitor ────────────────────────────────────────────────── */}
+            <ErrorLogSection />
 
             {/* ── Footer ───────────────────────────────────────────────────────── */}
             <div className="flex items-center justify-between pt-2 pb-4">

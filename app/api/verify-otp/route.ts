@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         // Delete OTP
         await adminDb.collection('otp_codes').doc(lineUserId).delete();
 
-        logWebEvent({ eventType: 'line_link', metadata: { email, lineUserId } });
+        logWebEvent({ eventType: 'line_link' });
         return NextResponse.json({
             success: true,
             displayName,

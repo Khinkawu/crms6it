@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
-    const state = searchParams.get('state'); // This is the firebase userId
+    const nonce = searchParams.get('state'); // nonce stored in Firestore on login
     const error = searchParams.get('error');
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-    if (error || !code || !state) {
+    if (error || !code || !nonce) {
         return NextResponse.redirect(`${appUrl}/profile?error=line_login_failed`);
     }
 
@@ -21,12 +23,27 @@ export async function GET(request: Request) {
     }
 
     try {
-        // 1. Exchange code for access token
+        // 1. Look up nonce → get uid (CSRF protection: reject unknown/expired nonces)
+        const nonceDoc = await adminDb.collection('line_auth_nonces').doc(nonce).get();
+        if (!nonceDoc.exists) {
+            return NextResponse.redirect(`${appUrl}/profile?error=line_login_failed`);
+        }
+        const uid: string = nonceDoc.data()!.uid;
+        const createdAt: Date = nonceDoc.data()!.createdAt?.toDate?.() ?? new Date(0);
+
+        // Expire nonces after 10 minutes
+        if (Date.now() - createdAt.getTime() > 10 * 60 * 1000) {
+            await adminDb.collection('line_auth_nonces').doc(nonce).delete();
+            return NextResponse.redirect(`${appUrl}/profile?error=line_login_failed`);
+        }
+
+        // Consume nonce immediately (prevent replay)
+        await adminDb.collection('line_auth_nonces').doc(nonce).delete();
+
+        // 2. Exchange code for access token
         const tokenResponse = await fetch('https://api.line.me/oauth2/v2.1/token', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
                 grant_type: 'authorization_code',
                 code,
@@ -45,11 +62,9 @@ export async function GET(request: Request) {
         const tokenData = await tokenResponse.json();
         const accessToken = tokenData.access_token;
 
-        // 2. Get User Profile
+        // 3. Get LINE User Profile
         const profileResponse = await fetch('https://api.line.me/v2/profile', {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
+            headers: { Authorization: `Bearer ${accessToken}` },
         });
 
         if (!profileResponse.ok) {
@@ -58,13 +73,27 @@ export async function GET(request: Request) {
         }
 
         const profileData = await profileResponse.json();
-        const lineUserId = profileData.userId;
-        const lineDisplayName = profileData.displayName || '';
+        const lineUserId: string = profileData.userId;
+        const lineDisplayName: string = profileData.displayName || '';
 
-        // 3. Redirect to Profile Page with lineUserId and displayName to be saved by client
-        // Note: In a production app with firebase-admin, we would save it here.
-        // For this setup, we pass it back to the client to save.
-        return NextResponse.redirect(`${appUrl}/profile?action=link_line&lineUserId=${lineUserId}&lineDisplayName=${encodeURIComponent(lineDisplayName)}`);
+        // 4. Write both Firestore docs server-side (lineUserId never touches the URL)
+        const userDoc = await adminDb.collection('users').doc(uid).get();
+        await adminDb.collection('users').doc(uid).set({
+            lineUserId,
+            lineDisplayName,
+        }, { merge: true });
+
+        await adminDb.collection('line_bindings').doc(lineUserId).set({
+            uid,
+            email: userDoc.data()?.email || '',
+            displayName: userDoc.data()?.displayName || '',
+            lineDisplayName,
+            photoURL: userDoc.data()?.photoURL || '',
+            linkedAt: FieldValue.serverTimestamp(),
+        });
+
+        // 5. Redirect without sensitive data in URL
+        return NextResponse.redirect(`${appUrl}/profile?action=link_line_success`);
 
     } catch (err) {
         console.error('LINE Callback Error:', err);

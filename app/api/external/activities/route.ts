@@ -99,7 +99,7 @@ export async function GET(request: Request) {
     } catch (error: any) {
         console.error("[API] External Activities Error:", error);
         return NextResponse.json(
-            { success: false, error: error.message },
+            { success: false, error: 'Internal Server Error' },
             { status: 500 }
         );
     }

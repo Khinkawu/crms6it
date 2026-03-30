@@ -1,31 +1,26 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { createRepairNewFlexMessage } from '@/utils/flexMessageTemplates';
 import admin from 'firebase-admin';
 import { logWebEvent } from '@/lib/analytics';
+import { logError } from '@/lib/errorLogger';
 
 export async function POST(req: Request) {
     try {
-        // Security: ตรวจสอบว่า request มาจากแหล่งที่เชื่อถือได้
-        const apiKey = req.headers.get('x-api-key');
-        const internalKey = req.headers.get('x-internal-request');
-        const origin = req.headers.get('origin') || req.headers.get('referer') || '';
-
-        const validApiKey = process.env.CRMS_API_SECRET_KEY;
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
-
-        const isValidApiKey = validApiKey && apiKey === validApiKey;
-        const isSameOrigin = origin.startsWith(appUrl) || origin.startsWith('http://localhost');
-        const isInternalRequest = internalKey === 'true';
-
-        if (!isValidApiKey && !isSameOrigin && !isInternalRequest) {
-            console.warn('Unauthorized API access attempt from:', origin);
-            return NextResponse.json(
-                { error: 'Unauthorized: Invalid credentials' },
-                { status: 401 }
-            );
+        // Security: require Firebase Bearer token (any authenticated user)
+        const authHeader = req.headers.get('Authorization') || '';
+        const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        if (!idToken) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        try {
+            await adminAuth.verifyIdToken(idToken);
+        } catch {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
 
         const body = await req.json();
         const { requesterName, room, description, imageOneUrl, zone, ticketId } = body;
@@ -83,14 +78,22 @@ export async function POST(req: Request) {
                 ticketId,
                 deepLink
             });
-            await fetch('https://api.line.me/v2/bot/message/multicast', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ to: lineTargetIds, messages: [flexMessage] }),
-            });
+            try {
+                const lineRes = await fetch('https://api.line.me/v2/bot/message/multicast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ to: lineTargetIds, messages: [flexMessage] }),
+                });
+                if (!lineRes.ok) {
+                    const errData = await lineRes.json().catch(() => ({}));
+                    logError({ source: 'line', severity: 'critical', message: `LINE multicast failed: ${JSON.stringify(errData)}`, path: '/api/notify-repair', metadata: { ticketId, lineTargetIds } });
+                }
+            } catch (lineErr) {
+                logError({ source: 'line', severity: 'critical', message: `LINE multicast exception: ${String(lineErr)}`, path: '/api/notify-repair', metadata: { ticketId } });
+            }
         }
 
         // In-app notifications for all relevant staff
@@ -110,7 +113,11 @@ export async function POST(req: Request) {
                     metadata: { ticketId: ticketId ?? '' },
                 });
             });
-            await batch.commit();
+            try {
+                await batch.commit();
+            } catch (batchErr) {
+                logError({ source: 'batch', severity: 'critical', message: `In-app notification batch.commit failed: ${String(batchErr)}`, path: '/api/notify-repair', metadata: { ticketId, targetCount: uniqueUids.length } });
+            }
         }
 
         // FCM push — technician → /my-work, moderator → /admin/repairs
@@ -136,14 +143,18 @@ export async function POST(req: Request) {
                     tokens: techTokens,
                     notification: fcmNotification,
                     webpush: { fcmOptions: { link: `${appUrl}/my-work` } },
-                }).catch(() => {});
+                }).catch((err) => {
+                    logError({ source: 'fcm', severity: 'critical', message: `FCM technician multicast failed: ${String(err)}`, path: '/api/notify-repair', metadata: { ticketId, tokenCount: techTokens.length } });
+                });
             }
             if (modTokens.length > 0) {
                 await admin.messaging().sendEachForMulticast({
                     tokens: modTokens,
                     notification: fcmNotification,
                     webpush: { fcmOptions: { link: `${appUrl}/admin/repairs` } },
-                }).catch(() => {});
+                }).catch((err) => {
+                    logError({ source: 'fcm', severity: 'critical', message: `FCM moderator multicast failed: ${String(err)}`, path: '/api/notify-repair', metadata: { ticketId, tokenCount: modTokens.length } });
+                });
             }
         }
 

@@ -113,7 +113,6 @@ function ProfileContent() {
     // Handle LINE linking callback
     useEffect(() => {
         const action = searchParams.get('action');
-        const newLineUserId = searchParams.get('lineUserId');
         const error = searchParams.get('error');
 
         if (error) {
@@ -121,36 +120,25 @@ function ProfileContent() {
             setErrorMessage("ไม่สามารถเชื่อมต่อบัญชี LINE ได้ กรุณาลองใหม่อีกครั้ง");
         }
 
-        if (action === 'link_line' && newLineUserId && user) {
-            const newLineDisplayName = searchParams.get('lineDisplayName') || '';
-            const linkAccount = async () => {
+        // Server-side already wrote lineUserId to Firestore — just re-fetch user data
+        if (action === 'link_line_success' && user) {
+            const refreshAfterLink = async () => {
                 setLinkingStatus('linking');
                 try {
-                    const { setDoc, serverTimestamp } = await import("firebase/firestore");
-                    // Use setDoc+merge instead of updateDoc — works even if users/{uid} doc doesn't exist yet
-                    // (race condition: syncUserProfile in AuthContext creates the doc non-blocking)
-                    await setDoc(doc(db, "users", user.uid), {
-                        lineUserId: newLineUserId,
-                        lineDisplayName: newLineDisplayName
-                    }, { merge: true });
-                    await setDoc(doc(db, "line_bindings", newLineUserId), {
-                        uid: user.uid,
-                        email: user.email,
-                        displayName: user.displayName,
-                        lineDisplayName: newLineDisplayName,
-                        photoURL: user.photoURL,
-                        linkedAt: serverTimestamp()
-                    });
-                    setLineUserId(newLineUserId);
+                    const userDocSnap = await getDoc(doc(db, "users", user.uid));
+                    if (userDocSnap.exists()) {
+                        const freshLineUserId = userDocSnap.data()?.lineUserId || null;
+                        setLineUserId(freshLineUserId);
+                    }
                     setLinkingStatus('success');
                     router.replace('/profile');
                 } catch (err) {
-                    console.error("Error linking account:", err);
+                    console.error("Error refreshing LINE link status:", err);
                     setLinkingStatus('error');
                     setErrorMessage("ไม่สามารถบันทึกข้อมูล LINE ได้");
                 }
             };
-            linkAccount();
+            refreshAfterLink();
         }
 
         const checkLiffStatus = async () => {
@@ -279,9 +267,22 @@ function ProfileContent() {
         }
     };
 
-    const handleConnectLine = () => {
+    const handleConnectLine = async () => {
         if (!user) return;
-        window.location.href = `/api/line/login?userId=${user.uid}`;
+        try {
+            const idToken = await user.getIdToken();
+            const res = await fetch(`/api/line/login?userId=${user.uid}`, {
+                headers: { Authorization: `Bearer ${idToken}` },
+            });
+            if (!res.ok) {
+                console.error('[handleConnectLine] Failed to initiate LINE login');
+                return;
+            }
+            const { redirectUrl } = await res.json();
+            window.location.href = redirectUrl;
+        } catch (err) {
+            console.error('[handleConnectLine] Error:', err);
+        }
     };
 
     const openHistoryModal = (type: HistoryType) => {

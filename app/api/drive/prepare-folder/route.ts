@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prepareFolderPath } from '@/lib/googleDrive';
 import { getThaiAcademicYear, getThaiMonthName } from '@/lib/academicYear';
-import { adminAuth } from '@/lib/firebaseAdmin';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 
 // Route segment config for App Router
 export const maxDuration = 15;
@@ -28,7 +28,12 @@ export async function POST(req: NextRequest) {
 
         const token = authHeader.split('Bearer ')[1];
         try {
-            await adminAuth.verifyIdToken(token);
+            const decoded = await adminAuth.verifyIdToken(token);
+            const userDoc = await adminDb.collection('users').doc(decoded.uid).get();
+            const role = userDoc.data()?.role;
+            if (!['photographer', 'moderator', 'admin'].includes(role)) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
         } catch {
             return NextResponse.json(
                 { error: 'Unauthorized: Invalid or expired token' },
@@ -39,7 +44,11 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         const { eventName, jobDate: jobDateStr } = body;
 
-        if (!eventName || !jobDateStr) {
+        if (!eventName || typeof eventName !== 'string' || eventName.trim().length === 0) {
+            return NextResponse.json({ error: 'Invalid eventName' }, { status: 400 });
+        }
+
+        if (!jobDateStr) {
             return NextResponse.json(
                 { error: 'Missing required fields (eventName, jobDate)' },
                 { status: 400 }

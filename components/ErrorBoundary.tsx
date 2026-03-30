@@ -35,14 +35,23 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
         this.setState({ errorInfo });
 
-        // Log error to console in development
         if (process.env.NODE_ENV === 'development') {
             console.error("Error Boundary caught:", error);
             console.error("Error Info:", errorInfo);
         }
 
-        // Optional: Integrate error logging service (e.g., Sentry, LogRocket) for production monitoring
-        // Example: Sentry.captureException(error, { extra: errorInfo });
+        // Log to crms6it error monitoring
+        fetch('/api/errors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source: 'client',
+                severity: 'high',
+                message: error.message,
+                stack: error.stack?.slice(0, 1000),
+                path: typeof window !== 'undefined' ? window.location.pathname : undefined,
+            }),
+        }).catch(() => {});
     }
 
     handleReload = (): void => {

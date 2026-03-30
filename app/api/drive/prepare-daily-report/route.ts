@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prepareDailyReportFolderPath } from '@/lib/googleDrive';
 import { getThaiAcademicYear, getThaiMonthName } from '@/lib/academicYear';
-import { adminAuth } from '@/lib/firebaseAdmin';
+import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 
 export const maxDuration = 15;
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,12 @@ export async function POST(req: NextRequest) {
 
         const token = authHeader.split('Bearer ')[1];
         try {
-            await adminAuth.verifyIdToken(token);
+            const decoded = await adminAuth.verifyIdToken(token);
+            const userDoc = await adminDb.collection('users').doc(decoded.uid).get();
+            const role = userDoc.data()?.role;
+            if (!['photographer', 'moderator', 'admin'].includes(role)) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
         } catch {
             return NextResponse.json(
                 { error: 'Unauthorized: Invalid or expired token' },

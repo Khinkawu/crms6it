@@ -59,6 +59,10 @@ export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepa
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RepairTicket)));
             setLoading(false);
+        }, (err) => {
+            console.error('[useRepairTickets] onSnapshot error:', err);
+            setLoading(false);
+            fetch('/api/errors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'firestore', severity: 'critical', message: err.message, path: 'repair_tickets/onSnapshot' }) }).catch(() => {});
         });
 
         return () => unsubscribe();
@@ -80,6 +84,9 @@ export function useRepairTickets(options: UseRepairTicketsOptions = {}): UseRepa
             } as Product));
             // Filter only bulk items with available quantity
             setInventory(items.filter(i => (i.quantity || 0) > 0));
+        }, (err) => {
+            console.error('[useRepairTickets] products onSnapshot error:', err);
+            fetch('/api/errors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'firestore', severity: 'high', message: err.message, path: 'products/onSnapshot' }) }).catch(() => {});
         });
 
         return () => unsubscribe();

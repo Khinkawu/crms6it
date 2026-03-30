@@ -1,27 +1,31 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import admin from 'firebase-admin';
 import { logWebEvent } from '@/lib/analytics';
 
 export async function POST(req: Request) {
     try {
-        // ─── Auth (same pattern as notify-repair) ────────────────────────────
-        const apiKey = req.headers.get('x-api-key');
-        const internalKey = req.headers.get('x-internal-request');
-        const origin = req.headers.get('origin') || req.headers.get('referer') || '';
-
-        const validApiKey = process.env.CRMS_API_SECRET_KEY;
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
-
-        const isValidApiKey = validApiKey && apiKey === validApiKey;
-        const isSameOrigin = origin.startsWith(appUrl) || origin.startsWith('http://localhost');
-        const isInternalRequest = internalKey === 'true';
-
-        if (!isValidApiKey && !isSameOrigin && !isInternalRequest) {
-            console.warn('[notify-booking-result] Unauthorized access from:', origin);
+        // ─── Auth: Firebase Bearer + admin/moderator role ─────────────────────
+        const authHeader = req.headers.get('Authorization') || '';
+        const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        if (!idToken) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        let callerUid: string;
+        try {
+            const decoded = await adminAuth.verifyIdToken(idToken);
+            callerUid = decoded.uid;
+        } catch {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const callerDoc = await adminDb.collection('users').doc(callerUid).get();
+        const callerRole = callerDoc.data()?.role;
+        if (callerRole !== 'admin' && callerRole !== 'moderator') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
 
         // ─── Parse body ───────────────────────────────────────────────────────
         const body = await req.json();
@@ -93,10 +97,8 @@ export async function POST(req: Request) {
             await adminDb.collection('users').doc(requesterId).update({
                 fcmTokens: FieldValue.arrayRemove(...invalidTokens),
             });
-            console.log(`[notify-booking-result] Removed ${invalidTokens.length} invalid token(s) for user ${requesterId}`);
         }
 
-        console.log(`[notify-booking-result] status=${status} requesterId=${requesterId} success=${result.successCount} fail=${result.failureCount}`);
 
         logWebEvent({
             eventType: status === 'approved' ? 'booking_approve' : 'booking_reject',

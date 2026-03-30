@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Calendar, MapPin, ExternalLink, Save, CheckCircle2, UploadCloud, Image as ImageIcon, Facebook, XCircle, Eye, Wand2 } from "lucide-react";
+import { X, Calendar, MapPin, ExternalLink, Save, CheckCircle2, UploadCloud, Image as ImageIcon, Facebook, XCircle, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { db, storage, auth } from "@/lib/firebase";
@@ -600,25 +600,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                                                         {fb.facebookEnabled[job.id!] && (
                                                             <div className="space-y-4 pl-6 border-l-2 border-blue-100 dark:border-blue-900/50 ml-2">
                                                                 <div>
-                                                                    <div className="flex items-center justify-between mb-2">
-                                                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Caption</label>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => fb.generateAutoCaption(
-                                                                                job.id!,
-                                                                                job.title || '',
-                                                                                job.location || '',
-                                                                                job.startTime ? getBangkokDateString(job.startTime.toDate()) : undefined,
-                                                                                job.description || '',
-                                                                                job.bookingId || undefined
-                                                                            )}
-                                                                            disabled={fb.isGeneratingCaption[job.id!]}
-                                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-100 focus:ring-2 focus:ring-gray-400 disabled:opacity-50 transition-all"
-                                                                        >
-                                                                            <Wand2 size={14} className={fb.isGeneratingCaption[job.id!] ? "animate-pulse" : ""} />
-                                                                            {fb.isGeneratingCaption[job.id!] ? 'กำลังสร้างด้วย AI...' : '✨ สร้างแคปชั่นอัตโนมัติ (AI)'}
-                                                                        </button>
-                                                                    </div>
+                                                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Caption</label>
                                                                     <textarea
                                                                         value={fb.facebookCaption[job.id!] || ''}
                                                                         onChange={(e) => fb.setFacebookCaption(prev => ({ ...prev, [job.id!]: e.target.value }))}
@@ -626,9 +608,6 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                                                                         className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500"
                                                                         placeholder="เขียนข้อความสำหรับโพส..."
                                                                     />
-                                                                    <p className="mt-1.5 text-[11px] text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                                                                        <span aria-label="lightbulb">💡</span> AI จะถูกลอกกำหนดการและรายชื่อจาก &ldquo;ข้อมูลจองห้อง&rdquo; มาเขียนแคปชั่นให้อัตโนมัติ (หากมี)
-                                                                    </p>
                                                                 </div>
 
                                                                 {/* Draft Mode Toggle */}
