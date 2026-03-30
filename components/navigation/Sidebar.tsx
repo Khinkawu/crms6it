@@ -31,6 +31,7 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
         { name: "Overview", nameTh: "ภาพรวม", icon: Home, path: "/" },
         { name: "แจ้งซ่อม", nameTh: "แจ้งซ่อม", icon: Wrench, path: "/repair" },
         { name: "จองห้อง / คิว", nameTh: "จองห้อง / คิว", icon: Calendar, path: "/booking" },
+        ...(role === 'user' ? [{ name: "คำขอของฉัน", nameTh: "คำขอของฉัน", icon: ClipboardList, path: "/my-requests" }] : []),
         { name: "สถานะทีมโสตฯ", nameTh: "สถานะทีมโสตฯ", icon: Users, path: "/team-status" },
         { name: "ภาพกิจกรรม", nameTh: "ภาพกิจกรรม", icon: Camera, path: "/gallery" },
         { name: "คลังวิดีโอ", nameTh: "คลังวิดีโอ", icon: Video, path: "/video-gallery" },
