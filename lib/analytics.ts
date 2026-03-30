@@ -13,6 +13,8 @@ export type WebEventType =
     | 'booking_create'
     | 'booking_approve'
     | 'booking_reject'
+    | 'booking_cancel'
+    | 'booking_edit'
     | 'photo_upload'
     | 'photo_assign'
     | 'gallery_view'

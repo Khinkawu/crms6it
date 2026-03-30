@@ -30,13 +30,17 @@ export default function BottomNavigation() {
     const isModerator = role === 'admin' || role === 'moderator';
     const canAssignPhotoJobs = role === 'admin';
 
-    // Main nav items - change last item based on role
+    // Main nav items — user role gets "คำขอของฉัน" in place of last item
+    const isRegularUser = role === 'user';
     const navItems = [
         { name: "หน้าหลัก", icon: Home, path: "/" },
         { name: "แจ้งซ่อม", icon: Wrench, path: "/repair" },
         { name: "action", icon: Plus, path: null }, // FAB placeholder
         { name: "จองห้อง", icon: Calendar, path: "/booking" },
-        { name: "เพิ่มเติม", icon: MoreHorizontal, path: "more" },
+        ...(isRegularUser
+            ? [{ name: "คำขอของฉัน", icon: ClipboardList, path: "/my-requests" }]
+            : [{ name: "เพิ่มเติม", icon: MoreHorizontal, path: "more" }]
+        ),
     ];
 
     // FAB quick actions - role-based for admin
@@ -53,9 +57,10 @@ export default function BottomNavigation() {
         ] : []),
     ];
 
-    // More menu items for admin
+    // More menu items
     const moreMenuItems = [
         { name: "โปรไฟล์", icon: User, path: "/profile", roles: ["user", "admin", "moderator", "technician", "facility_technician"] },
+        { name: "คำขอของฉัน", icon: ClipboardList, path: "/my-requests", roles: ["user"] },
         { name: "Analytics", icon: TrendingUp, path: "/admin/analytics", roles: ["admin"] },
         { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "moderator", "technician", "facility_technician"], action: () => setReportModalOpen(true) },
         { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician", "facility_technician"], allowPhotographer: true },
