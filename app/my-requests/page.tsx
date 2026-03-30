@@ -26,10 +26,7 @@ export default function MyRequestsPage() {
         email: user?.email ?? '',
     });
 
-    if (authLoading) return <PageSkeleton />;
-    if (!user) { router.push('/login'); return null; }
-
-    // Merge IT + Facility repairs, sort by createdAt desc
+    // useMemo must be before any early returns (Rules of Hooks)
     const allRepairs = useMemo(() => {
         const it = repairs.map(r => ({ ticket: r, type: 'it' as const }));
         const facility = facilityTickets.map(f => ({ ticket: f, type: 'facility' as const }));
@@ -39,6 +36,9 @@ export default function MyRequestsPage() {
             return bMs - aMs;
         });
     }, [repairs, facilityTickets]);
+
+    if (authLoading) return <PageSkeleton />;
+    if (!user) { router.push('/login'); return null; }
 
     const tabs: { key: Tab; label: string; icon: React.ElementType; count: number }[] = [
         { key: 'repairs', label: 'แจ้งซ่อม', icon: Wrench, count: allRepairs.length },
