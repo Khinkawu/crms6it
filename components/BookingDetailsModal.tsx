@@ -78,22 +78,51 @@ export default function BookingDetailsModal({ isOpen, onClose, event }: BookingD
                             </div>
                         </div>
 
-                        <div>
-                            <p className="text-white/70 text-sm font-medium uppercase tracking-wider mb-1">{data.isPhotographyJob ? 'ช่างภาพ' : 'ผู้จอง'}</p>
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                                    <User size={20} />
-                                </div>
-                                <div>
-                                    <p className="font-bold text-lg">{event.requesterName}</p>
-                                    {(data.position || data.department) && (
-                                        <p className="text-white/80 text-sm">
-                                            {data.position} {data.department && `• ${data.department}`}
-                                        </p>
-                                    )}
+                        {data.isPhotographyJob ? (
+                            <>
+                                {/* ผู้จอง */}
+                                {data.requestName && (
+                                    <div>
+                                        <p className="text-white/70 text-sm font-medium uppercase tracking-wider mb-1">ผู้จอง</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                                <User size={20} />
+                                            </div>
+                                            <p className="font-bold text-lg">{data.requestName}</p>
+                                        </div>
+                                    </div>
+                                )}
+                                {/* โสต */}
+                                {data.assigneeNames && data.assigneeNames.length > 0 && (
+                                    <div>
+                                        <p className="text-white/70 text-sm font-medium uppercase tracking-wider mb-1">📷 โสต</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                                <Users size={20} />
+                                            </div>
+                                            <p className="font-bold text-lg">{data.assigneeNames.length >= 5 ? 'โสตฯ ทุกคน' : data.assigneeNames.join(', ')}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div>
+                                <p className="text-white/70 text-sm font-medium uppercase tracking-wider mb-1">ผู้จอง</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                        <User size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-lg">{event.requesterName}</p>
+                                        {(data.position || data.department) && (
+                                            <p className="text-white/80 text-sm">
+                                                {data.position} {data.department && `• ${data.department}`}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
 

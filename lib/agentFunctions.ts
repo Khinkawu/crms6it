@@ -797,24 +797,26 @@ export async function checkRoomAvailability(room: string, date: string, startTim
 export async function getRoomSchedule(room: string, date: string): Promise<any[]> {
     try {
         const normalizedRoom = ROOM_MAPPING[room.toLowerCase()] || room;
+        const roomDisplayName = ROOM_NAME_DISPLAY[normalizedRoom] || room;
         const { start, end } = getThaiDateRange(date);
 
-        const snapshot = await adminDb.collection('bookings')
+        // 1. Query bookings
+        const bookingSnapshot = await adminDb.collection('bookings')
             .where('roomId', '==', normalizedRoom)
             .where('startTime', '>=', start)
             .where('startTime', '<=', end)
             .where('status', 'in', ['pending', 'approved', 'confirmed'])
             .get();
 
-        const bookings: any[] = [];
-        snapshot.forEach((doc) => {
+        const results: any[] = [];
+        bookingSnapshot.forEach((doc) => {
             const data = doc.data();
             const startDT = data.startTime?.toDate ? data.startTime.toDate() : new Date(data.startTime);
             const endDT = data.endTime?.toDate ? data.endTime.toDate() : new Date(data.endTime);
             const thStartDT = new Date(startDT.getTime() + (7 * 60 * 60 * 1000));
             const thEndDT = new Date(endDT.getTime() + (7 * 60 * 60 * 1000));
 
-            bookings.push({
+            results.push({
                 id: doc.id,
                 title: data.title,
                 room: getRoomDisplayName(data.room || data.roomId),
@@ -822,12 +824,46 @@ export async function getRoomSchedule(room: string, date: string): Promise<any[]
                 requester: data.requesterName,
                 startTime: `${thStartDT.getUTCHours().toString().padStart(2, '0')}:${thStartDT.getUTCMinutes().toString().padStart(2, '0')}`,
                 endTime: `${thEndDT.getUTCHours().toString().padStart(2, '0')}:${thEndDT.getUTCMinutes().toString().padStart(2, '0')}`,
+                isPhotographyJob: false,
                 rawStart: data.startTime
             });
         });
 
-        bookings.sort((a, b) => (a.rawStart?.toMillis?.() || 0) - (b.rawStart?.toMillis?.() || 0));
-        return bookings.map(({ rawStart, ...rest }) => rest);
+        // 2. Query photography_jobs for the same date range
+        const photoSnapshot = await adminDb.collection('photography_jobs')
+            .where('startTime', '>=', start)
+            .where('startTime', '<=', end)
+            .get();
+
+        // Loose match: photography_jobs store location as free text
+        const roomKeywords = [room.toLowerCase(), normalizedRoom.toLowerCase(), roomDisplayName.toLowerCase()];
+        photoSnapshot.forEach((doc) => {
+            const data = doc.data();
+            const jobLocation = (data.location || '').toLowerCase();
+            const isMatch = roomKeywords.some(kw => jobLocation.includes(kw) || kw.includes(jobLocation));
+            if (!isMatch || data.status === 'cancelled') return;
+
+            const startDT = data.startTime?.toDate ? data.startTime.toDate() : new Date(data.startTime);
+            const endDT = data.endTime?.toDate ? data.endTime.toDate() : new Date(data.endTime);
+            const thStartDT = new Date(startDT.getTime() + (7 * 60 * 60 * 1000));
+            const thEndDT = new Date(endDT.getTime() + (7 * 60 * 60 * 1000));
+
+            results.push({
+                id: `photo_${doc.id}`,
+                title: `📸 ${data.title}`,
+                room: getRoomDisplayName(data.location || ''),
+                status: data.status,
+                requester: data.requestName || '',
+                assigneeNames: data.assigneeNames || [],
+                startTime: `${thStartDT.getUTCHours().toString().padStart(2, '0')}:${thStartDT.getUTCMinutes().toString().padStart(2, '0')}`,
+                endTime: `${thEndDT.getUTCHours().toString().padStart(2, '0')}:${thEndDT.getUTCMinutes().toString().padStart(2, '0')}`,
+                isPhotographyJob: true,
+                rawStart: data.startTime
+            });
+        });
+
+        results.sort((a, b) => (a.rawStart?.toMillis?.() || 0) - (b.rawStart?.toMillis?.() || 0));
+        return results.map(({ rawStart, ...rest }) => rest);
     } catch (error) {
         logger.error('Booking Queries', 'Error getting room schedule', error);
         return [];

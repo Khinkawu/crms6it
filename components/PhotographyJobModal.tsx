@@ -206,6 +206,7 @@ export default function PhotographyJobModal({ isOpen, onClose, requesterId, phot
                 assigneeIds,
                 assigneeNames,
                 requesterId,
+                requestName: auth.currentUser?.displayName || '',
                 status: 'assigned',
                 createdAt: serverTimestamp(),
                 isManualEntry: !selectedSourceId,

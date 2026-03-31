@@ -14,6 +14,7 @@ export interface BookingEvent {
     resource?: any;
     roomName: string;
     requesterName: string;
+    assigneeNames?: string[]; // โสตที่ถูกมอบหมายถ่ายภาพ
     status: string;
     needsPhotographer?: boolean;
     eventType?: 'booking' | 'photography'; // New: distinguish event types
@@ -137,7 +138,8 @@ export function useBookings(options: UseBookingsOptions = {}): UseBookingsReturn
                         start: data.startTime.toDate(),
                         end: data.endTime.toDate(),
                         roomName: data.location || '',
-                        requesterName: data.assigneeNames?.join(', ') || '',
+                        requesterName: data.requestName || '',
+                        assigneeNames: data.assigneeNames || [],
                         status: data.status,
                         resource: { ...data, isPhotographyJob: true },
                         eventType: 'photography' as const

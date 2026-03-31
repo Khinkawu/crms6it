@@ -20,10 +20,19 @@ const AgendaEvent = ({ event }: { event: BookingEvent }) => (
             <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
                 📍 {event.roomName}
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                👤 {event.requesterName}
-            </div>
+            {event.requesterName && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                    👤 {event.requesterName}
+                </div>
+            )}
         </div>
+        {event.assigneeNames && event.assigneeNames.length > 0 && (
+            <div className="flex flex-wrap gap-1 items-center">
+                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                    📷 โสต: {event.assigneeNames.length >= 5 ? 'โสตฯ ทุกคน' : event.assigneeNames.join(', ')}
+                </div>
+            </div>
+        )}
     </div>
 );
 

@@ -339,7 +339,17 @@ async function handleRoomSchedule(params: Record<string, unknown>): Promise<stri
     if (schedule.length === 0) return `📅 ตาราง ${getRoomDisplayName(room)} (${displayDate})\n\n✅ ว่างทั้งวันค่ะ`;
 
     const scheduleList = schedule.map(booking => {
-        return `(${displayDate}) ${booking.startTime} - ${booking.endTime}\n${booking.title || 'ไม่ระบุหัวข้อ'}\nผู้จอง ${booking.requester || 'ไม่ระบุชื่อ'}`;
+        let line = `(${displayDate}) ${booking.startTime} - ${booking.endTime}\n${booking.title || 'ไม่ระบุหัวข้อ'}`;
+        if (booking.isPhotographyJob) {
+            if (booking.requester) line += `\n👤 ผู้จอง: ${booking.requester}`;
+            if (booking.assigneeNames && booking.assigneeNames.length > 0) {
+                const names = booking.assigneeNames.length >= 5 ? 'โสตฯ ทุกคน' : booking.assigneeNames.join(', ');
+                line += `\n📷 โสต: ${names}`;
+            }
+        } else {
+            line += `\nผู้จอง ${booking.requester || 'ไม่ระบุชื่อ'}`;
+        }
+        return line;
     }).join('\n\n');
 
     return `📅 ตาราง ${getRoomDisplayName(schedule[0]?.room || room)} (${displayDate})\n\n${scheduleList}`;
@@ -507,12 +517,10 @@ async function handleGallerySearchWithResults(params: Record<string, unknown>): 
         const dateDesc = searchDate ? new Date(searchDate).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) : '';
 
         let noResultMsg = `ไม่พบภาพกิจกรรม${kwDesc}${dateDesc ? ` ${dateDesc}` : ''} ค่ะ\n\n`;
-        noResultMsg += `ลองปรับคำค้นหาใหม่ได้ค่ะ เช่น\n`;
-        noResultMsg += `- ใช้คำทั่วไปแทนชื่อกิจกรรมเต็ม (เช่น "กีฬาสี" แทน "กีฬาสีประจำปี")\n`;
-        noResultMsg += `- ลองใช้คำอื่นที่มีความหมายใกล้เคียง`;
-        if (isBeforeCutoff) {
-            noResultMsg += `\n\n⚠️ ระบบเก็บข้อมูลภาพตั้งแต่ 15 ธันวาคม 2568 เป็นต้นมาค่ะ กิจกรรมก่อนหน้านั้นอาจไม่มีในระบบ`;
-        }
+        noResultMsg += `ลองปรับคำค้นหาใหม่ได้ค่ะ เช่น\n\n`;
+        noResultMsg += `ใช้คำทั่วไปแทนชื่อกิจกรรมเต็ม\n`;
+        noResultMsg += `ลองใช้คำอื่นที่มีความหมายใกล้เคียง`;
+        noResultMsg += `\n\n⚠️ ระบบเก็บข้อมูลภาพตั้งแต่ 15 ธันวาคม 2568 เป็นต้นมาค่ะ กิจกรรมก่อนหน้านั้นอาจไม่มีในระบบ`;
         return { message: noResultMsg };
     }
 
