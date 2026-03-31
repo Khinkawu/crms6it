@@ -54,7 +54,7 @@ export default function AddFacilityInventoryPage() {
 
     if (authLoading) return <div className="p-8 text-center text-gray-500">กำลังโหลด...</div>;
     if (!user || !hasAccess) {
-        if (typeof window !== 'undefined') router.push('/admin/dashboard');
+        if (typeof window !== 'undefined') router.push('/manage/dashboard');
         return null;
     }
 
@@ -195,7 +195,7 @@ export default function AddFacilityInventoryPage() {
             });
 
             toast.success("เพิ่มวัสดุ/อุปกรณ์ใหม่เข้าคลังอาคารเรียบร้อยแล้ว");
-            router.push('/admin/inventory?tab=facility');
+            router.push('/manage/inventory?tab=facility');
 
         } catch (err: any) {
             console.error("Error adding facility inventory:", err);

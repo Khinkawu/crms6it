@@ -336,12 +336,12 @@ export default function AdminDashboard() {
                 </div>
             ) : (
                 <div className="grid grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {showRepairs && <MiniStat label="งานซ่อม (โสตฯ) รอ" value={actionable.repairsPending} icon={Wrench} iconBg="bg-rose-50 dark:bg-rose-900/20" iconColor="text-rose-500" href="/admin/repairs" />}
-                    {showFacilityRepairs && <MiniStat label="ซ่อมอาคารรอ" value={actionable.facilityPending} icon={Building2} iconBg="bg-amber-50 dark:bg-amber-900/20" iconColor="text-amber-500" href="/admin/repairs?tab=facility" />}
-                    {showBookings && <MiniStat label="การจองรออนุมัติ" value={actionable.bookingsPending} icon={Calendar} iconBg="bg-orange-50 dark:bg-orange-900/20" iconColor="text-orange-500" href="/admin/bookings" />}
-                    {showInventory && <MiniStat label="อุปกรณ์ใกล้หมด" value={actionable.inventoryLowStock} icon={Package} iconBg="bg-blue-50 dark:bg-blue-900/20" iconColor="text-blue-500" href="/admin/inventory" />}
+                    {showRepairs && <MiniStat label="งานซ่อม (โสตฯ) รอ" value={actionable.repairsPending} icon={Wrench} iconBg="bg-rose-50 dark:bg-rose-900/20" iconColor="text-rose-500" href="/manage/repairs" />}
+                    {showFacilityRepairs && <MiniStat label="ซ่อมอาคารรอ" value={actionable.facilityPending} icon={Building2} iconBg="bg-amber-50 dark:bg-amber-900/20" iconColor="text-amber-500" href="/manage/repairs?tab=facility" />}
+                    {showBookings && <MiniStat label="การจองรออนุมัติ" value={actionable.bookingsPending} icon={Calendar} iconBg="bg-orange-50 dark:bg-orange-900/20" iconColor="text-orange-500" href="/manage/bookings" />}
+                    {showInventory && <MiniStat label="อุปกรณ์ใกล้หมด" value={actionable.inventoryLowStock} icon={Package} iconBg="bg-blue-50 dark:bg-blue-900/20" iconColor="text-blue-500" href="/manage/inventory" />}
                     {showUsers && <MiniStat label="ผู้ใช้งานรวม" value={performance.users.total} icon={Users} iconBg="bg-indigo-50 dark:bg-indigo-900/20" iconColor="text-indigo-500" href="/admin/users" />}
-                    {showPhotography && <MiniStat label="ถ่ายภาพ (เสร็จ/รวม)" value={`${performance.photography.completed}/${performance.photography.total}`} icon={Camera} iconBg="bg-purple-50 dark:bg-purple-900/20" iconColor="text-purple-500" href="/admin/photography" />}
+                    {showPhotography && <MiniStat label="ถ่ายภาพ (เสร็จ/รวม)" value={`${performance.photography.completed}/${performance.photography.total}`} icon={Camera} iconBg="bg-purple-50 dark:bg-purple-900/20" iconColor="text-purple-500" href="/manage/photography" />}
                 </div>
             )}
 
@@ -355,7 +355,7 @@ export default function AdminDashboard() {
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                                 <Wrench size={16} className="text-gray-400" /> สัดส่วนงานซ่อม
                             </h2>
-                            <Link href="/admin/repairs" className="text-xs text-gray-400 hover:text-gray-600 font-medium">ดูทั้งหมด →</Link>
+                            <Link href="/manage/repairs" className="text-xs text-gray-400 hover:text-gray-600 font-medium">ดูทั้งหมด →</Link>
                         </div>
                         <DonutChart data={repairDonut} centerLabel="ทั้งหมด" centerValue={repairTotal} />
                         <div className="flex flex-wrap gap-3 justify-center mt-2">
@@ -374,7 +374,7 @@ export default function AdminDashboard() {
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                                 <Building2 size={16} className="text-gray-400" /> สัดส่วนซ่อมอาคาร
                             </h2>
-                            <Link href="/admin/repairs?tab=facility" className="text-xs text-gray-400 hover:text-gray-600 font-medium">ดูทั้งหมด →</Link>
+                            <Link href="/manage/repairs?tab=facility" className="text-xs text-gray-400 hover:text-gray-600 font-medium">ดูทั้งหมด →</Link>
                         </div>
                         <DonutChart data={facilityRepairDonut} centerLabel="ทั้งหมด" centerValue={facilityTotal} />
                         <div className="flex flex-wrap gap-3 justify-center mt-2">

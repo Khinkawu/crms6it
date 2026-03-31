@@ -214,7 +214,7 @@ export default function Dashboard() {
         ...(!isAdminRole ? [{ icon: CalendarIcon, title: "จองห้อง / คิว", description: "จองห้องหรือคิวช่างภาพ", href: "/booking" }] : []),
         { icon: Camera, title: "ภาพกิจกรรม", description: "ประมวลภาพกิจกรรม", href: "/gallery" },
         ...(!isAdminRole ? [{ icon: Video, title: "คลังวิดีโอ", description: "รวมวิดีโอกิจกรรม", href: "/video-gallery" }] : []),
-        ...(isAdminRole ? [{ icon: CalendarIcon, title: "จัดการการจอง", description: "อนุมัติและติดตามการจอง", href: "/admin/bookings" }] : []),
+        ...(isAdminRole ? [{ icon: CalendarIcon, title: "จัดการการจอง", description: "อนุมัติและติดตามการจอง", href: "/manage/bookings" }] : []),
         { icon: UserCircle, title: "โปรไฟล์", description: "ข้อมูลและการตั้งค่าบัญชี", href: "/profile" },
         ...(!isAdminRole ? [{ icon: AlertCircle, title: "แจ้งปัญหา", description: "รายงานปัญหาการใช้งาน", onClick: () => setIsReportModalOpen(true) }] : []),
         ...(isPhotographer ? [{ icon: Camera, title: "งานของฉัน", description: "ดูภาพรวมและประวัติงาน", href: "/my-work", badge: pendingPhotoJobsCount }] : []),

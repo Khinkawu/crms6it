@@ -2,6 +2,25 @@ import path from 'path';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    async redirects() {
+        const moved = [
+            'command-center', 'repairs', 'bookings', 'photography',
+            'inventory', 'dashboard', 'knowledge-base', 'team-status',
+            'add-product', 'repair',
+        ];
+        return [
+            ...moved.map(p => ({
+                source: `/admin/${p}`,
+                destination: `/manage/${p}`,
+                permanent: true,
+            })),
+            ...moved.map(p => ({
+                source: `/admin/${p}/:path*`,
+                destination: `/manage/${p}/:path*`,
+                permanent: true,
+            })),
+        ];
+    },
     async headers() {
         return [
             {

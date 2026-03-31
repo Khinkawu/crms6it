@@ -59,15 +59,15 @@ export default function BottomNavigation() {
         { name: "Analytics", icon: TrendingUp, path: "/admin/analytics", roles: ["admin"] },
         { name: "แจ้งปัญหาการใช้งาน", icon: AlertCircle, path: null, roles: ["user", "moderator", "technician", "facility_technician", "atlas"], action: () => setReportModalOpen(true) },
         { name: "งานของฉัน", icon: ClipboardList, path: "/my-work", roles: ["technician", "facility_technician"], allowPhotographer: true },
-        { name: "Command Center", icon: LayoutDashboard, path: "/admin/command-center", roles: ["admin", "moderator", "technician", "facility_technician", "atlas"], allowPhotographer: true },
+        { name: "Command Center", icon: LayoutDashboard, path: "/manage/command-center", roles: ["admin", "moderator", "technician", "facility_technician", "atlas"], allowPhotographer: true },
         // Admin simplification: Hide these from mobile "More" menu for admins (they can use Command Center)
         { name: "สถานะทีมโสตฯ", icon: Users, path: "/team-status", roles: ["user", "admin", "moderator", "technician", "facility_technician", "atlas"], allowPhotographer: true },
         { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician", "facility_technician", "atlas"] },
         { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician", "facility_technician", "atlas"] },
-        { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician", "admin", "facility_technician"], allowAtlasRepair: true },
-        { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
-        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "atlas"] },
-        { name: "คลังโสตฯ", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
+        { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/manage/repairs", roles: ["moderator", "technician", "admin", "facility_technician"], allowAtlasRepair: true },
+        { name: "จัดการการจอง", icon: Calendar, path: "/manage/bookings", roles: ["moderator"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/manage/photography", roles: ["admin", "atlas"] },
+        { name: "คลังโสตฯ", icon: Package, path: "/manage/inventory", roles: ["admin", "technician"], allowPhotographer: true },
         { name: "คลังอาคาร", icon: Package, path: "/admin/facility/inventory", roles: ["facility_technician"] },
         { name: "จัดการผู้ใช้", icon: Settings, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
@@ -88,7 +88,7 @@ export default function BottomNavigation() {
             return isBasePathMatch && searchParams.get('tab') === targetTab;
         }
 
-        if (path === '/admin/repairs') {
+        if (path === '/manage/repairs') {
             return isBasePathMatch && (searchParams.get('tab') === 'it' || !searchParams.get('tab'));
         }
 

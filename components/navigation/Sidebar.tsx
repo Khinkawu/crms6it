@@ -38,12 +38,12 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
     ];
 
     const adminItems = [
-        { name: "Command Center", icon: LayoutDashboard, path: "/admin/command-center", roles: ["admin", "moderator"] },
-        { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"], allowAtlasRepair: true },
-        { name: "จัดการซ่อมอาคาร", icon: Building2, path: "/admin/repairs?tab=facility", roles: ["facility_technician"] },
-        { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["admin", "moderator"] },
-        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "atlas"] },
-        { name: "คลังโสตฯ", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
+        { name: "Command Center", icon: LayoutDashboard, path: "/manage/command-center", roles: ["admin", "moderator"] },
+        { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/manage/repairs", roles: ["admin", "moderator", "technician"], allowAtlasRepair: true },
+        { name: "จัดการซ่อมอาคาร", icon: Building2, path: "/manage/repairs?tab=facility", roles: ["facility_technician"] },
+        { name: "จัดการการจอง", icon: Calendar, path: "/manage/bookings", roles: ["admin", "moderator"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/manage/photography", roles: ["admin", "atlas"] },
+        { name: "คลังโสตฯ", icon: Package, path: "/manage/inventory", roles: ["admin", "technician"], allowPhotographer: true },
         { name: "คลังอาคาร", icon: Package, path: "/admin/facility/inventory", roles: ["facility_technician"] },
         { name: "ผู้ใช้", icon: Users, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
@@ -59,7 +59,7 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
             const targetTab = new URLSearchParams(query).get('tab');
             return isBasePathMatch && searchParams.get('tab') === targetTab;
         }
-        if (path === '/admin/repairs' || path === '/repair') {
+        if (path === '/manage/repairs' || path === '/repair') {
             return isBasePathMatch && (searchParams.get('tab') === 'it' || !searchParams.get('tab'));
         }
         return isBasePathMatch;

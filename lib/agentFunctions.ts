@@ -192,7 +192,7 @@ async function notifyTechniciansDirectly(data: {
         }
 
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
-        const deepLink = `${appUrl}/admin/repairs?ticketId=${data.ticketId}`;
+        const deepLink = `${appUrl}/manage/repairs?ticketId=${data.ticketId}`;
         const validImageUrl = data.imageOneUrl && data.imageOneUrl.startsWith('https://') ? data.imageOneUrl : undefined;
 
         const flexMessage = createRepairNewFlexMessage({
@@ -559,7 +559,7 @@ async function notifyFacilityTechnicianDirectly(data: {
         }
 
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
-        const deepLink = `${appUrl}/admin/repairs?ticketId=${data.ticketId}`;
+        const deepLink = `${appUrl}/manage/repairs?ticketId=${data.ticketId}`;
         const validImageUrl = data.imageOneUrl?.startsWith('https://') ? data.imageOneUrl : undefined;
 
         const flexMessage = createFacilityNewFlexMessage({

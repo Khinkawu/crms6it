@@ -286,7 +286,7 @@ export async function POST(request: Request) {
                     type: 'booking_group_pending',
                     title: `คำขอจองกลุ่ม: ${formData.title}`,
                     body: `${roomOrLocation} — ${formData.requesterName} · ${summary}`,
-                    linkTo: '/admin/bookings',
+                    linkTo: '/manage/bookings',
                     read: false,
                     createdAt: FieldValue.serverTimestamp(),
                     metadata: { groupId },
@@ -308,7 +308,7 @@ export async function POST(request: Request) {
                         title: `คำขอจองกลุ่ม: ${formData.title}`,
                         body: `${roomOrLocation} — ${formData.requesterName} · ${summary}`,
                     },
-                    webpush: { fcmOptions: { link: '/admin/bookings' } },
+                    webpush: { fcmOptions: { link: '/manage/bookings' } },
                 }).catch(() => {})
             }
         }

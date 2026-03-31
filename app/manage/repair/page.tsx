@@ -7,7 +7,7 @@ export default function RepairRedirect() {
     const router = useRouter();
 
     useEffect(() => {
-        router.replace("/admin/repairs");
+        router.replace("/manage/repairs");
     }, [router]);
 
     return (

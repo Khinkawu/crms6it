@@ -66,7 +66,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ status: 'skipped', reason: 'No facility technicians found' });
         }
 
-        const deepLink = `${appUrl}/admin/facility?ticketId=${ticketId}`;
+        const deepLink = `${appUrl}/manage/facility?ticketId=${ticketId}`;
 
         const flexMessage = createFacilityNewFlexMessage({
             description,
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
                 type: 'facility_new',
                 title: `ซ่อมอาคารใหม่: ${room}`,
                 body: `${requesterName} — ${description.slice(0, 80)}`,
-                linkTo: `/admin/facility?ticketId=${ticketId}`,
+                linkTo: `/manage/facility?ticketId=${ticketId}`,
                 read: false,
                 createdAt: FieldValue.serverTimestamp(),
                 metadata: { ticketId: ticketId ?? '' },

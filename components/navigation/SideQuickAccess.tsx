@@ -30,14 +30,14 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
     ];
 
     const adminItems = [
-        { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
+        { name: "Command Center", icon: LayoutDashboard, path: "/manage/dashboard", roles: ["admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
         // IT technician sees IT repairs, facility_technician sees facility repairs, shared roles see both (tab switcher in page)
-        { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"], allowAtlasRepair: true },
-        { name: "จัดการซ่อมอาคาร", icon: Building2, path: "/admin/repairs?tab=facility", roles: ["facility_technician"] },
-        { name: "การจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
-        { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "atlas"] },
+        { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/manage/repairs", roles: ["admin", "moderator", "technician"], allowAtlasRepair: true },
+        { name: "จัดการซ่อมอาคาร", icon: Building2, path: "/manage/repairs?tab=facility", roles: ["facility_technician"] },
+        { name: "การจอง", icon: Calendar, path: "/manage/bookings", roles: ["moderator"] },
+        { name: "งานตากล้อง", icon: Camera, path: "/manage/photography", roles: ["admin", "atlas"] },
         // Each technician only sees their own inventory
-        { name: "คลังโสตฯ", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
+        { name: "คลังโสตฯ", icon: Package, path: "/manage/inventory", roles: ["admin", "technician"], allowPhotographer: true },
         { name: "คลังอาคาร", icon: Package, path: "/admin/facility/inventory", roles: ["facility_technician"] },
         { name: "ผู้ใช้", icon: Users, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
@@ -57,7 +57,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
 
         // If it's the base repairs page but no tab is specified in the link, 
         // it's only active if the current tab is NOT facility (default is IT)
-        if (path === '/admin/repairs' || path === '/repair') {
+        if (path === '/manage/repairs' || path === '/repair') {
             return isBasePathMatch && (searchParams.get('tab') === 'it' || !searchParams.get('tab'));
         }
 
