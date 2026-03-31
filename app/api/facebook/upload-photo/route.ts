@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
+import { logError } from '@/lib/errorLogger';
 
 const PAGE_ID = process.env.FACEBOOK_PAGE_ID;
 const ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
@@ -74,10 +75,15 @@ export async function POST(request: NextRequest) {
         if (!uploadRes.ok) {
             const error = await uploadRes.json();
             console.error('Facebook Photo Upload Error:', error);
-            return NextResponse.json(
-                { error: error.error?.message || 'Failed to upload photo' },
-                { status: 500 }
-            );
+            const errMsg = error.error?.message || 'Failed to upload photo';
+            logError({
+                source: 'server',
+                severity: 'high',
+                message: `Facebook Upload Photo API Error: ${errMsg}`,
+                path: '/api/facebook/upload-photo',
+                metadata: { facebookError: error },
+            });
+            return NextResponse.json({ error: errMsg }, { status: 500 });
         }
 
         const data = await uploadRes.json();
@@ -89,6 +95,13 @@ export async function POST(request: NextRequest) {
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
         console.error('Facebook Upload Photo Error:', error);
+        logError({
+            source: 'server',
+            severity: 'high',
+            message: `Facebook Upload Photo Exception: ${errorMessage}`,
+            path: '/api/facebook/upload-photo',
+            stack: error instanceof Error ? error.stack : undefined,
+        });
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initiateResumableUploadToFolder } from '@/lib/googleDrive';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
+import { logError } from '@/lib/errorLogger';
 
 // Route segment config for App Router
 export const maxDuration = 10;
@@ -68,9 +69,17 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (error: any) {
+        const errorMessage = error.message || 'Internal Server Error';
         console.error('[upload-to-folder] Error:', error);
+        logError({
+            source: 'server',
+            severity: 'high',
+            message: `Drive Upload To Folder Error: ${errorMessage}`,
+            path: '/api/drive/upload-to-folder',
+            stack: error.stack,
+        });
         return NextResponse.json(
-            { error: error.message || 'Internal Server Error' },
+            { error: errorMessage },
             { status: 500 }
         );
     }

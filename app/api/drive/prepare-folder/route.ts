@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prepareFolderPath } from '@/lib/googleDrive';
 import { getThaiAcademicYear, getThaiMonthName } from '@/lib/academicYear';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
+import { logError } from '@/lib/errorLogger';
 
 // Route segment config for App Router
 export const maxDuration = 15;
@@ -91,9 +92,17 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (error: any) {
+        const errorMessage = error.message || 'Internal Server Error';
         console.error('[prepare-folder] Error:', error);
+        logError({
+            source: 'server',
+            severity: 'high',
+            message: `Drive Prepare Folder Error: ${errorMessage}`,
+            path: '/api/drive/prepare-folder',
+            stack: error.stack,
+        });
         return NextResponse.json(
-            { error: error.message || 'Internal Server Error' },
+            { error: errorMessage },
             { status: 500 }
         );
     }

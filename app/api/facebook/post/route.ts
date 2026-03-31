@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { logError } from '@/lib/errorLogger';
 
 const PAGE_ID = process.env.FACEBOOK_PAGE_ID;
 const ACCESS_TOKEN = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
@@ -107,7 +108,15 @@ export async function POST(request: NextRequest) {
                 });
             }
 
-            throw new Error(`Failed to create post: ${postResponseText}`);
+            const errMsg = `Failed to create post: ${postResponseText}`;
+            logError({
+                source: 'server',
+                severity: 'high',
+                message: errMsg,
+                path: '/api/facebook/post',
+                metadata: { jobId },
+            });
+            throw new Error(errMsg);
         }
 
         const postData = JSON.parse(postResponseText);
@@ -131,6 +140,13 @@ export async function POST(request: NextRequest) {
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
         console.error('Facebook API Route Error:', error);
+        logError({
+            source: 'server',
+            severity: 'high',
+            message: `Facebook Post Exception: ${errorMessage}`,
+            path: '/api/facebook/post',
+            stack: error instanceof Error ? error.stack : undefined,
+        });
         return NextResponse.json(
             { error: errorMessage },
             { status: 500 }

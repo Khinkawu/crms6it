@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initiateResumableUpload } from '@/lib/googleDrive';
 import { getThaiAcademicYear, getThaiMonthName } from '@/lib/academicYear';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
+import { logError } from '@/lib/errorLogger';
 
 // Route segment config for App Router
 export const maxDuration = 10;
@@ -76,9 +77,17 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (error: any) {
+        const errorMessage = error.message || 'Internal Server Error';
         console.error('Upload Init Error:', error);
+        logError({
+            source: 'server',
+            severity: 'high',
+            message: `Drive Upload Init Error: ${errorMessage}`,
+            path: '/api/drive/upload',
+            stack: error.stack,
+        });
         return NextResponse.json(
-            { error: error.message || 'Internal Server Error' },
+            { error: errorMessage },
             { status: 500 }
         );
     }
