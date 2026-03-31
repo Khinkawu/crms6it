@@ -13,7 +13,7 @@ interface SideQuickAccessProps {
 }
 
 export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAccessProps) {
-    const { user, role, isPhotographer } = useAuth();
+    const { user, role, isPhotographer, hasAtlasRole } = useAuth();
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
@@ -32,7 +32,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
     const adminItems = [
         { name: "Command Center", icon: LayoutDashboard, path: "/admin/dashboard", roles: ["admin", "moderator", "technician", "facility_technician"], allowPhotographer: true },
         // IT technician sees IT repairs, facility_technician sees facility repairs, shared roles see both (tab switcher in page)
-        { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
+        { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"], allowAtlasRepair: true },
         { name: "จัดการซ่อมอาคาร", icon: Building2, path: "/admin/repairs?tab=facility", roles: ["facility_technician"] },
         { name: "การจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
         { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "atlas"] },
@@ -42,6 +42,7 @@ export default function SideQuickAccess({ onOpenCommandPalette }: SideQuickAcces
         { name: "ผู้ใช้", icon: Users, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
         if (item.allowPhotographer && isPhotographer) return true;
+        if (item.allowAtlasRepair && hasAtlasRole('repair')) return true;
         return role && item.roles.includes(role);
     });
 

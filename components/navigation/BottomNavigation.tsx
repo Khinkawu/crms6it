@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 export default function BottomNavigation() {
-    const { user, role, isPhotographer, signOut } = useAuth();
+    const { user, role, isPhotographer, hasAtlasRole, signOut } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -64,7 +64,7 @@ export default function BottomNavigation() {
         { name: "สถานะทีมโสตฯ", icon: Users, path: "/team-status", roles: ["user", "admin", "moderator", "technician", "facility_technician", "atlas"], allowPhotographer: true },
         { name: "คลังวีดีโอ", icon: Video, path: "/video-gallery", roles: ["user", "admin", "moderator", "technician", "facility_technician", "atlas"] },
         { name: "ประมวลภาพกิจกรรม", icon: Camera, path: "/gallery", roles: ["user", "moderator", "technician", "facility_technician", "atlas"] },
-        { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician", "admin", "facility_technician"] },
+        { name: "จัดการงานซ่อม", icon: ClipboardList, path: "/admin/repairs", roles: ["moderator", "technician", "admin", "facility_technician"], allowAtlasRepair: true },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["moderator"] },
         { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "atlas"] },
         { name: "คลังโสตฯ", icon: Package, path: "/admin/inventory", roles: ["admin", "technician"], allowPhotographer: true },
@@ -72,15 +72,7 @@ export default function BottomNavigation() {
         { name: "จัดการผู้ใช้", icon: Settings, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
         if (item.allowPhotographer && isPhotographer) return true;
-        // Special case: If admin, exclusively show ONLY the requested items despite the roles array
-        // actually, let's just tune the roles array above to achieve this cleanly.
-        // Wait, if I remove "admin" from "จัดการงานซ่อม", admins won't see it here. That's what I want.
-        // But I need to be careful not to break other roles.
-        // Let's verify:
-        // Admin sees: Profile, Command Center, Photography, User Management.
-        // Moderator sees: Profile, Command Center, Gallery, Repairs, Bookings, Photography.
-        // Technician sees: Profile, My Work, Gallery, Repairs, Inventory.
-        // User sees: Profile, Gallery.
+        if (item.allowAtlasRepair && hasAtlasRole('repair')) return true;
         return role && item.roles.includes(role);
     });
 

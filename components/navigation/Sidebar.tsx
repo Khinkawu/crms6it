@@ -18,7 +18,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: SidebarProps) {
-    const { user, role, isPhotographer, signOut, getDisplayName } = useAuth();
+    const { user, role, isPhotographer, hasAtlasRole, signOut, getDisplayName } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -39,7 +39,7 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
 
     const adminItems = [
         { name: "Command Center", icon: LayoutDashboard, path: "/admin/command-center", roles: ["admin", "moderator"] },
-        { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"] },
+        { name: "จัดการงานซ่อมโสตฯ", icon: ClipboardList, path: "/admin/repairs", roles: ["admin", "moderator", "technician"], allowAtlasRepair: true },
         { name: "จัดการซ่อมอาคาร", icon: Building2, path: "/admin/repairs?tab=facility", roles: ["facility_technician"] },
         { name: "จัดการการจอง", icon: Calendar, path: "/admin/bookings", roles: ["admin", "moderator"] },
         { name: "งานตากล้อง", icon: Camera, path: "/admin/photography", roles: ["admin", "atlas"] },
@@ -48,6 +48,7 @@ export default function Sidebar({ onOpenCommandPalette, collapsed, onToggle }: S
         { name: "ผู้ใช้", icon: Users, path: "/admin/users", roles: ["admin"] },
     ].filter(item => {
         if (item.allowPhotographer && isPhotographer) return true;
+        if (item.allowAtlasRepair && hasAtlasRole('repair')) return true;
         return role && item.roles.includes(role);
     });
 
