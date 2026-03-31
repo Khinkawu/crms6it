@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 const AddProductPage = () => {
-    const { user, loading: authLoading } = useAuth();
+    const { user, role, loading: authLoading } = useAuth();
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,8 +53,8 @@ const AddProductPage = () => {
     ];
 
     // Protect Route
-    if (!authLoading && !user) {
-        router.push("/login");
+    if (!authLoading && (!user || (role !== 'admin' && role !== 'atlas'))) {
+        router.push("/");
         return null;
     }
 

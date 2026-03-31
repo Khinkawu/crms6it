@@ -215,7 +215,7 @@ export default function ITInventoryView() {
                             <button onClick={handleBulkDownload} disabled={selectedProductIds.size === 0 || isDownloading} className="px-4 py-2 bg-gray-600 text-white font-bold rounded-xl hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">{isDownloading ? <span className="animate-spin">⏳</span> : <Download size={20} />}โหลด ({selectedProductIds.size})</button>
                         </>
                     )}
-                    <button onClick={() => router.push('/manage/add-product')} className="col-span-2 sm:col-span-1 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"><Plus size={20} /> เพิ่มรายการใหม่</button>
+                    {(role === 'admin' || role === 'atlas') && <button onClick={() => router.push('/manage/add-product')} className="col-span-2 sm:col-span-1 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl hover:bg-gray-700 dark:hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"><Plus size={20} /> เพิ่มรายการใหม่</button>}
                 </div>
             </div>
 
@@ -293,7 +293,7 @@ export default function ITInventoryView() {
                         </div>
                     </div>
                 )}
-                {filteredProducts.length === 0 && (searchQuery ? <EmptySearchResults query={searchQuery} /> : <EmptyInventory onAdd={() => router.push('/manage/add-product')} />)}
+                {filteredProducts.length === 0 && (searchQuery ? <EmptySearchResults query={searchQuery} /> : <EmptyInventory onAdd={(role === 'admin' || role === 'atlas') ? () => router.push('/manage/add-product') : undefined} />)}
             </div>
 
             {/* Pagination/Modals */}
