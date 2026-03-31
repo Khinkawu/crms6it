@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
 
-const ALLOWED_ROLES = new Set(['admin', 'moderator', 'photographer']);
+const ALLOWED_ROLES = new Set(['admin', 'moderator', 'photographer', 'atlas']);
 
 /**
  * Shared auth check — requires a valid Firebase ID token with an allowed role.
