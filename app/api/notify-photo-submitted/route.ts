@@ -47,7 +47,7 @@ export async function POST(request: Request) {
                 type: 'photo_submitted',
                 title: `ช่างภาพส่งงานแล้ว`,
                 body: `${title} — ส่งโดย ${photographerName}`,
-                linkTo: '/admin/photography',
+                linkTo: '/manage/photography',
                 read: false,
                 createdAt: FieldValue.serverTimestamp(),
                 metadata: { jobId: jobId ?? '' },
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
                     title: `ช่างภาพส่งงานแล้ว`,
                     body: `${title} — ส่งโดย ${photographerName}`,
                 },
-                webpush: { fcmOptions: { link: `${appUrl}/admin/photography` } },
+                webpush: { fcmOptions: { link: `${appUrl}/manage/photography` } },
             }).catch(() => {});
         }
 

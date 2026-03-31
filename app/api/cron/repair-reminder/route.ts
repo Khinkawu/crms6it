@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
             const uniqueLineIds = Array.from(new Set(targetLineIds));
 
             const zoneLabel = zone === 'junior_high' ? 'ม.ต้น' : 'ม.ปลาย';
-            const deepLink = `${appUrl}/admin/repairs?zone=${zone}`;
+            const deepLink = `${appUrl}/manage/repairs?zone=${zone}`;
 
             // LINE Multicast (best-effort)
             if (uniqueLineIds.length > 0) {

@@ -71,7 +71,7 @@ export async function POST(request: Request) {
                 type: 'booking_pending',
                 title: `คำขอจอง: ${title}`,
                 body: `${roomName} — ${requesterName} · ${startTime}`,
-                linkTo: '/admin/bookings',
+                linkTo: '/manage/bookings',
                 read: false,
                 createdAt: FieldValue.serverTimestamp(),
                 metadata: { bookingId: bookingId ?? '' },
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
                     title: `คำขอจอง: ${title}`,
                     body: `${roomName} — ${requesterName} · ${startTime}`,
                 },
-                webpush: { fcmOptions: { link: '/admin/bookings' } },
+                webpush: { fcmOptions: { link: '/manage/bookings' } },
             }).catch(() => {});
         }
 

@@ -99,7 +99,7 @@ export default function KnowledgeBasePage() {
             {/* Header */}
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800">
                 <div className="flex items-center gap-4">
-                    <Link href="/admin/dashboard" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
+                    <Link href="/manage/dashboard" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors">
                         <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
                     </Link>
                     <div>

@@ -66,7 +66,7 @@ export async function POST(req: Request) {
             lineTargetIds.push(process.env.LINE_TECHNICIAN_ID);
         }
 
-        const deepLink = `${appUrl}/admin/repairs?ticketId=${ticketId}`;
+        const deepLink = `${appUrl}/manage/repairs?ticketId=${ticketId}`;
 
         // LINE multicast (best-effort)
         if (lineTargetIds.length > 0) {
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
                     type: 'repair_new',
                     title: `งานซ่อมใหม่: ห้อง ${room}`,
                     body: `${requesterName} — ${description.slice(0, 80)}`,
-                    linkTo: `/admin/repairs?ticketId=${ticketId}`,
+                    linkTo: `/manage/repairs?ticketId=${ticketId}`,
                     read: false,
                     createdAt: FieldValue.serverTimestamp(),
                     metadata: { ticketId: ticketId ?? '' },
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
             }
         }
 
-        // FCM push — technician → /my-work, moderator → /admin/repairs
+        // FCM push — technician → /my-work, moderator → /manage/repairs
         if (inAppTargetUids.length > 0) {
             const techTokens: string[] = [];
             const modTokens: string[] = [];
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
                 await admin.messaging().sendEachForMulticast({
                     tokens: modTokens,
                     notification: fcmNotification,
-                    webpush: { fcmOptions: { link: `${appUrl}/admin/repairs` } },
+                    webpush: { fcmOptions: { link: `${appUrl}/manage/repairs` } },
                 }).catch((err) => {
                     logError({ source: 'fcm', severity: 'critical', message: `FCM moderator multicast failed: ${String(err)}`, path: '/api/notify-repair', metadata: { ticketId, tokenCount: modTokens.length } });
                 });

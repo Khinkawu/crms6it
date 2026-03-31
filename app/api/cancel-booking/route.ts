@@ -75,7 +75,7 @@ export async function PATCH(req: Request) {
                     type: 'booking_cancelled',
                     title: `❌ ยกเลิกการจอง: ${title}`,
                     body: roomName ? `${roomName} — ${requesterName}` : requesterName,
-                    linkTo: '/admin/bookings',
+                    linkTo: '/manage/bookings',
                     read: false,
                     createdAt: FieldValue.serverTimestamp(),
                     metadata: { bookingId },
@@ -98,7 +98,7 @@ export async function PATCH(req: Request) {
                         title: `❌ ยกเลิกการจอง: ${title}`,
                         body: roomName ? `${roomName} — ${requesterName}` : requesterName,
                     },
-                    webpush: { fcmOptions: { link: `${appUrl}/admin/bookings` } },
+                    webpush: { fcmOptions: { link: `${appUrl}/manage/bookings` } },
                 }).catch((err) => {
                     console.error('[cancel-booking] FCM error (non-fatal):', err);
                 });

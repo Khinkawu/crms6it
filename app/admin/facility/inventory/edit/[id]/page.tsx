@@ -65,7 +65,7 @@ export default function EditFacilityInventoryPage() {
 
     useEffect(() => {
         if (!authLoading && (!user || !hasAccess)) {
-            router.push('/admin/dashboard');
+            router.push('/manage/dashboard');
         }
     }, [user, hasAccess, authLoading, router]);
 
@@ -94,7 +94,7 @@ export default function EditFacilityInventoryPage() {
                     setImagePreview(data.imageUrl || null);
                 } else {
                     toast.error("ไม่พบข้อมูลอุปกรณ์นี้");
-                    router.push('/admin/inventory?tab=facility');
+                    router.push('/manage/inventory?tab=facility');
                 }
             } catch (err) {
                 console.error("Error fetching product:", err);
@@ -261,7 +261,7 @@ export default function EditFacilityInventoryPage() {
             });
 
             toast.success("อัปเดตข้อมูลวัสดุ/อุปกรณ์เรียบร้อยแล้ว");
-            router.push('/admin/inventory?tab=facility');
+            router.push('/manage/inventory?tab=facility');
 
         } catch (err: any) {
             console.error("Error updating facility inventory:", err);
@@ -291,7 +291,7 @@ export default function EditFacilityInventoryPage() {
             // Note: Should also decrement stats if implemented for facility
 
             toast.success("ลบรายการออกจากระบบเรียบร้อยแล้ว");
-            router.push('/admin/inventory?tab=facility');
+            router.push('/manage/inventory?tab=facility');
         } catch (err: any) {
             console.error("Error deleting product:", err);
             toast.error("เกิดข้อผิดพลาดในการลบรายการ");

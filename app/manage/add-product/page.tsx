@@ -245,7 +245,7 @@ const AddProductPage = () => {
                 zone: formData.location
             });
 
-            router.push('/admin/inventory?tab=it');
+            router.push('/manage/inventory?tab=it');
             setFormData({
                 name: "",
                 brand: "",

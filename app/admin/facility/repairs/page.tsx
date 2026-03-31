@@ -7,7 +7,7 @@ export default function FacilityRepairRedirect() {
     const router = useRouter();
 
     useEffect(() => {
-        router.replace("/admin/repairs?tab=facility");
+        router.replace("/manage/repairs?tab=facility");
     }, [router]);
 
     return (
