@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
         const decoded = await adminAuth.verifyIdToken(authHeader.split('Bearer ')[1]);
         const userDoc = await adminDb.collection('users').doc(decoded.uid).get();
         const role = userDoc.data()?.role;
-        if (!['photographer', 'moderator', 'admin'].includes(role)) {
+        if (!['photographer', 'moderator', 'admin', 'atlas'].includes(role)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
     } catch {
