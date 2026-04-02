@@ -56,8 +56,6 @@ export async function POST(req: NextRequest) {
         const monthFolderName = getThaiMonthName(jobDate);
         const eventFolderName = `${buddhistYear}-${monthStr}-${dayStr} ${eventName}`;
 
-        const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
-
         const result = await initiateResumableUpload({
             fileBuffer: Buffer.from([]),
             fileName,
@@ -67,7 +65,6 @@ export async function POST(req: NextRequest) {
             semester: semester.toString(),
             month: monthFolderName,
             eventName: eventFolderName,
-            origin
         });
 
         return NextResponse.json({

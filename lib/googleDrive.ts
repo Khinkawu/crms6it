@@ -132,7 +132,6 @@ interface UploadToFolderParams {
     fileName: string;
     mimeType: string;
     folderId: string;  // Use pre-created folder ID
-    origin?: string;
 }
 
 /**
@@ -143,7 +142,6 @@ export const initiateResumableUploadToFolder = async ({
     fileName,
     mimeType,
     folderId,
-    origin
 }: UploadToFolderParams): Promise<{ uploadUrl: string }> => {
     // Prepare metadata with pre-existing folder ID
     const requestBody = {
@@ -168,12 +166,8 @@ export const initiateResumableUploadToFolder = async ({
     const headers: HeadersInit = {
         'Authorization': `Bearer ${accessToken.token}`,
         'Content-Type': 'application/json',
+        'X-Upload-Content-Type': mimeType,
     };
-
-    if (origin) {
-        headers['X-Upload-Content-Type'] = mimeType;
-        headers['Origin'] = origin;
-    }
 
     const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
         method: 'POST',
@@ -269,7 +263,6 @@ interface UploadParams {
     semester: string;
     month: string;
     eventName: string;
-    origin?: string; // Add origin parameter for CORS
 }
 
 // Helper: Initiate Resumable Upload (Returns Session URI)
@@ -281,7 +274,6 @@ export const initiateResumableUpload = async ({
     semester,
     month,
     eventName,
-    origin
 }: UploadParams) => {
     const drive = getDriveClient();
 
@@ -311,17 +303,11 @@ export const initiateResumableUpload = async ({
     auth.setCredentials({ refresh_token: refreshToken });
     const accessToken = await auth.getAccessToken();
 
-    // Pass the Origin header if provided, otherwise default to wildcard or omit
     const headers: HeadersInit = {
         'Authorization': `Bearer ${accessToken.token}`,
         'Content-Type': 'application/json',
+        'X-Upload-Content-Type': mimeType,
     };
-
-    if (origin) {
-        headers['X-Upload-Content-Type'] = mimeType;
-        // headers['X-Upload-Content-Length'] = ''; // Optional
-        headers['Origin'] = origin;
-    }
 
     const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
         method: 'POST',

@@ -54,13 +54,10 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://crms6it.vercel.app';
-
         const { uploadUrl } = await initiateResumableUploadToFolder({
             fileName,
             mimeType,
             folderId,
-            origin
         });
 
         return NextResponse.json({

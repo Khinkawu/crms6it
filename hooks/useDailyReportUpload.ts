@@ -244,11 +244,15 @@ export function useDailyReportUpload(): UseDailyReportUploadReturn {
                 }
                 const { uploadUrl } = await initResponse.json();
 
-                const uploadResponse = await fetchWithRetry(uploadUrl, {
-                    method: 'PUT',
+                const uploadResponse = await fetchWithRetry('/api/drive/upload-content', {
+                    method: 'POST',
                     body: file,
                     signal,
-                    headers: { 'Content-Type': file.type },
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': file.type,
+                        'X-Drive-Upload-Url': uploadUrl,
+                    },
                 });
 
                 if (!uploadResponse.ok) throw new Error(`Failed to upload ${file.name}`);
