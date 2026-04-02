@@ -76,6 +76,22 @@ export async function POST(request: NextRequest) {
             const error = await uploadRes.json();
             console.error('Facebook Photo Upload Error:', error);
             const errMsg = error.error?.message || 'Failed to upload photo';
+
+            // Token invalid / revoked — needs admin to re-authorize and update Vercel env
+            if (error.error?.code === 190) {
+                logError({
+                    source: 'server',
+                    severity: 'high',
+                    message: `Facebook Access Token invalid (code 190, subcode ${error.error?.error_subcode}): ${errMsg}`,
+                    path: '/api/facebook/upload-photo',
+                    metadata: { facebookError: error },
+                });
+                return NextResponse.json(
+                    { error: 'Facebook Access Token หมดอายุหรือถูกยกเลิก — ผู้ดูแลระบบต้องอัปเดต Token ใหม่', code: 'FB_TOKEN_INVALID' },
+                    { status: 503 }
+                );
+            }
+
             logError({
                 source: 'server',
                 severity: 'high',

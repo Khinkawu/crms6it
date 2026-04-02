@@ -153,8 +153,12 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
                 let errorMessage;
                 try {
                     const error = await res.json();
+                    if (error.code === 'FB_TOKEN_INVALID') {
+                        throw new Error('Facebook Access Token หมดอายุหรือถูกยกเลิก — กรุณาแจ้งผู้ดูแลระบบเพื่ออัปเดต Token ใหม่');
+                    }
                     errorMessage = error.error;
                 } catch (e) {
+                    if (e instanceof Error && e.message.includes('FB_TOKEN_INVALID')) throw e;
                     const text = await res.text();
                     if (res.status === 413 || text.includes('PAYLOAD_TOO_LARGE')) {
                         errorMessage = "รูปภาพมีขนาดใหญ่เกินไป (413 Payload Too Large) - กรุณาลดขนาดไฟล์";
