@@ -304,15 +304,14 @@ export function usePhotographyJobUpload(): UsePhotographyJobUploadReturn {
                 }
                 const { uploadUrl } = await initResponse.json();
 
-                const uploadResponse = await fetchWithRetry('/api/drive/upload-content', {
-                    method: 'POST',
+                // PUT directly to Google Drive session URI — bypasses Vercel 4.5MB limit.
+                // Google Drive resumable upload endpoints support CORS from any browser origin.
+                // Browser automatically sets Content-Length for File objects (required by Google).
+                const uploadResponse = await fetchWithRetry(uploadUrl, {
+                    method: 'PUT',
                     body: file,
                     signal,
-                    headers: {
-                        'Authorization': `Bearer ${idToken}`,
-                        'Content-Type': file.type,
-                        'X-Drive-Upload-Url': uploadUrl,
-                    },
+                    headers: { 'Content-Type': file.type },
                 });
 
                 if (!uploadResponse.ok) throw new Error(`Failed to upload ${file.name} to Google Drive`);
