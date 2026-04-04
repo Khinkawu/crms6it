@@ -146,6 +146,11 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                     // Only mark complete if at least one file made it — prevents locking out retry
                     upload.setIsUploadComplete(prev => ({ ...prev, [jobId]: ids.length > 0 }));
                     upload.setIsUploading(prev => ({ ...prev, [jobId]: false }));
+
+                    // Guard: ถ้ามีไฟล์แต่ upload ไม่สำเร็จแม้แต่ไฟล์เดียว → ห้าม mark complete
+                    if (ids.length === 0) {
+                        throw new Error("ไม่สามารถอัปโหลดรูปภาพไป Google Drive ได้ — กรุณาลองใหม่อีกครั้ง");
+                    }
                 }
 
                 // --- STEP 2: PARALLEL TASKS (Cover & Facebook) ---
@@ -166,15 +171,23 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                 }
 
                 // Task B: Facebook Post (ต้องใช้ ID จาก Step 1)
+                // Facebook failure ไม่ควร block job completion — wrap ใน catch
+                let facebookError: string | null = null;
                 if (fb.facebookEnabled[jobId] && !fb.facebookSent[jobId]) {
                     if (currentFileIds.length === 0) {
-                        throw new Error("อัปโหลดรูปภาพไปยัง Google Drive ไม่สำเร็จ — กรุณาลองส่งงานใหม่อีกครั้ง");
+                        facebookError = "ไม่มีรูปสำหรับโพส Facebook (Google Drive upload ไม่สำเร็จ)";
+                    } else {
+                        tasks.push(
+                            fb.performFacebookPost(
+                                jobId,
+                                upload.jobFiles[jobId] || [],
+                                upload.fileToBase64
+                            ).catch((err: Error) => {
+                                console.error('Facebook post failed (non-blocking):', err);
+                                facebookError = err.message;
+                            })
+                        );
                     }
-                    tasks.push(fb.performFacebookPost(
-                        jobId,
-                        upload.jobFiles[jobId] || [],
-                        upload.fileToBase64
-                    ));
                 }
 
                 // รอให้ Cover และ FB เสร็จพร้อมกัน
@@ -188,8 +201,14 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                     completedBy: userId,
                     completedAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
-                    facebookCaption: fb.facebookCaption[jobId] || null
+                    facebookCaption: fb.facebookCaption[jobId] || null,
+                    ...(facebookError ? { facebookError } : {})
                 });
+
+                // แจ้ง user ถ้า Facebook fail แต่งานส่งสำเร็จแล้ว
+                if (facebookError) {
+                    toast.error(`โพส Facebook ไม่สำเร็จ: ${facebookError}\n(งานส่งเรียบร้อยแล้ว — สามารถโพส Facebook ทีหลังได้)`, { duration: 6000 });
+                }
 
                 // Notify admin/mod that photographer submitted work
                 const currentUser = auth.currentUser;

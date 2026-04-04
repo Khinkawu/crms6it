@@ -321,12 +321,25 @@ export function usePhotographyJobUpload(): UsePhotographyJobUploadReturn {
             }));
 
             // Process results: collect successes, count failures
-            batchResults.forEach(result => {
+            batchResults.forEach((result, batchIdx) => {
                 if (result.status === 'fulfilled' && result.value) {
                     uploadedIds.push(result.value);
                 } else if (result.status === 'rejected') {
                     failedCount++;
-                    console.error('[Drive Upload] File failed:', result.reason?.message);
+                    const errMsg = result.reason?.message || 'Unknown error';
+                    console.error('[Drive Upload] File failed:', errMsg);
+                    // Report to server so admin can see in errorLogs (not just browser console)
+                    const failedFile = batch[batchIdx];
+                    fetch('/api/errors', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            source: 'client',
+                            message: `[Drive Upload] ${failedFile?.name || 'file'}: ${errMsg}`,
+                            path: '/hooks/usePhotographyJobUpload → PUT to Google Drive',
+                            userId: jobId,
+                        }),
+                    }).catch(() => {});
                 }
                 completedCount++;
                 setUploadProgress(prev => ({ ...prev, [jobId]: Math.round((completedCount / totalFiles) * 100) }));

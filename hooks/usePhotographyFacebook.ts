@@ -97,7 +97,20 @@ export function usePhotographyFacebook(): UsePhotographyFacebookReturn {
         fileToBase64: (file: File) => Promise<string>
     ) => {
         const selectedOrder = facebookSelectedOrder[jobId];
-        if (!selectedOrder || selectedOrder.length === 0) return;
+        if (!selectedOrder || selectedOrder.length === 0) {
+            // Silent skip — log so admin can see this happening
+            fetch('/api/errors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    source: 'client',
+                    message: `[Facebook] performFacebookPost called but selectedOrder is empty for job ${jobId}`,
+                    path: '/hooks/usePhotographyFacebook → performFacebookPost',
+                    userId: jobId,
+                }),
+            }).catch(() => {});
+            return;
+        }
 
         if (!files || files.length === 0) throw new Error('ไม่พบไฟล์สำหรับ Facebook');
 
