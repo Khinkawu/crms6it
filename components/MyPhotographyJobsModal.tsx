@@ -143,7 +143,8 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
 
                     upload.setUploadedFileIds(prev => ({ ...prev, [jobId]: ids }));
                     upload.setDriveLinks(prev => ({ ...prev, [jobId]: folderLink }));
-                    upload.setIsUploadComplete(prev => ({ ...prev, [jobId]: true }));
+                    // Only mark complete if at least one file made it — prevents locking out retry
+                    upload.setIsUploadComplete(prev => ({ ...prev, [jobId]: ids.length > 0 }));
                     upload.setIsUploading(prev => ({ ...prev, [jobId]: false }));
                 }
 
@@ -167,7 +168,7 @@ export default function MyPhotographyJobsModal({ isOpen, onClose, userId, select
                 // Task B: Facebook Post (ต้องใช้ ID จาก Step 1)
                 if (fb.facebookEnabled[jobId] && !fb.facebookSent[jobId]) {
                     if (currentFileIds.length === 0) {
-                        throw new Error("ไม่สามารถโพสต์ Facebook ได้เนื่องจากไม่พบไฟล์ใน Drive");
+                        throw new Error("อัปโหลดรูปภาพไปยัง Google Drive ไม่สำเร็จ — กรุณาลองส่งงานใหม่อีกครั้ง");
                     }
                     tasks.push(fb.performFacebookPost(
                         jobId,

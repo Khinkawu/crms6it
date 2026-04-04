@@ -21,11 +21,17 @@ export async function POST(req: NextRequest) {
     }
 
     const contentType = req.headers.get('Content-Type') || 'application/octet-stream';
+    const contentLength = req.headers.get('Content-Length');
+
+    // Content-Length is REQUIRED by Google Drive resumable upload PUT requests.
+    // Without it, Google doesn't know when the upload ends and may reject or hang.
+    const driveHeaders: HeadersInit = { 'Content-Type': contentType };
+    if (contentLength) driveHeaders['Content-Length'] = contentLength;
 
     const response = await fetch(uploadUrl, {
         method: 'PUT',
         body: req.body,
-        headers: { 'Content-Type': contentType },
+        headers: driveHeaders,
         // @ts-ignore — duplex required for streaming request body in Node.js
         duplex: 'half',
     });
