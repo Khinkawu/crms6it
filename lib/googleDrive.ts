@@ -132,16 +132,22 @@ interface UploadToFolderParams {
     fileName: string;
     mimeType: string;
     folderId: string;  // Use pre-created folder ID
+    clientOrigin?: string; // Browser origin — required for CORS on browser-side PUT
 }
 
 /**
  * Initiate resumable upload to a specific folder (for parallel uploads)
  * Call prepareFolderPath first to get the folderId
+ *
+ * clientOrigin MUST be passed when the final PUT will come from a browser.
+ * Google only returns Access-Control-Allow-Origin on the session URI
+ * if the initiating POST includes an Origin header.
  */
 export const initiateResumableUploadToFolder = async ({
     fileName,
     mimeType,
     folderId,
+    clientOrigin,
 }: UploadToFolderParams): Promise<{ uploadUrl: string }> => {
     // Prepare metadata with pre-existing folder ID
     const requestBody = {
@@ -167,6 +173,9 @@ export const initiateResumableUploadToFolder = async ({
         'Authorization': `Bearer ${accessToken.token}`,
         'Content-Type': 'application/json',
         'X-Upload-Content-Type': mimeType,
+        // Include browser origin so Google returns Access-Control-Allow-Origin
+        // on the session URI — required for browser-side PUT to work without CORS block
+        ...(clientOrigin ? { 'Origin': clientOrigin } : {}),
     };
 
     const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {

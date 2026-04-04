@@ -54,10 +54,14 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        // Pass browser origin so Google CORS headers are set on the session URI
+        const clientOrigin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/');
+
         const { uploadUrl } = await initiateResumableUploadToFolder({
             fileName,
             mimeType,
             folderId,
+            clientOrigin: clientOrigin || undefined,
         });
 
         return NextResponse.json({
